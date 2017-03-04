@@ -1,0 +1,8 @@
+{
+    "databasePath": "~/.local/share/bard/music.db",
+
+    "musicPaths": [
+        "~/Music",
+#       "~/Music2",
+    ]
+}
