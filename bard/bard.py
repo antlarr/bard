@@ -180,6 +180,18 @@ class Bard:
             if song.coverWidth():
                 print('cover:  %dx%d' % (song.coverWidth(), song.coverHeight()))
 
+    def list(self, path):
+        try:
+            songID = int(path)
+        except ValueError:
+            songID = None
+        if songID:
+            songs = self.getSongs(songID=songID)
+        else:
+            songs = self.getSongs(path=path)
+        for song in songs:
+            print("%s" % song.path())
+
     def findDuplicates(self):
         collection = self.getMusic()
         hashes = {}
@@ -510,6 +522,8 @@ import [file_or_directory [file_or_directory ...]]
                     musicPaths entries in the configuration file are used
 info <file | song id>
                     shows information about a song from the database
+list <file | song id>
+                    lists paths to a song from the database
 fix-tags <file_or_directory [file_or_directory ...]>
                     apply several normalization algorithms to fix tags of
                     files passed as arguments''')
@@ -526,6 +540,8 @@ fix-tags <file_or_directory [file_or_directory ...]>
         subparser = subparsers.add_parser('import', description='Import new (or update) music. You can specify the files/directories to import as arguments. If no arguments are given in the command line, the musicPaths entries in the configuration file are used',)
         subparser.add_argument('paths', nargs='*', metavar='file_or_directory')
         subparser = subparsers.add_parser('info', description='''Shows information about a song from the database''')
+        subparser.add_argument('path', nargs=1)
+        subparser = subparsers.add_parser('list', description='''Lists paths to a song from the database''')
         subparser.add_argument('path', nargs=1)
         subparser = subparsers.add_parser('fix-tags', description='Apply several normalization algorithms to fix tags of files passed as arguments')
         subparser.add_argument('paths', nargs='*', metavar='file_or_directory')
@@ -549,6 +565,8 @@ fix-tags <file_or_directory [file_or_directory ...]>
             self.fixTags(options.paths)
         elif options.command == 'info':
             self.info(options.path[0])
+        elif options.command == 'list':
+            self.list(options.path[0])
         elif options.command == 'import':
             paths = options.paths
             if not paths:
