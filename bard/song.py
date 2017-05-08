@@ -137,6 +137,12 @@ class Song:
         return self._root
 
     def path(self):
+        if config['translatePaths']:
+            for (src, tgt) in config['pathTranslationMap']:
+                src = src.rstrip('/')
+                tgt = tgt.rstrip('/')
+                if self._path.startswith(src):
+                    return tgt + self._path[len(src):]
         return self._path
 
     def filename(self):

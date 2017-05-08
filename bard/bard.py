@@ -1,5 +1,6 @@
 #!/usr/bin/python3
-from bard.utils import fixTags, calculateFileSHA256, calculateAudioTrackSHA256, printDictsDiff
+from bard.utils import fixTags, calculateFileSHA256, \
+    calculateAudioTrackSHA256, printDictsDiff
 from bard.song import Song
 from bard.musicdatabase import MusicDatabase
 from bard.terminalcolors import TerminalColors
@@ -71,21 +72,30 @@ class Bard:
     def __init__(self, ro=False):
         self.db = MusicDatabase(ro)
 
-        self.ignoreExtensions = ['.jpg', '.jpeg', '.bmp', '.tif', '.png', '.gif',
-                                 '.m3u', '.pls', '.cue', '.m3u8', '.au', '.mid', '.kar', '.lyrics',
-                                 '.url', '.lnk', '.ini', '.rar', '.zip', '.war', '.swp',
-                                 '.txt', '.nfo', '.doc', '.rtf', '.pdf', '.html', '.log', '.htm',
-                                 '.sfv', '.sfw', '.directory', '.sh', '.contents',
-                                 '.torrent', '.cue_', '.nzb', '.md5', '.gz',
+        self.ignoreExtensions = ['.jpg', '.jpeg', '.bmp', '.tif', '.png',
+                                 '.gif',
+                                 '.m3u', '.pls', '.cue', '.m3u8', '.au',
+                                 '.mid', '.kar', '.lyrics',
+                                 '.url', '.lnk', '.ini', '.rar', '.zip',
+                                 '.war', '.swp',
+                                 '.txt', '.nfo', '.doc', '.rtf', '.pdf',
+                                 '.html', '.log', '.htm',
+                                 '.sfv', '.sfw', '.directory', '.sh',
+                                 '.contents', '.torrent', '.cue_', '.nzb',
+                                 '.md5', '.gz',
                                  '.fpl', '.wpl', '.accurip', '.db', '.ffp',
-                                 '.flv', '.mkv', '.m4v', '.mov', '.mpg', '.mpeg', '.avi']
+                                 '.flv', '.mkv', '.m4v', '.mov', '.mpg',
+                                 '.mpeg', '.avi']
 
         self.excludeDirectories = ['covers', 'info']
 
     def getMusic(self, where_clause='', where_values=None):
         print(where_clause)
         c = MusicDatabase.conn.cursor()
-        statement = '''SELECT id, root, path, mtime, title, artist, album, albumArtist, track, date, genre, discNumber, coverWidth, coverHeight, coverMD5 FROM songs %s''' % where_clause
+        statement = ('SELECT id, root, path, mtime, title, artist, album, '
+                     'albumArtist, track, date, genre, discNumber, '
+                     'coverWidth, coverHeight, coverMD5 FROM songs %s' %
+                     where_clause)
         print(statement, where_values)
         if where_values:
             result = c.execute(statement, where_values)
@@ -111,6 +121,10 @@ class Bard:
         return self.getMusic(where_clause=where, where_values=values)
 
     def addSong(self, path):
+        if config['immutableDatabase']:
+            print("Error: Can't add song %s : "
+                  "The database is configured as immutable" % path)
+            return
         song = Song(path)
         if not song.isValid:
             print('Song %s is not valid' % path)
@@ -119,12 +133,17 @@ class Bard:
         MusicDatabase.commit()
 
     def addDirectoryRecursively(self, directory):
+        if config['immutableDatabase']:
+            print("Error: Can't add directory %s : "
+                  "The database is configured as immutable" % directory)
+            return
         for dirpath, dirnames, filenames in os.walk(directory, topdown=True):
             print('New dir: %s' % dirpath)
             filenames.sort()
             dirnames.sort()
             for filename in filenames:
-                if True in [filename.lower().endswith(ext) for ext in self.ignoreExtensions]:
+                if True in [filename.lower().endswith(ext)
+                            for ext in self.ignoreExtensions]:
                     continue
 
                 path = os.path.join(dirpath, filename)
@@ -165,10 +184,15 @@ class Bard:
         for song in songs:
             song.loadMetadataInfo()
             print("----------")
-            print("%s (%d bytes)" % (song.path(), os.path.getsize(song.path())))
+            try:
+                filesize = "%d bytes" % os.path.getsize(song.path())
+            except FileNotFoundError:
+                filesize = "File not found"
+            print("%s (%s)" % (song.path(), filesize))
             print("song id:", song.id)
             for k, v in song.metadata.items():
-                print(TerminalColors.WARNING + str(k) + TerminalColors.ENDC + ' : ' + str(v)[:100])
+                print(TerminalColors.WARNING + str(k) + TerminalColors.ENDC +
+                      ' : ' + str(v)[:100])
             print("file sha256sum: ", song.fileSha256sum())
             print("audio track sha256sum: ", song.audioSha256sum())
 
@@ -178,7 +202,8 @@ class Bard:
             print('sample_rate    :', song.sample_rate())
             print('channels:', song.channels())
             if song.coverWidth():
-                print('cover:  %dx%d' % (song.coverWidth(), song.coverHeight()))
+                print('cover:  %dx%d' %
+                      (song.coverWidth(), song.coverHeight()))
 
     def list(self, path):
         try:
@@ -199,11 +224,12 @@ class Bard:
             if song.audioSha256sum() not in hashes:
                 hashes[song.audioSha256sum()] = [song]
             else:
-                # print('Duplicate hash found:',hashes[song.audioSha256sum()], song)
+                # print('Duplicate hash found:',
+                #       hashes[song.audioSha256sum()], song)
                 hashes[song.audioSha256sum()].append(song)
         for h, songs in hashes.items():
             if len(songs) > 1:
-                # sortSongsList (first song with most tags, symlinks at the end)
+                # sortSongsList (first song with most tags,symlinks at the end)
                 for song in songs:
                     print(song)
                     print(song._path)
@@ -213,67 +239,25 @@ class Bard:
         count = 0
         for song in collection:
             if not song.mtime():
-                c = MusicDatabase.conn.cursor()
                 try:
                     mtime = os.path.getmtime(song.path())
                 except os.FileNotFoundError:
-                    c.execute('''DELETE FROM songs where id = ?''', (song.id,))
                     print('File %s not found: removing from db' % song.path())
+                    MusicDatabase.removeSong(song)
                     continue
 
-                values = [mtime, song.id]
-                c.execute('''UPDATE songs set mtime = ? WHERE id = ?''', values)
-                count += 1
-                if count % 10:
-                    MusicDatabase.commit()
+                if not config['immutableDatabase']:
+                    c = MusicDatabase.conn.cursor()
+                    values = [mtime, song.id]
+                    c.execute('''UPDATE songs set mtime = ? WHERE id = ?''',
+                              values)
+                    count += 1
+                    if count % 10:
+                        MusicDatabase.commit()
                 print('Fixed %s' % song.path())
             else:
                 print('%s already fixed' % song.path())
         MusicDatabase.commit()
-
-#     def fixBitrate(self):
-#         collection = self.getMusic()
-#         for song in collection:
-#             if not os.path.exists(song.path()):
-#                 if os.path.lexists(song.path()):
-#                     print('Broken symlink at %s' % song.path())
-#                 print('File %s not found' % song.path())
-#                 continue
-#
-#             metadata = FileMetadata(path=song.path())
-#
-#             if (metadata.hasTitle() and song.title() != metadata.title()) or \
-#                (metadata.hasArtist() and song.artist() != metadata.artist()) or \
-#                (metadata.hasAlbum() and song.album() != metadata.album()) or \
-#                (metadata.hasDate() and song.date() != metadata.date()) or \
-#                (metadata.hasTrack() and normalizeTrack(song.track()) != metadata.track()):
-#                 fix = False
-#                 if song.date() is None and 'format.tags.date' in metadata:
-#                     print("Fix date in %s from None to %s" % (song.path(), int(metadata['format.tags.date'])))
-#                     fix = True
-#
-#                 if song.track() is None and 'format.tags.track' in metadata:
-#                     print("Fix track in %s from None to %s" % (song.path(), int(metadata['format.tags.track'])))
-#                     fix = True
-#
-#                 if not fix:
-#                     print("Metadata mismatch in %s" % song.path())
-#                     if 'format.tags.title' in metadata:
-#                         print("%s : %s" % (metadata['format.tags.title'], song.title()))
-#                     if 'format.tags.artist' in metadata:
-#                         print("%s : %s" % (metadata['format.tags.artist'], song.artist()))
-#                     if 'format.tags.album' in metadata:
-#                         print("%s : %s" % (metadata['format.tags.album'], song.album()))
-#                         print(metadata['format.tags.album'])
-#                         print(song.album())
-#                     if 'format.tags.date' in metadata:
-#                         print("%s : %s" % (type(metadata['format.tags.date']), type(song.date())))
-#                         print("%s : %s" % (metadata['format.tags.date'], song.date()))
-#                     if 'format.tags.track' in metadata:
-#                         print("%s : %s" % (type(metadata['format.tags.track']), type(song.track())))
-#                         print("%s : %s" % (metadata['format.tags.track'], song.track()))
-#
-#             print("bitrate: %s : %s" % (metadata.bitrate(), song.path()))
 
     def checkSongsExistence(self):
         collection = self.getMusic()
@@ -283,7 +267,8 @@ class Bard:
                 if os.path.lexists(song.path()):
                     print('Broken symlink at %s' % song.path())
                 else:
-                    print('Removing song %s from DB (reason: File not found)' % song.path())
+                    print('Removing song %s from DB: File not found' %
+                          song.path())
                     self.db.removeSong(song)
                 continue
 
@@ -303,7 +288,7 @@ class Bard:
 
     def fixChecksums(self, from_song_id=None):
         if from_song_id:
-            collection = self.getMusic("WHERE id > ?", (int(from_song_id),))
+            collection = self.getMusic("WHERE id >= ?", (int(from_song_id),))
         else:
             collection = self.getMusic()
         count = 0
@@ -313,7 +298,8 @@ class Bard:
                 if os.path.lexists(song.path()):
                     print('Broken symlink at %s' % song.path())
                 else:
-                    print('Removing song %s from DB (reason: File not found)' % song.path())
+                    print('Removing song %s from DB: File not found' %
+                          song.path())
                     self.db.removeSong(song)
                 continue
             # sha256InDB = song.fileSha256sum()
@@ -329,12 +315,18 @@ class Bard:
             audioSha256sumInDB = song.audioSha256sum()
             if not audioSha256sumInDB or forceRecalculate:
                 print('Calculating SHA256sum for %s' % song.path())
-                audioSha256sumInDisk = calculateAudioTrackSHA256(song.path(), tmpdir=config['tmpdir'])
-                # print('Setting audio track sha256 %s to %s' % (audioSha256sum, song.path()))
+                calc = calculateAudioTrackSHA256  # Just to prevent an E501
+                audioSha256sumInDisk = calc(song.path(),
+                                            tmpdir=config['tmpdir'])
+                # print('Setting audio track sha256 %s to %s' %
+                #       (audioSha256sum, song.path()))
                 if audioSha256sumInDB != audioSha256sumInDisk:
                     if audioSha256sumInDB:
-                        print('Audio SHA256sum differ in disk and DB: (%s != %s)' % (audioSha256sumInDisk, audioSha256sumInDB))
-                    MusicDatabase.addAudioTrackSha256sum(song.id, audioSha256sumInDisk)
+                        print('Audio SHA256sum differ in disk and DB: '
+                              '(%s != %s)' %
+                              (audioSha256sumInDisk, audioSha256sumInDB))
+                    MusicDatabase.addAudioTrackSha256sum(song.id,
+                                                         audioSha256sumInDisk)
                     count += 1
                     if count % 10:
                         MusicDatabase.commit()
@@ -344,15 +336,19 @@ class Bard:
         MusicDatabase.commit()
         print('done')
 
-    def checkChecksums(self):
-        collection = self.getMusic()
+    def checkChecksums(self, from_song_id=None):
+        if from_song_id:
+            collection = self.getMusic("WHERE id >= ?", (int(from_song_id),))
+        else:
+            collection = self.getMusic()
         failedSongs = []
         for song in collection:
             if not os.path.exists(song.path()):
                 if os.path.lexists(song.path()):
                     print('Broken symlink at %s' % song.path())
                 else:
-                    print('Removing song %s from DB (reason: File not found)' % song.path())
+                    print('Removing song %s from DB: File not found' %
+                          song.path())
                     self.db.removeSong(song)
                 continue
             sha256InDB = song.fileSha256sum()
@@ -367,7 +363,9 @@ class Bard:
                 if sha256InDB == sha256InDisk:
                     print(TerminalColors.OKGREEN + 'OK' + TerminalColors.ENDC)
                 else:
-                    print(TerminalColors.FAIL + 'FAIL' + TerminalColors.ENDC + ' (db contains %s, disk is %s)' % (sha256InDB, sha256InDisk))
+                    print(TerminalColors.FAIL + 'FAIL' + TerminalColors.ENDC +
+                          ' (db contains %s, disk is %s)' %
+                          (sha256InDB, sha256InDisk))
                     failedSongs.append(song)
 
         if failedSongs:
@@ -386,7 +384,8 @@ class Bard:
             mutagenFile = mutagen.File(path)
             fixTags(mutagenFile)
 
-            if MusicDatabase.isSongInDatabase(path) and not path.startswith('/tmp/'):
+            if (MusicDatabase.isSongInDatabase(path) and
+               not path.startswith('/tmp/')):
                 self.addSong(path)
 
     def findAudioDuplicates(self):
@@ -395,29 +394,45 @@ class Bard:
         info = {}
         decodedFPs = {}
         threshold = 0.8
-        for songID, fingerprint, sha256sum, audioSha256sum, path, completeness in c.execute('SELECT id, fingerprint, sha256sum, audio_sha256sum, path, completeness FROM fingerprints, songs, checksums, properties where songs.id=fingerprints.song_id and songs.id = checksums.song_id and songs.id = properties.song_id'):
+        sql = ('SELECT id, fingerprint, sha256sum, audio_sha256sum, path, '
+               'completeness FROM fingerprints, songs, checksums, '
+               'properties where songs.id=fingerprints.song_id and '
+               'songs.id = checksums.song_id and '
+               'songs.id = properties.song_id')
+        for (songID, fingerprint, sha256sum, audioSha256sum, path,
+                completeness) in c.execute(sql):
             # print('.',  end='', flush=True)
             dfp = chromaprint.decode_fingerprint(fingerprint)
             if not dfp[0]:
-                print("Error calculating fingerprint of song %s (%s)" % (songID, path))
+                print("Error calculating fingerprint of song %s (%s)" %
+                      (songID, path))
                 continue
             for fp in fingerprints.keys():
                 try:
-                    similarity = compareChromaprintFingerprints(decodedFPs[fp], dfp, threshold)
+                    similarity = compareChromaprintFingerprints(
+                        decodedFPs[fp], dfp, threshold)
                     if similarity >= threshold:
-                        # print('''Duplicates found!\n''', songID, fingerprint, path)
+                        # print('''Duplicates found!\n''',
+                        #       songID, fingerprint, path)
                         # print('''Duplicates found!\n''', fp)
                         # print('''Duplicates found!\n''', fingerprints[fp])
-                        otherSha256sum, otherAudioSha256sum, otherPath, otherCompleteness = info[fingerprints[fp]]
+                        (otherSha256sum, otherAudioSha256sum, otherPath,
+                            otherCompleteness) = info[fingerprints[fp]]
                         if sha256sum == otherSha256sum:
-                            msg = 'Exactly the same files (sha256 = %s)' % sha256sum
-                            print('''Duplicate songs found: %s\n     %s\n and %s''' % (msg, otherPath, path))
+                            msg = ('Exactly the same files (sha256 = %s)' %
+                                   sha256sum)
+                            print('Duplicate songs found: %s\n'
+                                  '%s\n and %s' % (msg, otherPath, path))
                         elif audioSha256sum == otherAudioSha256sum:
-                            msg = 'Same audio track with different tags (completeness: %d <-> %d)' % (otherCompleteness, completeness)
-                            print('''Duplicate songs found: %s\n     %s\n and %s''' % (msg, otherPath, path))
+                            msg = ('Same audio track with different tags '
+                                   '(completeness: %d <-> %d)' %
+                                   (otherCompleteness, completeness))
+                            print('Duplicate songs found: %s\n'
+                                  '%s\n and %s''' % (msg, otherPath, path))
                         else:
                             msg = 'Similarity %f' % similarity
-                            # print('''Duplicate songs found: %s\n     %s\n and %s''' % (msg, otherPath, path))
+                            # print('Duplicate songs found: %s\n     %s\n'
+                            #       'and %s' % (msg, otherPath, path))
                         break
                 except ZeroDivisionError:
                     print(dfp)
@@ -457,14 +472,20 @@ class Bard:
         similarity = compareChromaprintFingerprints(dfp1, dfp2, threshold)
         if similarity >= threshold:
             if song1.fileSha256sum() == song2.fileSha256sum():
-                msg = 'Exactly the same files (sha256 = %s)' % song1.fileSha256sum()
-                print('''Duplicate songs : %s\n     %s\n and %s''' % (msg, song1.path(), song2.path()))
+                msg = ('Exactly the same files (sha256 = %s)' %
+                       song1.fileSha256sum())
+                print('Duplicate songs : %s\n'
+                      '%s\n and %s' % (msg, song1.path(), song2.path()))
             elif song1.audioSha256sum() == song2.audioSha256sum():
-                msg = 'Same audio track with different tags (completeness: %d <-> %d)' % (song1.completeness, song2.completeness)
-                print('''Duplicate songs : %s\n     %s\n and %s''' % (msg, song1.path(), song2.path()))
+                msg = ('Same audio track with different tags '
+                       '(completeness: %d <-> %d)' % (song1.completeness,
+                                                      song2.completeness))
+                print('Duplicate songs : %s\n'
+                      '%s\n and %s' % (msg, song1.path(), song2.path()))
             else:
                 msg = 'Similarity %f' % similarity
-                print('''Similar songs found: %s\n     %s\n and %s''' % (msg, song1.path(), song2.path()))
+                print('Similar songs found: %s\n'
+                      '%s\n and %s' % (msg, song1.path(), song2.path()))
         else:
             print('''Songs not similar (similarity: %f)''' % similarity)
 
@@ -473,35 +494,9 @@ class Bard:
         printDictsDiff(song1.metadata, song2.metadata, forcePrint=True)
 
     def parseCommandLine(self):
-        parser = ArgumentParser(description='Manage your music collection', formatter_class=argparse.RawTextHelpFormatter)
-#         group = parser.add_mutually_exclusive_group(required=True)
-#         group.add_argument("--find-duplicates", action="store_true",
-#                            dest="find_duplicates",
-#                            help="find duplicate files comparing the checksums")
-#         group.add_argument("--find-audio-duplicates", action="store_true",
-#                            dest="find_audio_duplicates",
-#                            help="find duplicate files comparing the audio fingerprint")
-#         group.add_argument("--fix-mtime", action="store_true",
-#                            dest="fix_mtime",
-#                            help="fixes the mtime of imported files (you should never need to use this)")
-#         group.add_argument("--fix-checksums", action="store_true",
-#                            dest="fix_checksums",
-#                            help="fixes the checksums of imported files (you should never need to use this)")
-#         group.add_argument("--check-songs-existence", action="store_true",
-#                            dest="check_songs_existence",
-#                            help="check for removed files to remove them from the database")
-#         group.add_argument("--check-checksums", action="store_true",
-#                            dest="check_checksums",
-#                            help="check that the imported files haven't been modified since they were imported")
-#         group.add_argument("--import", nargs='*',
-#                            dest="import_music", metavar='file_or_directory',
-#                            help="import new (or update) music. You can specify the files/directories to import as arguments. If no arguments are given in the command line, the musicPaths entries in the configuration file are used")
-#         group.add_argument("--fix-tags", nargs='*',
-#                            dest="fix_tags", metavar='file_or_directory',
-#                            help="apply several normalization algorithms to fix tags of files passed as arguments")
-#         options = parser.parse_args()
-#         print(options)
-        subparsers = parser.add_subparsers(dest='command', metavar='command', help='''The following commands are available:
+        parser = ArgumentParser(description='Manage your music collection',
+                                formatter_class=argparse.RawTextHelpFormatter)
+        sps = parser.add_subparsers(dest='command', metavar='command', help='''The following commands are available:
 find-duplicates     find duplicate files comparing the checksums
 find-audio-duplicates
                     find duplicate files comparing the audio fingerprint
@@ -527,24 +522,66 @@ list <file | song id>
 fix-tags <file_or_directory [file_or_directory ...]>
                     apply several normalization algorithms to fix tags of
                     files passed as arguments''')
-        subparsers.add_parser('find-duplicates', description='Find duplicate files comparing the checksums')
-        subparsers.add_parser('find-audio-duplicates', description='Find duplicate files comparing the audio fingerprint')
-        subparser = subparsers.add_parser('compare-songs', description='Compares two songs')
-        subparser.add_argument('song1', metavar='id_or_path')
-        subparser.add_argument('song2', metavar='id_or_path')
-        subparsers.add_parser('fix-mtime', description='Fixes the mtime of imported files (you should never need to use this)')
-        subparser = subparsers.add_parser('fix-checksums', description='Fixes the checksums of imported files (you should never need to use this)')
-        subparser.add_argument('--from-song-id', type=int, metavar='song_id', help='Starts fixing checksums from a specific song_id')
-        subparsers.add_parser('check-songs-existence', description='Check for removed files to remove them from the database')
-        subparsers.add_parser('check-checksums', description='''Check that the imported files haven't been modified since they were imported''')
-        subparser = subparsers.add_parser('import', description='Import new (or update) music. You can specify the files/directories to import as arguments. If no arguments are given in the command line, the musicPaths entries in the configuration file are used',)
-        subparser.add_argument('paths', nargs='*', metavar='file_or_directory')
-        subparser = subparsers.add_parser('info', description='''Shows information about a song from the database''')
-        subparser.add_argument('path', nargs=1)
-        subparser = subparsers.add_parser('list', description='''Lists paths to a song from the database''')
-        subparser.add_argument('path', nargs=1)
-        subparser = subparsers.add_parser('fix-tags', description='Apply several normalization algorithms to fix tags of files passed as arguments')
-        subparser.add_argument('paths', nargs='*', metavar='file_or_directory')
+        # find-duplicates command
+        sps.add_parser('find-duplicates',
+                       description='Find duplicate files comparing '
+                                   'the checksums')
+        # find-audio-duplicates command
+        sps.add_parser('find-audio-duplicates',
+                       description='Find duplicate files comparing '
+                                   'the audio fingerprint')
+        # compare-songs command
+        parser = sps.add_parser('compare-songs',
+                                description='Compares two songs')
+        parser.add_argument('song1', metavar='id_or_path')
+        parser.add_argument('song2', metavar='id_or_path')
+        # fix-mtime command
+        sps.add_parser('fix-mtime',
+                       description='Fixes the mtime of imported files '
+                                   '(you should never need to use this)')
+        # fix-checksums command
+        parser = sps.add_parser('fix-checksums',
+                                description='Fixes the checksums of imported '
+                                'files (you should never need to use this)')
+        parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
+                            help='Starts fixing checksums from a specific '
+                                 'song_id')
+        # check-songs-existence command
+        sps.add_parser('check-songs-existence',
+                       description='Check for removed files to remove them '
+                                   'from the database')
+        # check-checksums command
+        parser = sps.add_parser('check-checksums',
+                                description='Check that the imported files '
+                                "haven't been modified since they were "
+                                "imported")
+        parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
+                            help='Starts fixing checksums '
+                                 'from a specific song_id')
+        # import command
+        parser = sps.add_parser('import',
+                                description='Import new (or update) music. '
+                                'You can specify the files/directories to '
+                                'import as arguments. If no arguments are '
+                                'given in the command line, the musicPaths '
+                                'entries in the configuration file are used')
+        parser.add_argument('paths', nargs='*', metavar='file_or_directory')
+        # info command
+        parser = sps.add_parser('info',
+                                description='Shows information about a song '
+                                            'from the database')
+        parser.add_argument('path', nargs=1)
+        # list command
+        parser = sps.add_parser('list',
+                                description='Lists paths to a songs '
+                                            'from the database')
+        parser.add_argument('path', nargs=1)
+        # fix-tags command
+        parser = sps.add_parser('fix-tags',
+                                description='Apply several normalization '
+                                'algorithms to fix tags of files passed as '
+                                'arguments')
+        parser.add_argument('paths', nargs='*', metavar='file_or_directory')
         options = parser.parse_args()
 
         if options.command == 'find-duplicates':
@@ -556,7 +593,7 @@ fix-tags <file_or_directory [file_or_directory ...]>
         elif options.command == 'check-songs-existence':
             self.checkSongsExistence()
         elif options.command == 'check-checksums':
-            self.checkChecksums()
+            self.checkChecksums(options.from_song_id)
         elif options.command == 'find-audio-duplicates':
             self.findAudioDuplicates()
         elif options.command == 'compare-songs':

@@ -33,6 +33,9 @@ class MusicDatabase:
         MusicDatabase.conn.row_factory = sqlite3.Row
 
     def createDatabase(self):
+        if config['immutableDatabase']:
+            print("Error: Can't create database: The database is configured as immutable")
+            return
         c = MusicDatabase.conn.cursor()
         c.execute('''
 CREATE TABLE songs (
@@ -93,6 +96,9 @@ CREATE TABLE fingerprints(
 
     @staticmethod
     def addSong(song):
+        if config['immutableDatabase']:
+            print("Error: Can't add song to DB: The database is configured as immutable")
+            return
         song.calculateCompleteness()
 
         c = MusicDatabase.conn.cursor()
@@ -173,6 +179,9 @@ CREATE TABLE fingerprints(
 
     @staticmethod
     def removeSong(song):
+        if config['immutableDatabase']:
+            print("Error: Can't remove song %d from DB: The database is configured as immutable" % song.id)
+            return
         c = MusicDatabase.conn.cursor()
         c.execute('''DELETE FROM covers where path = ? ''', (song.path(),))
         c.execute('''DELETE FROM checksums where song_id = ? ''', (song.id,))
@@ -184,6 +193,9 @@ CREATE TABLE fingerprints(
 
     @staticmethod
     def addCover(pathToSong, pathToCover):
+        if config['immutableDatabase']:
+            print("Error: Can't add cover to song: The database is configured as immutable")
+            return
         c = MusicDatabase.conn.cursor()
 
         result = c.execute('''SELECT path FROM covers where path = ? ''', (os.path.normpath(pathToSong),))
@@ -244,14 +256,23 @@ CREATE TABLE fingerprints(
 
     @staticmethod
     def commit():
+        if config['immutableDatabase']:
+            MusicDatabase.conn.rollback()
+            return
         MusicDatabase.conn.commit()
 
     @staticmethod
     def addFileSha256sum(songid, sha256sum):
+        if config['immutableDatabase']:
+            print("Error: Can't add file SHA256: The database is configured as immutable")
+            return
         c = MusicDatabase.conn.cursor()
         c.execute('''INSERT INTO checksums (song_id, sha256sum) VALUES (?, ?) ''', (songid, sha256sum))
 
     @staticmethod
     def addAudioTrackSha256sum(songid, audioSha256sum):
+        if config['immutableDatabase']:
+            print("Error: Can't add file SHA256: The database is configured as immutable")
+            return
         c = MusicDatabase.conn.cursor()
         c.execute('''UPDATE properties set audio_sha256sum=? where song_id=?''', (audioSha256sum, songid))

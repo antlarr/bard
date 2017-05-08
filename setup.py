@@ -30,6 +30,7 @@ setup(
     install_requires=[
         "pyacoustid",
         "mutagen",
+        "Pillow",
     ],
     data_files=[('share/doc/packages/bard/', ['config/bard', 'README.md', 'LICENSE'])],
     scripts=["scripts/bard"],
