@@ -30,19 +30,30 @@ class FFProbeMetadata(dict):
     def __init__(self, path):
         print('Using ffprobe!', path)
         try:
-            output = subprocess.check_output(['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_format', '-show_streams', '-of', 'flat', '-i', path], stderr=subprocess.DEVNULL)
+            output = subprocess.check_output(['ffprobe', '-v', 'error',
+                                              '-select_streams', 'a:0',
+                                              '-show_format', '-show_streams',
+                                              '-of', 'flat', '-i', path],
+                                             stderr=subprocess.DEVNULL)
         except subprocess.CalledProcessError as e:
             output = e.output
-            if 'Failed to recognize file format' in output.decode('utf-8', 'ignore'):
-                print('Failed to recognize file format of %s: %s' % (path, output))
+            if 'Failed to recognize file format' in output.decode('utf-8',
+                                                                  'ignore'):
+                print('Failed to recognize file format of %s: %s' % (path,
+                      output))
                 return None
 
         self.parseFFProbeOutput(output)
 
         try:
-            if self.get('streams.stream.0.duration') != self.get('format.duration') and \
-               math.fabs(float(self.get('streams.stream.0.duration')) - float(self.get('format.duration'))) > 0.00001:
-                print('duration mismatch in %s : stream(%s) != format(%s)' % (path, self.get('streams.stream.0.duration'), self.get('format.duration')))
+            stream_duration = self.get('streams.stream.0.duration')
+            format_duration = self.get('format.duration')
+            if (stream_duration != format_duration and
+               math.fabs(float(stream_duration) - float(format_duration)) >
+               0.00001):
+                print('duration mismatch in %s : stream(%s) != format(%s)' %
+                      (path, self.get('streams.stream.0.duration'),
+                       self.get('format.duration')))
         except KeyError:
             print(path)
             raise

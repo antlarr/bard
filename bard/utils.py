@@ -41,7 +41,8 @@ def loadImageFromASFByteArrayAttribute(obj):
 
 
 def extractAnyImageFromList(values):
-    expandedList = [(key, val) for key, val in values.items() if not isinstance(val, list)]
+    expandedList = [(key, val) for key, val in values.items()
+                    if not isinstance(val, list)]
     for key, value in values.items():
         if key in ['WM/MCDI', 'WM/UserWebURL', 'CT_Custom', 'CT_MY_RATING']:
             continue
@@ -74,17 +75,21 @@ def extractFrontCover(mutagenFile):
             image = Image.open(io.BytesIO(pic.data))
             return image, pic.data
 
-    if isinstance(getattr(mutagenFile, 'Cover Art (Front)', None), mutagen.apev2.APEBinaryValue):
+    if isinstance(getattr(mutagenFile, 'Cover Art (Front)', None),
+                  mutagen.apev2.APEBinaryValue):
         return loadImageFromAPEBinaryValue(mutagenFile['Cover Art (Front)'])
 
     # print(mutagenFile)
-    if 'WM/Picture' in mutagenFile and isinstance(mutagenFile['WM/Picture'][0], mutagen.asf._attrs.ASFByteArrayAttribute):
+    if ('WM/Picture' in mutagenFile and
+       isinstance(mutagenFile['WM/Picture'][0],
+                  mutagen.asf._attrs.ASFByteArrayAttribute)):
         return loadImageFromASFByteArrayAttribute(mutagenFile['WM/Picture'][0])
 
     if 'covr' in mutagenFile and isinstance(mutagenFile['covr'], list):
         return loadImageFromData(mutagenFile['covr'][0])
 
-    if 'APIC:' in mutagenFile and isinstance(mutagenFile['APIC:'], mutagen.id3.APIC):
+    if 'APIC:' in mutagenFile and isinstance(mutagenFile['APIC:'],
+                                             mutagen.id3.APIC):
         return loadImageFromData(mutagenFile['APIC:'].data)
 
     return extractAnyImageFromList(mutagenFile)
@@ -102,19 +107,23 @@ def fixBrokenImages(mutagenFile):
             extractAnyImageFromList({k: v})
         except IOError:
             del mutagenFile[k]
-            # mutagenFile['TPE1'] = mutagen.id3.TPE1(mutagen.id3.Encoding.UTF8, 'test')
+            # mutagenFile['TPE1'] = mutagen.id3.TPE1(mutagen.id3.Encoding.UTF8,
+            #                                        'test')
 
 
 def printDictsDiff(dict1, dict2, forcePrint=False):
     # Calculate changes
     removedKeys = [x for x in dict1.keys() if x not in dict2.keys()]
-    changedKeys = [x for x in dict2.keys() if x in removedKeys and dict2.get(x, None) != dict1.get(x, None)]
+    changedKeys = [x for x in dict2.keys()
+                   if x in removedKeys and
+                   dict2.get(x, None) != dict1.get(x, None)]
     newKeys = [x for x in dict2.keys() if x not in dict1.keys()]
 
     if not forcePrint and not removedKeys and not changedKeys and not newKeys:
         return False
 
-    allKeys = list(dict1.keys()) + [x for x in dict2.keys() if x not in dict1.keys()]
+    allKeys = list(dict1.keys()) + [x for x in dict2.keys()
+                                    if x not in dict1.keys()]
     allKeys.sort()
     print(removedKeys)
     print(changedKeys)
@@ -124,11 +133,15 @@ def printDictsDiff(dict1, dict2, forcePrint=False):
     print(dict2.get('COMM::eng', None))
     for k in allKeys:
         if k in changedKeys:
-            print(str(k), ':', TerminalColors.WARNING, repr(dict1[k])[:50], TerminalColors.ENDC, ' -> ', TerminalColors.WARNING, str(dict2[k])[:50], TerminalColors.ENDC)
+            print(str(k), ':', TerminalColors.WARNING, repr(dict1[k])[:50],
+                  TerminalColors.ENDC, ' -> ', TerminalColors.WARNING,
+                  str(dict2[k])[:50], TerminalColors.ENDC)
         elif k in removedKeys:
-            print(str(k), ':', TerminalColors.FAIL, repr(dict1[k])[:100], TerminalColors.ENDC)
+            print(str(k), ':', TerminalColors.FAIL, repr(dict1[k])[:100],
+                  TerminalColors.ENDC)
         elif k in newKeys:
-            print(str(k), ':', TerminalColors.OKGREEN, repr(dict2[k])[:100], TerminalColors.ENDC)
+            print(str(k), ':', TerminalColors.OKGREEN, repr(dict2[k])[:100],
+                  TerminalColors.ENDC)
         else:
             print(str(k), ':', repr(dict1[k])[:100])
 
@@ -261,7 +274,8 @@ def calculateAudioTrackSHA256(path, tmpdir='/tmp'):
     # shutil.copyfile(path, tmpfilename)
     # removeAllTags(tmpfilename)
     # if os.path.getsize(tmpfilename) >= os.path.getsize(path):
-    #     print('Error removing tags from %s (%d >= %d)' % (path, os.path.getsize(tmpfilename), os.path.getsize(path)))
+    #     print('Error removing tags from %s (%d >= %d)' % \
+    #           (path, os.path.getsize(tmpfilename), os.path.getsize(path)))
     print(len(filelike.getvalue()))
     # open('/tmp/output9.mp3','wb').write(filelike.getvalue())
     filelike.seek(0)

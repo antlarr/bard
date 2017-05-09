@@ -16,12 +16,14 @@ class MusicDatabase:
     conn = None
 
     def __init__(self, ro=False):
-        databasepath = os.path.expanduser(os.path.expandvars(config['databasePath']))
+        _databasepath = config['databasePath']
+        databasepath = os.path.expanduser(os.path.expandvars(_databasepath))
         if not os.path.isdir(os.path.dirname(databasepath)):
             os.makedirs(os.path.dirname(databasepath))
         if not os.path.isfile(databasepath):
             if ro:
-                raise Exception("Database doesn't exist and read-only was requested")
+                raise Exception("Database doesn't exist and read-only was "
+                                "requested")
             MusicDatabase.conn = sqlite3.connect(databasepath)
             self.createDatabase()
         else:
@@ -34,7 +36,8 @@ class MusicDatabase:
 
     def createDatabase(self):
         if config['immutableDatabase']:
-            print("Error: Can't create database: The database is configured as immutable")
+            print("Error: Can't create database: "
+                  "The database is configured as immutable")
             return
         c = MusicDatabase.conn.cursor()
         c.execute('''
@@ -97,31 +100,44 @@ CREATE TABLE fingerprints(
     @staticmethod
     def addSong(song):
         if config['immutableDatabase']:
-            print("Error: Can't add song to DB: The database is configured as immutable")
+            print("Error: Can't add song to DB: "
+                  "The database is configured as immutable")
             return
         song.calculateCompleteness()
 
         c = MusicDatabase.conn.cursor()
-        result = c.execute('''SELECT id FROM songs where path = ? ''', (song.path(),))
+        result = c.execute('''SELECT id FROM songs where path = ? ''',
+                           (song.path(),))
         songID = result.fetchone()
 
-        values = [(song.root(), song.path(), song.filename(), song.mtime(), song['title'], toString(song['artist']), song['album'], song['albumartist'], song['tracknumber'], song['date'], toString(song['genre']), song['discnumber'], song.coverWidth(), song.coverHeight(), song.coverMD5(), song.completeness), ]
+        values = [(song.root(), song.path(), song.filename(), song.mtime(),
+                   song['title'], toString(song['artist']), song['album'],
+                   song['albumartist'], song['tracknumber'], song['date'],
+                   toString(song['genre']), song['discnumber'],
+                   song.coverWidth(), song.coverHeight(), song.coverMD5(),
+                   song.completeness), ]
 
         if songID:  # song is already in db, we have to update it
             song.id = songID[0]
             print('Updating song %s' % song.path())
             values = [values[0][3:] + (song.path(), )]
-            c.executemany('''UPDATE songs SET mtime=?, title=?, artist=?, album=?, albumArtist=?, track=?, date=?, genre=?, discNumber=?, coverWidth=?, coverHeight=?, coverMD5=?, completeness=?
-                             WHERE path = ?''', values)
+            sql = ('UPDATE songs SET mtime=?, title=?, artist=?, album=?, '
+                   'albumArtist=?, track=?, date=?, genre=?, discNumber=?, '
+                   'coverWidth=?, coverHeight=?, coverMD5=?, completeness=? '
+                   'WHERE path = ?')
+            c.executemany(sql, values)
 
             values = [(song.fileSha256sum(), song.id), ]
-            c.executemany('''UPDATE checksums SET sha256sum=? WHERE song_id=?''', values)
+            c.executemany('UPDATE checksums SET sha256sum=? WHERE song_id=?',
+                          values)
 
             values = [(song.fingerprint, song.id), ]
-            c.executemany('''UPDATE fingerprints SET fingerprint=? WHERE song_id=?''', values)
+            c.executemany('UPDATE fingerprints SET fingerprint=? WHERE song_id=?', values)
 
-            values = [(song.format(), song.duration(), song.bitrate(), song.bits_per_sample(), song.sample_rate(), song.channels(), song.audioSha256sum(), song.id), ]
-            c.executemany('''UPDATE properties SET format=?, duration=?, bitrate=?, bits_per_sample=?, sample_rate=?, channels=?, audio_sha256sum=? WHERE song_id=?''', values)
+            values = [(song.format(), song.duration(), song.bitrate(),
+                       song.bits_per_sample(), song.sample_rate(),
+                       song.channels(), song.audioSha256sum(), song.id), ]
+            c.executemany('UPDATE properties SET format=?, duration=?, bitrate=?, bits_per_sample=?, sample_rate=?, channels=?, audio_sha256sum=? WHERE song_id=?''', values)
 
             values = [(song.id), ]
             c.execute('''DELETE from tags where song_id = ?''', (song.id,))
@@ -138,27 +154,34 @@ CREATE TABLE fingerprints(
                         continue
                     tags.append((song.id, key, str(values)))
             # print(tags)
-            c.executemany('''INSERT INTO tags(song_id, name, value) VALUES (?,?,?)''', tags)
-            # for tag in tags:
-            #     print(tag)
-            #     c.executemany('''INSERT INTO tags(song_id, name, value) VALUES (?,?,?)''', (tag,))
+            c.executemany('INSERT INTO tags(song_id, name, value) '
+                          'VALUES (?,?,?)', tags)
         else:
             print('Adding new song %s' % song.path())
             print(values[0][3:])
-            c.executemany('''INSERT INTO songs(root, path, filename, mtime, title, artist, album, albumArtist, track, date, genre, discNumber, coverWidth, coverHeight, coverMD5, completeness)
-                             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', values)
+            c.executemany('INSERT INTO songs(root, path, filename, mtime, '
+                          'title, artist, album, albumArtist, track, date, '
+                          'genre, discNumber, coverWidth, coverHeight, '
+                          'coverMD5, completeness) '
+                          'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', values)
 
             result = c.execute('''SELECT last_insert_rowid()''')
             song.id = result.fetchone()[0]
 
             values = [(song.id, song.fileSha256sum()), ]
-            c.executemany('''INSERT INTO checksums(song_id, sha256sum) VALUES (?,?)''', values)
+            c.executemany('INSERT INTO checksums(song_id, sha256sum) '
+                          'VALUES (?,?)', values)
 
             values = [(song.id, song.fingerprint), ]
-            c.executemany('''INSERT INTO fingerprints(song_id, fingerprint) VALUES (?,?)''', values)
+            c.executemany('INSERT INTO fingerprints(song_id, fingerprint) '
+                          'VALUES (?,?)', values)
 
-            values = [(song.id, song.format(), song.duration(), song.bitrate(), song.bits_per_sample(), song.sample_rate(), song.channels(), song.audioSha256sum()), ]
-            c.executemany('''INSERT INTO properties(song_id, format, duration, bitrate, bits_per_sample, sample_rate, channels, audio_sha256sum) VALUES (?,?,?,?,?,?,?,?)''', values)
+            values = [(song.id, song.format(), song.duration(), song.bitrate(),
+                       song.bits_per_sample(), song.sample_rate(),
+                       song.channels(), song.audioSha256sum()), ]
+            c.executemany('INSERT INTO properties(song_id, format, duration, '
+                          'bitrate, bits_per_sample, sample_rate, channels, '
+                          'audio_sha256sum) VALUES (?,?,?,?,?,?,?,?)', values)
 
             tags = []
             for key, values in song.metadata.items():
@@ -172,49 +195,54 @@ CREATE TABLE fingerprints(
                         continue
                     tags.append((song.id, key, str(values)))
             # print(tags)
-            c.executemany('''INSERT INTO tags(song_id, name, value) VALUES (?,?,?)''', tags)
-            # for tag in tags:
-            #     print(tag)
-            #     c.executemany('''INSERT INTO tags(song_id, name, value) VALUES (?,?,?)''', (tag,))
+            c.executemany('INSERT INTO tags(song_id, name, value) '
+                          'VALUES (?,?,?)', tags)
 
     @staticmethod
     def removeSong(song):
         if config['immutableDatabase']:
-            print("Error: Can't remove song %d from DB: The database is configured as immutable" % song.id)
+            print("Error: Can't remove song %d from DB: "
+                  "The database is configured as immutable" % song.id)
             return
         c = MusicDatabase.conn.cursor()
-        c.execute('''DELETE FROM covers where path = ? ''', (song.path(),))
-        c.execute('''DELETE FROM checksums where song_id = ? ''', (song.id,))
-        c.execute('''DELETE FROM fingerprints where song_id = ? ''', (song.id,))
-        c.execute('''DELETE FROM tags where song_id = ? ''', (song.id,))
-        c.execute('''DELETE FROM properties where song_id = ? ''', (song.id,))
-        c.execute('''DELETE FROM songs where id = ? ''', (song.id,))
+        c.execute('DELETE FROM covers where path = ? ', (song.path(),))
+        c.execute('DELETE FROM checksums where song_id = ? ', (song.id,))
+        c.execute('DELETE FROM fingerprints where song_id = ? ', (song.id,))
+        c.execute('DELETE FROM tags where song_id = ? ', (song.id,))
+        c.execute('DELETE FROM properties where song_id = ? ', (song.id,))
+        c.execute('DELETE FROM songs where id = ? ', (song.id,))
         MusicDatabase.commit()
 
     @staticmethod
     def addCover(pathToSong, pathToCover):
         if config['immutableDatabase']:
-            print("Error: Can't add cover to song: The database is configured as immutable")
+            print("Error: Can't add cover to song: "
+                  "The database is configured as immutable")
             return
         c = MusicDatabase.conn.cursor()
 
-        result = c.execute('''SELECT path FROM covers where path = ? ''', (os.path.normpath(pathToSong),))
+        result = c.execute('''SELECT path FROM covers where path = ? ''',
+                           (os.path.normpath(pathToSong),))
         path = result.fetchone()
         if path:  # cover is already in db, we have to update it
             values = [(pathToCover, os.path.normpath(pathToSong)), ]
-            c.executemany('''UPDATE covers set cover=?  WHERE path = ?''', values)
+            c.executemany('UPDATE covers set cover=?  WHERE path = ?',
+                          values)
         else:
             values = [(os.path.normpath(pathToSong), pathToCover), ]
-            c.executemany('''INSERT INTO covers(path, cover) VALUES (?,?)''', values)
+            c.executemany('INSERT INTO covers(path, cover) VALUES (?,?)',
+                          values)
 
     @staticmethod
     def isSongInDatabase(path=None, songID=None):
         c = MusicDatabase.conn.cursor()
         if songID:
-            result = c.execute('''SELECT mtime, path FROM songs where id = ? ''', (songID,))
+            result = c.execute('SELECT mtime, path FROM songs where id = ? ',
+                               (songID,))
             mtime, path = result.fetchone()
         else:
-            result = c.execute('''SELECT mtime FROM songs where path = ? ''', (os.path.normpath(path),))
+            result = c.execute('SELECT mtime FROM songs where path = ? ',
+                               (os.path.normpath(path),))
             mtime = result.fetchone()
             if not mtime:
                 return False
@@ -226,7 +254,8 @@ CREATE TABLE fingerprints(
     @staticmethod
     def getSongTags(songID):
         c = MusicDatabase.conn.cursor()
-        result = c.execute('''SELECT name, value FROM tags where song_id = ? ''', (songID,))
+        result = c.execute('SELECT name, value FROM tags where song_id = ? ',
+                           (songID,))
         tags = {}
         for name, value in result.fetchall():
             if name not in tags:
@@ -238,7 +267,9 @@ CREATE TABLE fingerprints(
     @staticmethod
     def getSongProperties(songID):
         c = MusicDatabase.conn.cursor()
-        result = c.execute('''SELECT format, duration, bitrate, bits_per_sample, sample_rate, channels, audio_sha256sum FROM properties where song_id = ? ''', (songID,))
+        result = c.execute('''SELECT format, duration, bitrate,
+                     bits_per_sample, sample_rate, channels, audio_sha256sum
+                     FROM properties where song_id = ? ''', (songID,))
         row = result.fetchone()
         info = type('info', (), {})()
 
@@ -264,15 +295,19 @@ CREATE TABLE fingerprints(
     @staticmethod
     def addFileSha256sum(songid, sha256sum):
         if config['immutableDatabase']:
-            print("Error: Can't add file SHA256: The database is configured as immutable")
+            print("Error: Can't add file SHA256: The database is configured "
+                  "as immutable")
             return
         c = MusicDatabase.conn.cursor()
-        c.execute('''INSERT INTO checksums (song_id, sha256sum) VALUES (?, ?) ''', (songid, sha256sum))
+        c.execute('INSERT INTO checksums (song_id, sha256sum) VALUES (?, ?) ',
+                  (songid, sha256sum))
 
     @staticmethod
     def addAudioTrackSha256sum(songid, audioSha256sum):
         if config['immutableDatabase']:
-            print("Error: Can't add file SHA256: The database is configured as immutable")
+            print("Error: Can't add file SHA256: "
+                  "The database is configured as immutable")
             return
         c = MusicDatabase.conn.cursor()
-        c.execute('''UPDATE properties set audio_sha256sum=? where song_id=?''', (audioSha256sum, songid))
+        c.execute('UPDATE properties set audio_sha256sum=? where song_id=?',
+                  (audioSha256sum, songid))

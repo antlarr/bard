@@ -1,5 +1,6 @@
 from bard.config import config
-from bard.utils import md5, calculateAudioTrackSHA256, extractFrontCover, md5FromData, calculateFileSHA256
+from bard.utils import md5, calculateAudioTrackSHA256, extractFrontCover, \
+    md5FromData, calculateFileSHA256
 from bard.musicdatabase import MusicDatabase
 from bard.normalizetags import getTag
 from bard.ffprobemetadata import FFProbeMetadata
@@ -10,6 +11,7 @@ import subprocess
 from PIL import Image
 import acoustid
 import mutagen
+
 
 class Song:
 
@@ -50,23 +52,33 @@ class Song:
         elif getattr(self.metadata, 'info', None) is not None:
             return
 
-        (self._format, self.metadata.info, self._audioSha256sum) = MusicDatabase.getSongProperties(self.id)
+        (self._format, self.metadata.info, self._audioSha256sum) = \
+            MusicDatabase.getSongProperties(self.id)
 
     def loadCoverImageData(self, path):
         self._coverWidth, self._coverHeight = 0, 0
         self._coverMD5 = ''
-        coverfilename = os.path.join(config['tmpdir'], '/cover-%d.jpg' % random.randint(0, 100000))
+        random_number = random.randint(0, 100000)
+        coverfilename = os.path.join(config['tmpdir'],
+                                     '/cover-%d.jpg' % random_number)
 
         MusicDatabase.addCover(path, coverfilename)
         # c = self.conn.cursor()
 
         # values = [ ( path, coverfilename), ]
-        # c.executemany('''INSERT INTO covers(path, cover) VALUES (?,?)''', values)
+        # c.executemany('''INSERT INTO covers(path, cover) VALUES (?,?)''',
+        #               values)
+        command = ['ffmpeg', '-i', path, '-map', '0:m:comment:Cover (front)',
+                   '-c', 'copy', coverfilename]
 
-        process = subprocess.run(['ffmpeg', '-i', path, '-map', '0:m:comment:Cover (front)', '-c', 'copy', coverfilename], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        process = subprocess.run(command, stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL)
         if process.returncode != 0:
             # try with any image in the file
-            process = subprocess.run(['ffmpeg', '-i', path, '-c', 'copy', coverfilename], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            process = subprocess.run(['ffmpeg', '-i', path, '-c', 'copy',
+                                      coverfilename],
+                                     stdout=subprocess.DEVNULL,
+                                     stderr=subprocess.DEVNULL)
             if process.returncode != 0:
                 return
 
@@ -86,7 +98,10 @@ class Song:
 
     def loadFile(self, path):
         try:
-            # if path.lower().endswith('.ape') or path.lower().endswith('.wma') or path.lower().endswith('.m4a') or path.lower().endswith('.mp3'):
+            # if path.lower().endswith('.ape') or
+            #    path.lower().endswith('.wma') or
+            #    path.lower().endswith('.m4a') or
+            #    path.lower().endswith('.mp3'):
             self.metadata = mutagen.File(path)
             # else:
             #     self.metadata = mutagen.File(path, easy=True)
@@ -95,7 +110,8 @@ class Song:
             raise
 
         if not self.metadata:
-            print("No metadata found for %s : This will probably cause problems" % path)
+            print("No metadata found for %s : "
+                  "This will probably cause problems" % path)
 
         formattext = {
             mutagen.mp3.EasyMP3: 'mp3',
@@ -110,7 +126,9 @@ class Song:
             mutagen.musepack.Musepack: 'mpc', }
         self._format = formattext[type(self.metadata)]
 
-        self._audioSha256sum = calculateAudioTrackSHA256(path, tmpdir=config['tmpdir'])
+        tmpdir = config['tmpdir']
+        self._audioSha256sum = calculateAudioTrackSHA256(path,
+                                                         tmpdir=tmpdir)
 
 
 #        self.loadCoverImageData(path)
@@ -183,7 +201,8 @@ class Song:
 #
 #     def artist(self):
 #         if len(self.metadata['artist']) > 1:
-#             raise ValueError('List with multiple values: %s' % self.metadata['artist'])
+#             raise ValueError('List with multiple values: %s' %
+#                              self.metadata['artist'])
 #         try:
 #             return self.metadata['artist'][0]
 #         except KeyError:
@@ -191,7 +210,8 @@ class Song:
 #
 #     def album(self):
 #         if 'album' in self.metadata and len(self.metadata['album']) > 1:
-#             raise ValueError('List with multiple values: %s' % self.metadata['album'])
+#             raise ValueError('List with multiple values: %s' %
+#                              self.metadata['album'])
 #         try:
 #             return self.metadata['album'][0]
 #         except KeyError:
@@ -201,7 +221,8 @@ class Song:
 #         if 'albumartist' in self.metadata and \
 #            isinstance(self.metadata['albumartist'], list) and \
 #            len(self.metadata['albumartist']) > 1:
-#             raise ValueError('List with multiple values: %s' % self.metadata['albumartist'])
+#             raise ValueError('List with multiple values: %s' %
+#                              self.metadata['albumartist'])
 #         try:
 #             return self.metadata['album artist'][0]
 #         except KeyError:
@@ -282,7 +303,8 @@ class Song:
             return self._audioSha256sum
         except AttributeError:
             c = MusicDatabase.conn.cursor()
-            result = c.execute('''SELECT audio_sha256sum FROM properties where song_id = ?''', (self.id,))
+            sql = 'SELECT audio_sha256sum FROM properties where song_id = ?'
+            result = c.execute(sql, (self.id,))
             sha = result.fetchone()
             if sha:
                 self._audioSha256sum = sha[0]
@@ -312,7 +334,8 @@ class Song:
             return self._fileSha256sum
         except AttributeError:
             c = MusicDatabase.conn.cursor()
-            result = c.execute('''SELECT sha256sum FROM checksums where song_id = ?''', (self.id,))
+            sql = 'SELECT sha256sum FROM checksums where song_id = ?'
+            result = c.execute(sql, (self.id,))
             sha = result.fetchone()
             if sha:
                 self._fileSha256sum = sha[0]
@@ -326,7 +349,10 @@ class Song:
 
     def calculateCompleteness(self):
         value = 100
-        data = [self['title'], self['artist'], self['album'], self['albumartist'], self['date'], self['genre'], self['tracknumber'], self.coverWidth(), self['musicbrainz_trackid']]
+        data = [self['title'], self['artist'], self['album'],
+                self['albumartist'], self['date'], self['genre'],
+                self['tracknumber'], self.coverWidth(),
+                self['musicbrainz_trackid']]
         value = 100 - sum([10 for x in data if not x])
 
         if self.coverWidth() and self.coverWidth() < 400:
@@ -335,4 +361,9 @@ class Song:
         self.completeness = value
 
     def __repr__(self):
-        return '%s %s %s %s %s %s %s %s %s %s %s %s' % (self.audioSha256sum(), self._path, self.length, str(self['title']), str(self['artist']), str(self['album']), str(self['albumartist']), str(self['tracknumber']), str(self['date']), str(self['genre']), str(self['discnumber']), self.imageSize())
+        return ('%s %s %s %s %s %s %s %s %s %s %s %s' % (self.audioSha256sum(),
+                self._path, self.length, str(self['title']),
+                str(self['artist']), str(self['album']),
+                str(self['albumartist']), str(self['tracknumber']),
+                str(self['date']), str(self['genre']), str(self['discnumber']),
+                self.imageSize()))
