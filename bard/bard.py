@@ -531,19 +531,19 @@ fix-tags <file_or_directory [file_or_directory ...]>
                        description='Find duplicate files comparing '
                                    'the audio fingerprint')
         # compare-songs command
-        parser = sps.add_parser('compare-songs',
+        subparser = sps.add_parser('compare-songs',
                                 description='Compares two songs')
-        parser.add_argument('song1', metavar='id_or_path')
-        parser.add_argument('song2', metavar='id_or_path')
+        subparser.add_argument('song1', metavar='id_or_path')
+        subparser.add_argument('song2', metavar='id_or_path')
         # fix-mtime command
         sps.add_parser('fix-mtime',
                        description='Fixes the mtime of imported files '
                                    '(you should never need to use this)')
         # fix-checksums command
-        parser = sps.add_parser('fix-checksums',
+        subparser = sps.add_parser('fix-checksums',
                                 description='Fixes the checksums of imported '
                                 'files (you should never need to use this)')
-        parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
+        subparser.add_argument('--from-song-id', type=int, metavar='from_song_id',
                             help='Starts fixing checksums from a specific '
                                  'song_id')
         # check-songs-existence command
@@ -551,37 +551,37 @@ fix-tags <file_or_directory [file_or_directory ...]>
                        description='Check for removed files to remove them '
                                    'from the database')
         # check-checksums command
-        parser = sps.add_parser('check-checksums',
+        subparser = sps.add_parser('check-checksums',
                                 description='Check that the imported files '
                                 "haven't been modified since they were "
                                 "imported")
-        parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
+        subparser.add_argument('--from-song-id', type=int, metavar='from_song_id',
                             help='Starts fixing checksums '
                                  'from a specific song_id')
         # import command
-        parser = sps.add_parser('import',
+        subparser = sps.add_parser('import',
                                 description='Import new (or update) music. '
                                 'You can specify the files/directories to '
                                 'import as arguments. If no arguments are '
                                 'given in the command line, the musicPaths '
                                 'entries in the configuration file are used')
-        parser.add_argument('paths', nargs='*', metavar='file_or_directory')
+        subparser.add_argument('paths', nargs='*', metavar='file_or_directory')
         # info command
-        parser = sps.add_parser('info',
+        subparser = sps.add_parser('info',
                                 description='Shows information about a song '
                                             'from the database')
-        parser.add_argument('path', nargs=1)
+        subparser.add_argument('path', nargs=1)
         # list command
-        parser = sps.add_parser('list',
+        subparser = sps.add_parser('list',
                                 description='Lists paths to a songs '
                                             'from the database')
-        parser.add_argument('path', nargs=1)
+        subparser.add_argument('path', nargs=1)
         # fix-tags command
-        parser = sps.add_parser('fix-tags',
+        subparser = sps.add_parser('fix-tags',
                                 description='Apply several normalization '
                                 'algorithms to fix tags of files passed as '
                                 'arguments')
-        parser.add_argument('paths', nargs='*', metavar='file_or_directory')
+        subparser.add_argument('paths', nargs='*', metavar='file_or_directory')
         options = parser.parse_args()
 
         if options.command == 'find-duplicates':
