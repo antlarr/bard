@@ -494,9 +494,12 @@ class Bard:
         printDictsDiff(song1.metadata, song2.metadata, forcePrint=True)
 
     def parseCommandLine(self):
-        parser = ArgumentParser(description='Manage your music collection',
-                                formatter_class=argparse.RawTextHelpFormatter)
-        sps = parser.add_subparsers(dest='command', metavar='command', help='''The following commands are available:
+        main_parser = ArgumentParser(
+            description='Manage your music collection',
+                        formatter_class=argparse.RawTextHelpFormatter)
+        sps = main_parser.add_subparsers(
+            dest='command', metavar='command',
+            help='''The following commands are available:
 find-duplicates     find duplicate files comparing the checksums
 find-audio-duplicates
                     find duplicate files comparing the audio fingerprint
@@ -517,11 +520,13 @@ import [file_or_directory [file_or_directory ...]]
                     musicPaths entries in the configuration file are used
 info <file | song id>
                     shows information about a song from the database
-list <file | song id>
+list|ls <file | song id>
                     lists paths to a song from the database
 fix-tags <file_or_directory [file_or_directory ...]>
                     apply several normalization algorithms to fix tags of
-                    files passed as arguments''')
+                    files passed as arguments
+update
+                    Update database with new/modified/deleted files''')
         # find-duplicates command
         sps.add_parser('find-duplicates',
                        description='Find duplicate files comparing '
@@ -531,19 +536,19 @@ fix-tags <file_or_directory [file_or_directory ...]>
                        description='Find duplicate files comparing '
                                    'the audio fingerprint')
         # compare-songs command
-        subparser = sps.add_parser('compare-songs',
+        parser = sps.add_parser('compare-songs',
                                 description='Compares two songs')
-        subparser.add_argument('song1', metavar='id_or_path')
-        subparser.add_argument('song2', metavar='id_or_path')
+        parser.add_argument('song1', metavar='id_or_path')
+        parser.add_argument('song2', metavar='id_or_path')
         # fix-mtime command
         sps.add_parser('fix-mtime',
                        description='Fixes the mtime of imported files '
                                    '(you should never need to use this)')
         # fix-checksums command
-        subparser = sps.add_parser('fix-checksums',
+        parser = sps.add_parser('fix-checksums',
                                 description='Fixes the checksums of imported '
                                 'files (you should never need to use this)')
-        subparser.add_argument('--from-song-id', type=int, metavar='from_song_id',
+        parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
                             help='Starts fixing checksums from a specific '
                                  'song_id')
         # check-songs-existence command
@@ -551,38 +556,46 @@ fix-tags <file_or_directory [file_or_directory ...]>
                        description='Check for removed files to remove them '
                                    'from the database')
         # check-checksums command
-        subparser = sps.add_parser('check-checksums',
+        parser = sps.add_parser('check-checksums',
                                 description='Check that the imported files '
                                 "haven't been modified since they were "
                                 "imported")
-        subparser.add_argument('--from-song-id', type=int, metavar='from_song_id',
+        parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
                             help='Starts fixing checksums '
                                  'from a specific song_id')
         # import command
-        subparser = sps.add_parser('import',
+        parser = sps.add_parser('import',
                                 description='Import new (or update) music. '
                                 'You can specify the files/directories to '
                                 'import as arguments. If no arguments are '
                                 'given in the command line, the musicPaths '
                                 'entries in the configuration file are used')
-        subparser.add_argument('paths', nargs='*', metavar='file_or_directory')
+        parser.add_argument('paths', nargs='*', metavar='file_or_directory')
         # info command
-        subparser = sps.add_parser('info',
+        parser = sps.add_parser('info',
                                 description='Shows information about a song '
                                             'from the database')
-        subparser.add_argument('path', nargs=1)
+        parser.add_argument('path', nargs=1)
         # list command
-        subparser = sps.add_parser('list',
+        parser = sps.add_parser('list',
                                 description='Lists paths to a songs '
                                             'from the database')
-        subparser.add_argument('path', nargs=1)
+        parser.add_argument('path', nargs=1)
+        parser = sps.add_parser('ls',
+                                description='Lists paths to a songs '
+                                            'from the database')
+        parser.add_argument('path', nargs=1)
         # fix-tags command
-        subparser = sps.add_parser('fix-tags',
+        parser = sps.add_parser('fix-tags',
                                 description='Apply several normalization '
                                 'algorithms to fix tags of files passed as '
                                 'arguments')
-        subparser.add_argument('paths', nargs='*', metavar='file_or_directory')
-        options = parser.parse_args()
+        parser.add_argument('paths', nargs='*', metavar='file_or_directory')
+        # update command
+        parser = sps.add_parser('update',
+                                description='Update database with new/modified'
+                                '/deleted files')
+        options = main_parser.parse_args()
 
         if options.command == 'find-duplicates':
             self.findDuplicates()
@@ -602,7 +615,7 @@ fix-tags <file_or_directory [file_or_directory ...]>
             self.fixTags(options.paths)
         elif options.command == 'info':
             self.info(options.path[0])
-        elif options.command == 'list':
+        elif options.command == 'list' or options.command == 'ls':
             self.list(options.path[0])
         elif options.command == 'import':
             paths = options.paths
@@ -610,6 +623,10 @@ fix-tags <file_or_directory [file_or_directory ...]>
                 paths = config['musicPaths']
 
             self.add(paths)
+        elif options.command == 'update':
+            paths = config['musicPaths']
+            self.add(paths)
+            self.checkSongsExistence()
 
 
 def main():
