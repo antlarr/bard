@@ -258,7 +258,8 @@ def removeAllTags(filelike, recurse=True):
         mutagenFile.save(filelike, padding=lambda x: 0)
 
     filelike.seek(0)
-    mutagenFile.delete(filelike)
+    if mutagenFile:
+        mutagenFile.delete(filelike)
 
 
 def calculateAudioTrackSHA256(path, tmpdir='/tmp'):
