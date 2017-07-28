@@ -10,6 +10,7 @@ import os
 import re
 import mutagen
 import argparse
+import subprocess
 from argparse import ArgumentParser
 from bard.config import config
 
@@ -90,13 +91,13 @@ class Bard:
         self.excludeDirectories = ['covers', 'info']
 
     def getMusic(self, where_clause='', where_values=None):
-        print(where_clause)
+        # print(where_clause)
         c = MusicDatabase.conn.cursor()
         statement = ('SELECT id, root, path, mtime, title, artist, album, '
                      'albumArtist, track, date, genre, discNumber, '
                      'coverWidth, coverHeight, coverMD5 FROM songs %s' %
                      where_clause)
-        print(statement, where_values)
+        # print(statement, where_values)
         if where_values:
             result = c.execute(statement, where_values)
         else:
@@ -216,6 +217,16 @@ class Bard:
             songs = self.getSongs(path=path)
         for song in songs:
             print("%s" % song.path())
+
+    def play(self, ids_or_paths):
+        paths = []
+        for id_or_path in ids_or_paths:
+            songs = self.getSongsFromIDorPath(id_or_path)
+            for song in songs:
+                paths.append(song.path())
+
+        command = ['mpv'] + paths
+        process = subprocess.run(command)
 
     def findDuplicates(self):
         collection = self.getMusic()
@@ -373,7 +384,8 @@ class Bard:
             for song in failedSongs:
                 print('%d %s' % (song.id, song.path()))
         else:
-            print('All packages successfully checked')
+            print('All packages successfully checked: ' +
+                  TerminalColors.OKGREEN + 'OK' + TerminalColors.ENDC)
 
     def fixTags(self, args):
         for path in args:
@@ -493,6 +505,9 @@ class Bard:
         song2.loadMetadataInfo()
         printDictsDiff(song1.metadata, song2.metadata, forcePrint=True)
 
+    def compareFiles(self, songid1, songid2):
+        print("Not implemented yet")
+
     def parseCommandLine(self):
         main_parser = ArgumentParser(
             description='Manage your music collection',
@@ -503,7 +518,10 @@ class Bard:
 find-duplicates     find duplicate files comparing the checksums
 find-audio-duplicates
                     find duplicate files comparing the audio fingerprint
-compare-songs       compares two songs given their paths or song id
+compare-songs [id_or_path] [id_or_path]
+                    compares two songs given their paths or song id
+compare-files [path] [path]
+                    compares two files not neccesarily in the database
 fix-mtime           fixes the mtime of imported files (you should never
                     need to use this)
 fix-checksums       fixes the checksums of imported files (you should
@@ -520,8 +538,10 @@ import [file_or_directory [file_or_directory ...]]
                     musicPaths entries in the configuration file are used
 info <file | song id>
                     shows information about a song from the database
-list|ls <file | song id>
+list|ls <file | song id> [file | song_id ...]
                     lists paths to a song from the database
+play <file | song id> [file | song_id ...]
+                    play the specified songs using mpv
 fix-tags <file_or_directory [file_or_directory ...]>
                     apply several normalization algorithms to fix tags of
                     files passed as arguments
@@ -540,6 +560,11 @@ update
                                 description='Compares two songs')
         parser.add_argument('song1', metavar='id_or_path')
         parser.add_argument('song2', metavar='id_or_path')
+        parser = sps.add_parser('compare-files',
+                                description='Compares two files not'
+                                ' neccesarily in the database')
+        parser.add_argument('song1', metavar='path')
+        parser.add_argument('song2', metavar='path')
         # fix-mtime command
         sps.add_parser('fix-mtime',
                        description='Fixes the mtime of imported files '
@@ -578,13 +603,17 @@ update
         parser.add_argument('path', nargs=1)
         # list command
         parser = sps.add_parser('list',
-                                description='Lists paths to a songs '
+                                description='Lists paths to songs '
                                             'from the database')
-        parser.add_argument('path', nargs=1)
+        parser.add_argument('paths', nargs='+')
         parser = sps.add_parser('ls',
-                                description='Lists paths to a songs '
+                                description='Lists paths to songs '
                                             'from the database')
-        parser.add_argument('path', nargs=1)
+        parser.add_argument('paths', nargs='+')
+        # play command
+        parser = sps.add_parser('play',
+                                description='Play the specified songs')
+        parser.add_argument('paths', nargs='+')
         # fix-tags command
         parser = sps.add_parser('fix-tags',
                                 description='Apply several normalization '
@@ -611,12 +640,17 @@ update
             self.findAudioDuplicates()
         elif options.command == 'compare-songs':
             self.compareSongs(options.song1, options.song2)
+        elif options.command == 'compare-files':
+            self.compareFiles(options.song1, options.song2)
         elif options.command == 'fix-tags':
             self.fixTags(options.paths)
         elif options.command == 'info':
             self.info(options.path[0])
         elif options.command == 'list' or options.command == 'ls':
-            self.list(options.path[0])
+            for path in options.paths:
+                self.list(path)
+        elif options.command == 'play':
+            self.play(options.paths)
         elif options.command == 'import':
             paths = options.paths
             if not paths:
