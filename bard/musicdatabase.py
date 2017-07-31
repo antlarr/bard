@@ -96,6 +96,16 @@ CREATE TABLE fingerprints(
                     fingerprint TEXT,
                     FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
                     )''')
+        c.execute('''
+CREATE TABLE similarities(
+                    song_id1 INTEGER,
+                    song_id2 INTEGER,
+                    offset INTEGER,
+                    similarity REAL,
+                    UNIQUE(song_id1, song_id2),
+                    FOREIGN KEY(song_id1) REFERENCES songs(id) ON DELETE CASCADE,
+                    FOREIGN KEY(song_id2) REFERENCES songs(id) ON DELETE CASCADE
+                    )''')
 
     @staticmethod
     def addSong(song):
@@ -311,3 +321,26 @@ CREATE TABLE fingerprints(
         c = MusicDatabase.conn.cursor()
         c.execute('UPDATE properties set audio_sha256sum=? where song_id=?',
                   (audioSha256sum, songid))
+
+    @staticmethod
+    def addSongsSimilarity(songid1, songid2, offset, similarity):
+        if config['immutableDatabase']:
+            print("Error: Can't add song similarity: "
+                  "The database is configured as immutable")
+            return
+        if songid1 > songid2:
+            songid1, songid2 = songid2, songid1
+        elif songid1 == songid2 and (similarity != 1.0 or offset != 0):
+            print("Error: A song should be exactly similar to itself")
+            print(songid1, songid2, similarity, offset)
+            return
+        c = MusicDatabase.conn.cursor()
+        c.execute('UPDATE similarities set offset=?, similarity=? '
+                  'where song_id1=? and song_id2=?',
+                  (offset, similarity, songid1, songid2))
+        if c.rowcount == 0:
+            c.execute('INSERT INTO similarities '
+                      '(song_id1, song_id2, offset, similarity) '
+                      'VALUES (?,?,?,?)',
+                      (songid1, songid2, offset, similarity))
+

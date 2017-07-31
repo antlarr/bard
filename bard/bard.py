@@ -32,18 +32,56 @@ def compareBits(x, y):
     return same_bits
 
 
-def compareChromaprintFingerprints(a, b, threshold=0.9):
+def compareChromaprintFingerprints(a, b, threshold=0.9, cancelThreshold=0.55):
     equal_bits = 0
-    total_bits = 0.0
+    total_bits = 32.0 * min(len(a[0]), len(b[0]))
+    remaining = total_bits
+    if cancelThreshold > threshold:
+        cancelThreshold = threshold
+    thresholdBits = int(total_bits * cancelThreshold)
     for x, y in zip(a[0], b[0]):
         # equal_bits += 32 - bin(x ^ y).count('1')
         equal_bits += 32 - bitsoncount(x ^ y)
-        total_bits += 32.0
-        if equal_bits / total_bits < threshold:
-            return equal_bits / total_bits
+        remaining -= 32
+        if remaining and equal_bits + remaining < thresholdBits:
+            return None
+        # if equal_bits / total_bits < threshold:
+        #    return equal_bits / total_bits
 #    print(equal_bits, total_bits, equal_bits / total_bits, threshold)
     return equal_bits / total_bits
 #    return equal_bits / total_bits >= threshold
+
+
+def compareChromaprintFingerprintsAndOffset(a, b, maxoffset=60, debug=False):
+    if not a[0] or not b[0]:
+        return (None, None)
+    tmp = (a[0][:], a[1])
+    result_offset = 0
+    result = compareChromaprintFingerprints(a, b)
+    if debug:
+        print(0, result)
+    for i in range(1, maxoffset):
+        tmp[0].insert(0, 0)
+        r = compareChromaprintFingerprints(tmp, b)
+        if debug:
+            print(i, r)
+        if not r:
+            continue
+        if not result or r > result:
+            result = r
+            result_offset = i
+    tmp = (b[0][:], b[1])
+    for i in range(1, maxoffset):
+        tmp[0].insert(0, 0)
+        r = compareChromaprintFingerprints(a, tmp)
+        if debug:
+            print(-i, r)
+        if not r:
+            continue
+        if not result or r > result:
+            result = r
+            result_offset = -i
+    return (result_offset, result)
 
 
 def normalizeDate(date):
@@ -400,17 +438,18 @@ class Bard:
                not path.startswith('/tmp/')):
                 self.addSong(path)
 
-    def findAudioDuplicates(self):
+    def findAudioDuplicates(self, from_song_id=0):
         c = MusicDatabase.conn.cursor()
         fingerprints = {}
         info = {}
         decodedFPs = {}
-        threshold = 0.8
+        matchThreshold = 0.8
+        storeThreshold = 0.55
         sql = ('SELECT id, fingerprint, sha256sum, audio_sha256sum, path, '
                'completeness FROM fingerprints, songs, checksums, '
                'properties where songs.id=fingerprints.song_id and '
                'songs.id = checksums.song_id and '
-               'songs.id = properties.song_id')
+               'songs.id = properties.song_id order by id')
         for (songID, fingerprint, sha256sum, audioSha256sum, path,
                 completeness) in c.execute(sql):
             # print('.',  end='', flush=True)
@@ -419,42 +458,56 @@ class Bard:
                 print("Error calculating fingerprint of song %s (%s)" %
                       (songID, path))
                 continue
-            for fp in fingerprints.keys():
-                try:
-                    similarity = compareChromaprintFingerprints(
-                        decodedFPs[fp], dfp, threshold)
-                    if similarity >= threshold:
-                        # print('''Duplicates found!\n''',
-                        #       songID, fingerprint, path)
-                        # print('''Duplicates found!\n''', fp)
-                        # print('''Duplicates found!\n''', fingerprints[fp])
-                        (otherSha256sum, otherAudioSha256sum, otherPath,
-                            otherCompleteness) = info[fingerprints[fp]]
-                        if sha256sum == otherSha256sum:
-                            msg = ('Exactly the same files (sha256 = %s)' %
-                                   sha256sum)
-                            print('Duplicate songs found: %s\n'
-                                  '%s\n and %s' % (msg, otherPath, path))
-                        elif audioSha256sum == otherAudioSha256sum:
-                            msg = ('Same audio track with different tags '
-                                   '(completeness: %d <-> %d)' %
-                                   (otherCompleteness, completeness))
-                            print('Duplicate songs found: %s\n'
-                                  '%s\n and %s''' % (msg, otherPath, path))
-                        else:
-                            msg = 'Similarity %f' % similarity
-                            # print('Duplicate songs found: %s\n     %s\n'
-                            #       'and %s' % (msg, otherPath, path))
-                        break
-                except ZeroDivisionError:
-                    print(dfp)
-                    print(fingerprint)
-                    print(songID, path)
-                    raise
-            else:
+            if songID < from_song_id:
                 fingerprints[fingerprint] = songID
                 decodedFPs[fingerprint] = dfp
                 info[songID] = (sha256sum, audioSha256sum, path, completeness)
+                continue
+
+            for fp, otherSongID in fingerprints.items():
+                offset, similarity = \
+                    compareChromaprintFingerprintsAndOffset(
+                        decodedFPs[fp], dfp)
+                if similarity and similarity >= storeThreshold:
+                    print('******** %d %d %d %f' % (otherSongID, songID,
+                                                    offset, similarity))
+                    MusicDatabase.addSongsSimilarity(otherSongID, songID,
+                                                     offset, similarity)
+                    MusicDatabase.commit()
+                else:
+                    if similarity:
+                        print('%d %d %d %f' % (otherSongID, songID,
+                                               offset, similarity))
+                    else:
+                        print('%d %d different' % (otherSongID, songID))
+
+                if similarity and similarity >= matchThreshold:
+                    # print('''Duplicates found!\n''',
+                    #       songID, fingerprint, path)
+                    # print('''Duplicates found!\n''', fp)
+                    # print('''Duplicates found!\n''', fingerprints[fp])
+                    (otherSha256sum, otherAudioSha256sum, otherPath,
+                        otherCompleteness) = info[fingerprints[fp]]
+                    if sha256sum == otherSha256sum:
+                        msg = ('Exactly the same files (sha256 = %s)' %
+                               sha256sum)
+                        print('Duplicate songs found: %s\n'
+                              '%s\n and %s' % (msg, otherPath, path))
+                    elif audioSha256sum == otherAudioSha256sum:
+                        msg = ('Same audio track with different tags '
+                               '(completeness: %d <-> %d)' %
+                               (otherCompleteness, completeness))
+                        print('Duplicate songs found: %s\n'
+                              '%s\n and %s''' % (msg, otherPath, path))
+                    else:
+                        msg = 'Similarity %f' % similarity
+                        # print('Duplicate songs found: %s\n     %s\n'
+                        #       'and %s' % (msg, otherPath, path))
+                    break
+
+            fingerprints[fingerprint] = songID
+            decodedFPs[fingerprint] = dfp
+            info[songID] = (sha256sum, audioSha256sum, path, completeness)
 
     def getSongsFromIDorPath(self, id_or_path):
         try:
@@ -467,22 +520,24 @@ class Bard:
 
         return self.getSongs(path=id_or_path)
 
-    def compareSongs(self, songid1, songid2):
-        songs1 = self.getSongsFromIDorPath(songid1)
-        threshold = 0.8
-        if len(songs1) != 1:
-            print('No match or more than one match for ', songid1)
-            return
-        song1 = songs1[0]
-        songs2 = self.getSongsFromIDorPath(songid2)
-        if len(songs2) != 1:
-            print('No match or more than one match for ', songid2)
-            return
-        song2 = songs2[0]
+    def compareSongs(self, song1, song2):
+        matchThreshold = 0.8
+        storeThreshold = 0.55
         dfp1 = chromaprint.decode_fingerprint(song1.getAcoustidFingerprint())
         dfp2 = chromaprint.decode_fingerprint(song2.getAcoustidFingerprint())
-        similarity = compareChromaprintFingerprints(dfp1, dfp2, threshold)
-        if similarity >= threshold:
+        (offset, similarity) = compareChromaprintFingerprintsAndOffset(dfp1,
+                                                                       dfp2,
+                                                                       120,
+                                                                       True)
+        if similarity and similarity >= storeThreshold \
+                and song1.id and song2.id:
+            print('******** %d %d %d %f' % (song1.id, song2.id,
+                                            offset, similarity))
+            MusicDatabase.addSongsSimilarity(song1.id, song2.id,
+                                             offset, similarity)
+            MusicDatabase.commit()
+
+        if similarity and similarity >= matchThreshold:
             if song1.fileSha256sum() == song2.fileSha256sum():
                 msg = ('Exactly the same files (sha256 = %s)' %
                        song1.fileSha256sum())
@@ -505,8 +560,26 @@ class Bard:
         song2.loadMetadataInfo()
         printDictsDiff(song1.metadata, song2.metadata, forcePrint=True)
 
-    def compareFiles(self, songid1, songid2):
-        print("Not implemented yet")
+        if song1.metadata == song2.metadata:
+            print('Songs have identical metadata!')
+
+    def compareSongIDsOrPaths(self, songid1, songid2):
+        songs1 = self.getSongsFromIDorPath(songid1)
+        if len(songs1) != 1:
+            print('No match or more than one match for ', songid1)
+            return
+        song1 = songs1[0]
+        songs2 = self.getSongsFromIDorPath(songid2)
+        if len(songs2) != 1:
+            print('No match or more than one match for ', songid2)
+            return
+        song2 = songs2[0]
+        self.compareSongs(song1, song2)
+
+    def compareFiles(self, path1, path2):
+        song1 = Song(path1)
+        song2 = Song(path2)
+        self.compareSongs(song1, song2)
 
     def parseCommandLine(self):
         main_parser = ArgumentParser(
@@ -552,9 +625,12 @@ update
                        description='Find duplicate files comparing '
                                    'the checksums')
         # find-audio-duplicates command
-        sps.add_parser('find-audio-duplicates',
-                       description='Find duplicate files comparing '
-                                   'the audio fingerprint')
+        parser = sps.add_parser('find-audio-duplicates',
+                                description='Find duplicate files comparing '
+                                            'the audio fingerprint')
+        parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
+                            help='Starts fixing checksums from a specific '
+                                 'song_id')
         # compare-songs command
         parser = sps.add_parser('compare-songs',
                                 description='Compares two songs')
@@ -637,9 +713,9 @@ update
         elif options.command == 'check-checksums':
             self.checkChecksums(options.from_song_id)
         elif options.command == 'find-audio-duplicates':
-            self.findAudioDuplicates()
+            self.findAudioDuplicates(options.from_song_id)
         elif options.command == 'compare-songs':
-            self.compareSongs(options.song1, options.song2)
+            self.compareSongIDsOrPaths(options.song1, options.song2)
         elif options.command == 'compare-files':
             self.compareFiles(options.song1, options.song2)
         elif options.command == 'fix-tags':
