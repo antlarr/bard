@@ -582,6 +582,72 @@ class Bard:
             decodedFPs[fingerprint] = dfp
             info[songID] = (sha256sum, audioSha256sum, path, completeness)
 
+    def findAudioDuplicates2(self, from_song_id=None):
+        c = MusicDatabase.conn.cursor()
+        info = {}
+        matchThreshold = 0.8
+        storeThreshold = 0.56
+        if not from_song_id:
+            from_song_id = 0
+        from bard.bard_ext import FingerprintManager
+        fpm = FingerprintManager()
+        fpm.setMaxOffset(100)
+
+        sql = ('SELECT id, fingerprint, sha256sum, audio_sha256sum, path, '
+               'completeness FROM fingerprints, songs, checksums, '
+               'properties where songs.id=fingerprints.song_id and '
+               'songs.id = checksums.song_id and '
+               'songs.id = properties.song_id order by id')
+
+        for (songID, fingerprint, sha256sum, audioSha256sum, path,
+                completeness) in c.execute(sql):
+            # print('.', songID,  end='', flush=True)
+            dfp = chromaprint.decode_fingerprint(fingerprint)
+            if not dfp[0]:
+                print("Error calculating fingerprint of song %s (%s)" %
+                      (songID, path))
+                continue
+            if songID < from_song_id:
+                fpm.addSong(songID, dfp[0])
+                result = []
+            else:
+#                if songID > from_song_id:
+#                    return
+                result = fpm.addSongAndCompare(songID, dfp[0], storeThreshold)
+
+            for (songID2, offset, similarity) in result:
+                print('******** %d %d %d %f' % (songID2, songID,
+                                                offset, similarity))
+                MusicDatabase.addSongsSimilarity(songID2, songID,
+                                                 offset, similarity)
+
+                if similarity >= matchThreshold:
+                    # print('''Duplicates found!\n''',
+                    #       songID, fingerprint, path)
+                    # print('''Duplicates found!\n''', fp)
+                    # print('''Duplicates found!\n''', fingerprints[fp])
+                    (otherSha256sum, otherAudioSha256sum, otherPath,
+                        otherCompleteness) = info[songID2]
+                    if sha256sum == otherSha256sum:
+                        msg = ('Exactly the same files (sha256 = %s)' %
+                               sha256sum)
+                        print('Duplicate songs found: %s\n'
+                              '%s\n and %s' % (msg, otherPath, path))
+                    elif audioSha256sum == otherAudioSha256sum:
+                        msg = ('Same audio track with different tags '
+                               '(completeness: %d <-> %d)' %
+                               (otherCompleteness, completeness))
+                        print('Duplicate songs found: %s\n'
+                              '%s\n and %s''' % (msg, otherPath, path))
+                    else:
+                        msg = 'Similarity %f' % similarity
+                        # print('Duplicate songs found: %s\n     %s\n'
+                        #       'and %s' % (msg, otherPath, path))
+            if result:
+                MusicDatabase.commit()
+
+            info[songID] = (sha256sum, audioSha256sum, path, completeness)
+
     def getSongsFromIDorPath(self, id_or_path):
         try:
             songID = int(id_or_path)
@@ -820,7 +886,7 @@ update
         elif options.command == 'check-checksums':
             self.checkChecksums(options.from_song_id)
         elif options.command == 'find-audio-duplicates':
-            self.findAudioDuplicates(options.from_song_id)
+            self.findAudioDuplicates2(options.from_song_id)
         elif options.command == 'compare-songs':
             self.compareSongIDsOrPaths(options.song1, options.song2)
         elif options.command == 'compare-files':

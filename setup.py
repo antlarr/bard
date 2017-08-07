@@ -1,4 +1,14 @@
-from setuptools import setup
+from setuptools import setup, Extension
+
+
+module1 = Extension('bard_ext',
+                    define_macros=[('MAJOR_VERSION', '1'),
+                                   ('MINOR_VERSION', '0')],
+                    include_dirs=['/usr/include/boost'],
+                    libraries=['boost_python-py3'],
+                    library_dirs=['/usr/lib'],
+                    sources=['bard/bard_ext.cpp'],
+                    extra_compile_args=['-std=c++1z'])
 
 setup(
     # Application name:
@@ -35,4 +45,5 @@ setup(
     data_files=[('share/doc/packages/bard/', ['config/bard', 'README.md', 'LICENSE'])],
     scripts=["scripts/bard"],
     license="GPLv3",
+    ext_modules=[module1]
 )
