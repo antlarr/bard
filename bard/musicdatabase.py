@@ -2,6 +2,7 @@ from bard.config import config
 from bard.normalizetags import normalizeTagValues
 import sqlite3
 import os
+import re
 import mutagen
 
 
@@ -343,4 +344,18 @@ CREATE TABLE similarities(
                       '(song_id1, song_id2, offset, similarity) '
                       'VALUES (?,?,?,?)',
                       (songid1, songid2, offset, similarity))
+
+    @staticmethod
+    def getSimilarSongs(condition=None):
+        if not condition:
+            condition = '> 0.85'
+        else:
+            condition = re.match(r'[0-9<>= .]*', condition).group()
+        c = MusicDatabase.conn.cursor()
+        result = c.execute('SELECT song_id1, song_id2, offset, similarity '
+                           'FROM similarities WHERE similarity %s' % condition)
+        pairs = []
+        for songid1, songid2, offset, similarity in result.fetchall():
+            pairs.append((songid1, songid2, offset, similarity))
+        return pairs
 

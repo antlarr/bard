@@ -308,6 +308,22 @@ class Bard:
             else:
                 print("%s" % song.path())
 
+    def listSimilars(self, condition=None, long_ls=False):
+        if isinstance(condition, list):
+            condition = ' '.join(condition)
+        similar_pairs = MusicDatabase.getSimilarSongs(condition)
+        for songID1, songID2, offset, similarity in similar_pairs:
+            song1 = self.getSongs(songID=songID1)[0]
+            song2 = self.getSongs(songID=songID2)[0]
+            print('------  (%d ~=~ %d) offset: %d   similarity %f' %
+                  (songID1, songID2, offset, similarity))
+            for song in (song1, song2):
+                if long_ls:
+                    command = ['ls', '-l', song.path()]
+                    subprocess.run(command)
+                else:
+                    print("%s" % song.path())
+
     def play(self, ids_or_paths):
         paths = []
         for id_or_path in ids_or_paths:
@@ -690,6 +706,9 @@ info <file | song id>
                     shows information about a song from the database
 list|ls [-l] <file | song id> [file | song_id ...]
                     lists paths to a song from the database
+list-similars [-l] [condition]
+                    lists files marked as similar in the database
+                    (with find-audio-duplicates)
 play <file | song id> [file | song_id ...]
                     play the specified songs using mpv
 fix-tags <file_or_directory [file_or_directory ...]>
@@ -765,6 +784,15 @@ update
         parser.add_argument('-l', dest='long_ls', action='store_true',
                             help='Actually run ls -l')
         parser.add_argument('paths', nargs='+')
+        # list-similars command
+        parser = sps.add_parser('list-similars',
+                                description='List files marked as similar in '
+                                            'the database')
+        parser.add_argument('-l', dest='long_ls', action='store_true',
+                            help='Run ls -l on the files')
+        parser.add_argument('condition', nargs='*', help='An optional '
+                            'condition on similarity (i.e. "> 0.8"). '
+                            'By default: ">0.85"')
         # play command
         parser = sps.add_parser('play',
                                 description='Play the specified songs')
@@ -804,6 +832,9 @@ update
         elif options.command == 'list' or options.command == 'ls':
             for path in options.paths:
                 self.list(path, long_ls=options.long_ls)
+        elif options.command == 'list-similars':
+            self.listSimilars(condition=options.condition,
+                              long_ls=options.long_ls)
         elif options.command == 'play':
             self.play(options.paths)
         elif options.command == 'import':
