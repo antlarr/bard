@@ -8,6 +8,9 @@ import chromaprint
 import sys
 import os
 import re
+import ctypes
+import numpy
+from gmpy import popcount
 import mutagen
 import argparse
 import subprocess
@@ -32,27 +35,74 @@ def compareBits(x, y):
     return same_bits
 
 
-def compareChromaprintFingerprints(a, b, threshold=0.9, cancelThreshold=0.55):
+def compareChromaprintFingerprints(a, b, threshold=0.9, cancelThreshold=0.55, offset=None):
     equal_bits = 0
-    total_bits = 32.0 * min(len(a[0]), len(b[0]))
+    total_idx = min(len(a[0]), len(b[0]))
+    total_bits = 32.0 * total_idx
     remaining = total_bits
-    if cancelThreshold > threshold:
-        cancelThreshold = threshold
     thresholdBits = int(total_bits * cancelThreshold)
-    for x, y in zip(a[0], b[0]):
-        # equal_bits += 32 - bin(x ^ y).count('1')
-        equal_bits += 32 - bitsoncount(x ^ y)
+    for i, (x, y) in enumerate(zip(a[0], b[0])):
+        #print('old', offset, i, x, y)
+        equal_bits += 32 - popcount(x.value ^ y.value)
+        #print(equal_bits)
         remaining -= 32
-        if remaining and equal_bits + remaining < thresholdBits:
-            return None
-        # if equal_bits / total_bits < threshold:
-        #    return equal_bits / total_bits
-#    print(equal_bits, total_bits, equal_bits / total_bits, threshold)
+        if equal_bits + remaining < thresholdBits:
+            return -1
     return equal_bits / total_bits
-#    return equal_bits / total_bits >= threshold
 
 
-def compareChromaprintFingerprintsAndOffset(a, b, maxoffset=60, debug=False):
+def compareChromaprintFingerprintsAndOffset(a, b, maxoffset=50, debug=False):
+    if not a[0] or not b[0]:
+        return (None, None)
+
+    cancelThreshold = 0.55
+    equal_bits = [0] * (2 * maxoffset)
+    result = equal_bits[:]
+    total_idx = ([min(len(a[0]) - maxoffset + idx,
+                      len(b[0]) - maxoffset) for idx in range(maxoffset)] +
+                 list(reversed([min(len(a[0]) - maxoffset,
+                                    len(b[0]) - maxoffset + idx)
+                                for idx in range(1, maxoffset)])))
+    total_bits = [32.0 * x for x in total_idx]
+    remaining = total_bits[:]
+    thresholdBits = [int(x * cancelThreshold) for x in total_bits]
+    for offset in range(0, maxoffset):
+        remaining = total_bits[offset]
+        for i in range(total_idx[offset]):
+#            x = a[0][i - offset]
+#            y = b[0][i]
+            equal_bits[offset] += 32 - popcount(a[0][i-offset].value ^ b[0][i].value)
+            remaining -= 32
+            if equal_bits[offset] + remaining < thresholdBits[offset]:
+                result[offset] = -1
+                break
+        else:
+            result[offset] = equal_bits[offset] / total_bits[offset]
+#        print('new',offset, result[offset])
+
+    for offset in reversed(range(-maxoffset + 1, 0)):
+        remaining = total_bits[offset]
+        for i in range(total_idx[offset]):
+#            x = a[0][i]
+#            y = b[0][i + offset]
+            # print('new', offset, i, x, y)
+            equal_bits[offset] += 32 - popcount(a[0][i].value ^ b[0][i+offset].value)
+            remaining -= 32
+            if equal_bits[offset] + remaining < thresholdBits[offset]:
+                result[offset] = -1
+                break
+        else:
+            result[offset] = equal_bits[offset] / total_bits[offset]
+#        print('new',offset, result[offset])
+
+    max_idx = numpy.argmax(result)
+    max_val = result[max_idx]
+    if max_idx > maxoffset:
+        max_idx = -(maxoffset * 2 - max_idx)
+    return (max_idx, max_val)
+
+
+def compareChromaprintFingerprintsAndOffset2(a, b, maxoffset=50, debug=False):
     if not a[0] or not b[0]:
         return (None, None)
     tmp = (a[0][:], a[1])
@@ -61,26 +111,24 @@ def compareChromaprintFingerprintsAndOffset(a, b, maxoffset=60, debug=False):
     if debug:
         print(0, result)
     for i in range(1, maxoffset):
-        tmp[0].insert(0, 0)
+        tmp[0].insert(0, ctypes.c_uint32(0))
         r = compareChromaprintFingerprints(tmp, b)
         if debug:
             print(i, r)
-        if not r:
-            continue
-        if not result or r > result:
+        if r > result:
             result = r
             result_offset = i
     tmp = (b[0][:], b[1])
     for i in range(1, maxoffset):
-        tmp[0].insert(0, 0)
+        tmp[0].insert(0, ctypes.c_uint32(0))
         r = compareChromaprintFingerprints(a, tmp)
         if debug:
             print(-i, r)
-        if not r:
-            continue
-        if not result or r > result:
+        if r > result:
             result = r
             result_offset = -i
+    if result < 0:
+        result = None
     return (result_offset, result)
 
 
@@ -255,7 +303,7 @@ class Bard:
             songs = self.getSongs(path=path)
         for song in songs:
             if long_ls:
-                command = ['ls','-l', song.path()]
+                command = ['ls', '-l', song.path()]
                 subprocess.run(command)
             else:
                 print("%s" % song.path())
@@ -449,6 +497,7 @@ class Bard:
         decodedFPs = {}
         matchThreshold = 0.8
         storeThreshold = 0.55
+        maxoffset = 50
         sql = ('SELECT id, fingerprint, sha256sum, audio_sha256sum, path, '
                'completeness FROM fingerprints, songs, checksums, '
                'properties where songs.id=fingerprints.song_id and '
@@ -456,8 +505,10 @@ class Bard:
                'songs.id = properties.song_id order by id')
         for (songID, fingerprint, sha256sum, audioSha256sum, path,
                 completeness) in c.execute(sql):
-            # print('.',  end='', flush=True)
+            # print('.', songID,  end='', flush=True)
             dfp = chromaprint.decode_fingerprint(fingerprint)
+#            dfp = ([ctypes.c_uint32(x) for x in dfp[0]], dfp[1])
+            dfp = ([ctypes.c_uint32(x) for x in dfp[0]] + [ctypes.c_uint32(0)] * maxoffset, dfp[1])
             if not dfp[0]:
                 print("Error calculating fingerprint of song %s (%s)" %
                       (songID, path))
@@ -467,6 +518,8 @@ class Bard:
                 decodedFPs[fingerprint] = dfp
                 info[songID] = (sha256sum, audioSha256sum, path, completeness)
                 continue
+            if songID > from_song_id:
+                return
 
             for fp, otherSongID in fingerprints.items():
                 offset, similarity = \
@@ -527,19 +580,39 @@ class Bard:
     def compareSongs(self, song1, song2):
         matchThreshold = 0.8
         storeThreshold = 0.55
+        maxoffset = 50
         dfp1 = chromaprint.decode_fingerprint(song1.getAcoustidFingerprint())
+        dfp1 = ([ctypes.c_uint32(x) for x in dfp1[0]] + [ctypes.c_uint32(0)] * maxoffset,
+                dfp1[1])
         dfp2 = chromaprint.decode_fingerprint(song2.getAcoustidFingerprint())
+        dfp2 = ([ctypes.c_uint32(x) for x in dfp2[0]] + [ctypes.c_uint32(0)] * maxoffset,
+                dfp2[1])
         (offset, similarity) = compareChromaprintFingerprintsAndOffset(dfp1,
                                                                        dfp2,
-                                                                       120,
+                                                                       maxoffset,
                                                                        True)
         if similarity and similarity >= storeThreshold \
                 and song1.id and song2.id:
             print('******** %d %d %d %f' % (song1.id, song2.id,
                                             offset, similarity))
-            MusicDatabase.addSongsSimilarity(song1.id, song2.id,
-                                             offset, similarity)
-            MusicDatabase.commit()
+            # MusicDatabase.addSongsSimilarity(song1.id, song2.id,
+            #                                  offset, similarity)
+            # MusicDatabase.commit()
+
+        dfp1 = chromaprint.decode_fingerprint(song1.getAcoustidFingerprint())
+        dfp1 = ([ctypes.c_uint32(x) for x in dfp1[0]], dfp1[1])
+        dfp2 = chromaprint.decode_fingerprint(song2.getAcoustidFingerprint())
+        dfp2 = ([ctypes.c_uint32(x) for x in dfp2[0]], dfp2[1])
+        (offset, similarity) = compareChromaprintFingerprintsAndOffset2(dfp1,
+                                                                        dfp2,
+                                                                        maxoffset,
+                                                                        True)
+
+        if similarity and similarity >= storeThreshold \
+                and song1.id and song2.id:
+            print('******** %d %d %d %f' % (song1.id, song2.id,
+                                            offset, similarity))
+        return
 
         if similarity and similarity >= matchThreshold:
             if song1.fileSha256sum() == song2.fileSha256sum():
