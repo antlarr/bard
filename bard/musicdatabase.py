@@ -81,31 +81,31 @@ CREATE TABLE tags(
                  )''')
         c.execute('''
 CREATE TABLE covers(
-                    path TEXT,
-                    cover TEXT
-                   )''')
+                  path TEXT,
+                  cover TEXT
+                  )''')
         c.execute('''
 CREATE TABLE checksums(
-                    song_id INTEGER,
-                    sha256sum TEXT,
-                    FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
-                      )''')
+                  song_id INTEGER,
+                  sha256sum TEXT,
+                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
+                  )''')
         c.execute('''
 CREATE TABLE fingerprints(
-                    song_id INTEGER,
-                    fingerprint TEXT,
-                    FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
-                    )''')
+                  song_id INTEGER,
+                  fingerprint TEXT,
+                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
+                  )''')
         c.execute('''
 CREATE TABLE similarities(
-                    song_id1 INTEGER,
-                    song_id2 INTEGER,
-                    offset INTEGER,
-                    similarity REAL,
-                    UNIQUE(song_id1, song_id2),
-                    FOREIGN KEY(song_id1) REFERENCES songs(id) ON DELETE CASCADE,
-                    FOREIGN KEY(song_id2) REFERENCES songs(id) ON DELETE CASCADE
-                    )''')
+                  song_id1 INTEGER,
+                  song_id2 INTEGER,
+                  offset INTEGER,
+                  similarity REAL,
+                  UNIQUE(song_id1, song_id2),
+                  FOREIGN KEY(song_id1) REFERENCES songs(id) ON DELETE CASCADE,
+                  FOREIGN KEY(song_id2) REFERENCES songs(id) ON DELETE CASCADE
+                  )''')
 
     @staticmethod
     def addSong(song):
