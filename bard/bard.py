@@ -292,7 +292,7 @@ class Bard:
                 print('cover:  %dx%d' %
                       (song.coverWidth(), song.coverHeight()))
 
-    def list(self, path, long_ls=False):
+    def list(self, path, long_ls=False, show_id=False):
         try:
             songID = int(path)
         except ValueError:
@@ -302,6 +302,8 @@ class Bard:
         else:
             songs = self.getSongs(path=path)
         for song in songs:
+            if show_id:
+                print('%d) ' % song.id, end='', flush=True)
             if long_ls:
                 command = ['ls', '-l', song.path()]
                 subprocess.run(command)
@@ -770,7 +772,7 @@ import [file_or_directory [file_or_directory ...]]
                     musicPaths entries in the configuration file are used
 info <file | song id>
                     shows information about a song from the database
-list|ls [-l] <file | song id> [file | song_id ...]
+list|ls [-l] [-i|--id] <file | song id> [file | song_id ...]
                     lists paths to a song from the database
 list-similars [-l] [condition]
                     lists files marked as similar in the database
@@ -843,12 +845,18 @@ update
         parser = sps.add_parser('list',
                                 description='Lists paths to songs '
                                             'from the database')
+        parser.add_argument('-l', dest='long_ls', action='store_true',
+                            help='Actually run ls -l')
+        parser.add_argument('-i', '--id', dest='show_id', action='store_true',
+                            help='Show the id of each song listed')
         parser.add_argument('paths', nargs='+')
         parser = sps.add_parser('ls',
                                 description='Lists paths to songs '
                                             'from the database')
         parser.add_argument('-l', dest='long_ls', action='store_true',
                             help='Actually run ls -l')
+        parser.add_argument('-i', '--id', dest='show_id', action='store_true',
+                            help='Show the id of each song listed')
         parser.add_argument('paths', nargs='+')
         # list-similars command
         parser = sps.add_parser('list-similars',
@@ -897,7 +905,8 @@ update
             self.info(options.path[0])
         elif options.command == 'list' or options.command == 'ls':
             for path in options.paths:
-                self.list(path, long_ls=options.long_ls)
+                self.list(path, long_ls=options.long_ls,
+                          show_id=options.show_id)
         elif options.command == 'list-similars':
             self.listSimilars(condition=options.condition,
                               long_ls=options.long_ls)
