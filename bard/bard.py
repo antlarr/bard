@@ -673,61 +673,54 @@ class Bard:
 
         return self.getSongs(path=id_or_path)
 
-    def compareSongs(self, song1, song2):
+    def compareSongs(self, song1, song2, verbose=False,
+                     showAudioOffsets=False):
         matchThreshold = 0.8
         storeThreshold = 0.55
-        maxoffset = 50
-        dfp1 = chromaprint.decode_fingerprint(song1.getAcoustidFingerprint())
-        dfp1 = ([ctypes.c_uint32(x) for x in dfp1[0]] + [ctypes.c_uint32(0)] * maxoffset,
-                dfp1[1])
-        dfp2 = chromaprint.decode_fingerprint(song2.getAcoustidFingerprint())
-        dfp2 = ([ctypes.c_uint32(x) for x in dfp2[0]] + [ctypes.c_uint32(0)] * maxoffset,
-                dfp2[1])
-        (offset, similarity) = compareChromaprintFingerprintsAndOffset(dfp1,
-                                                                       dfp2,
-                                                                       maxoffset,
-                                                                       True)
-        if similarity and similarity >= storeThreshold \
-                and song1.id and song2.id:
-            print('******** %d %d %d %f' % (song1.id, song2.id,
-                                            offset, similarity))
-            # MusicDatabase.addSongsSimilarity(song1.id, song2.id,
-            #                                  offset, similarity)
-            # MusicDatabase.commit()
+        from bard.bard_ext import FingerprintManager
+        fpm = FingerprintManager()
+        fpm.setMaxOffset(100)
 
         dfp1 = chromaprint.decode_fingerprint(song1.getAcoustidFingerprint())
-        dfp1 = ([ctypes.c_uint32(x) for x in dfp1[0]], dfp1[1])
+        fpm.addSong(song1.id, dfp1[0])
         dfp2 = chromaprint.decode_fingerprint(song2.getAcoustidFingerprint())
-        dfp2 = ([ctypes.c_uint32(x) for x in dfp2[0]], dfp2[1])
-        (offset, similarity) = compareChromaprintFingerprintsAndOffset2(dfp1,
-                                                                        dfp2,
-                                                                        maxoffset,
-                                                                        True)
+        fpm.addSong(song2.id, dfp2[0])
+
+        values = fpm.compareSongsVerbose(song1.id, song2.id)
+        if showAudioOffsets:
+            for offset, similarity in values:
+                if similarity > 0.59:
+                    print(offset, similarity)
+
+        (offset, similarity) = max(values, key=lambda x: x[1])
 
         if similarity and similarity >= storeThreshold \
                 and song1.id and song2.id:
             print('******** %d %d %d %f' % (song1.id, song2.id,
                                             offset, similarity))
-        return
 
         if similarity and similarity >= matchThreshold:
             if song1.fileSha256sum() == song2.fileSha256sum():
                 msg = ('Exactly the same files (sha256 = %s)' %
                        song1.fileSha256sum())
-                print('Duplicate songs : %s\n'
-                      '%s\n and %s' % (msg, song1.path(), song2.path()))
+                print('Duplicate songs :', msg)
             elif song1.audioSha256sum() == song2.audioSha256sum():
-                msg = ('Same audio track with different tags '
-                       '(completeness: %d <-> %d)' % (song1.completeness,
-                                                      song2.completeness))
-                print('Duplicate songs : %s\n'
-                      '%s\n and %s' % (msg, song1.path(), song2.path()))
+                msg = 'Exactly same audio track with different tags'
+                print('Duplicate songs :', msg)
             else:
-                msg = 'Similarity %f' % similarity
-                print('Similar songs found: %s\n'
-                      '%s\n and %s' % (msg, song1.path(), song2.path()))
+                msg = 'Similarity %f, offset %d' % (similarity, offset)
+                print('Similar songs found: %s' % msg)
         else:
-            print('''Songs not similar (similarity: %f)''' % similarity)
+            print('''Songs not similar (similarity: %f, offset: %d)''' %
+                  (similarity, offset))
+
+        song1.calculateCompleteness()
+        song2.calculateCompleteness()
+        print('Completeness: %d <-> %d)' % (song1.completeness,
+                                            song2.completeness))
+
+        print(TerminalColors.FAIL + song1.path() + TerminalColors.ENDC)
+        print(TerminalColors.OKGREEN + song2.path() + TerminalColors.ENDC)
 
         song1.loadMetadataInfo()
         song2.loadMetadataInfo()

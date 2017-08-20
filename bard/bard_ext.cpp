@@ -57,8 +57,11 @@ public:
 
     void addSong(long songID, boost::python::list &fingerprint);
     boost::python::list addSongAndCompare(long songID, boost::python::list &fingerprint, double cancelThreshold=0.55);
-    long compareSongs(long songID1, long songID2, int maxoffset=50, double cancelThreshold=0.55);
+    std::pair<int, double> compareSongs(long songID1, long songID2, double cancelThreshold=0.55);
+    boost::python::list compareSongsVerbose(long songID1, long songID2);
+
     std::pair<int, double> compareChromaprintFingerprintsAndOffset(std::vector<int> fp1, std::vector<int> fp2, double cancelThreshold) const;
+    boost::python::list compareChromaprintFingerprintsAndOffsetVerbose(std::vector<int> fp1, std::vector<int> fp2) const;
 
 private:
     int m_maxoffset;
@@ -122,7 +125,6 @@ std::pair<int, double> FingerprintManager::compareChromaprintFingerprintsAndOffs
     int remaining;
     int threshold_bits;
     int equal_bits, total_bits;
-    int i;
     double best_result = -1;
     int best_offset = -1;
     bool ok;
@@ -201,9 +203,47 @@ std::pair<int, double> FingerprintManager::compareChromaprintFingerprintsAndOffs
     return std::make_pair(best_offset, best_result);
 }
 
-long FingerprintManager::compareSongs(long songID1, long songID2, int maxoffset, double cancelThreshold)
+boost::python::list FingerprintManager::compareChromaprintFingerprintsAndOffsetVerbose(std::vector<int> fp1, std::vector<int> fp2) const
 {
-    return m_fingerprints[songID1][0];
+    std::vector<int>::const_iterator it1, it2;
+    boost::python::list result;
+    int offset;
+    int equal_bits, total_bits;
+    for (offset=0; offset < m_maxoffset; ++offset)
+    {
+        it1 = fp1.cbegin() + (m_maxoffset - offset);
+        it2 = fp2.cbegin() + m_maxoffset;
+        total_bits = std::min(fp1.size()-m_maxoffset+offset, fp2.size()-m_maxoffset) * 32;
+        equal_bits = 0;
+        for (; it1!=fp1.end() && it2!=fp2.end() ; ++it1, ++it2)
+        {
+            equal_bits += 32 - __builtin_popcount(*it1 ^ *it2);
+        }
+        result.append(boost::python::make_tuple(offset, equal_bits/(double)total_bits));
+    }
+    for (offset=1; offset < m_maxoffset; ++offset)
+    {
+        it1 = fp1.cbegin() + m_maxoffset;
+        it2 = fp2.cbegin() + (m_maxoffset - offset);
+        total_bits = std::min(fp1.size()-m_maxoffset, fp2.size()-m_maxoffset+offset) * 32;
+        equal_bits = 0;
+        for (; it1!=fp1.end() && it2!=fp2.end() ; ++it1, ++it2)
+        {
+            equal_bits += 32 - __builtin_popcount(*it1 ^ *it2);
+        }
+        result.append(boost::python::make_tuple(-offset, equal_bits/(double)total_bits));
+    }
+    return result;
+}
+
+std::pair<int, double> FingerprintManager::compareSongs(long songID1, long songID2, double cancelThreshold)
+{
+    return compareChromaprintFingerprintsAndOffset(m_fingerprints[songID1], m_fingerprints[songID2], cancelThreshold);
+}
+
+boost::python::list FingerprintManager::compareSongsVerbose(long songID1, long songID2)
+{
+    return compareChromaprintFingerprintsAndOffsetVerbose(m_fingerprints[songID1], m_fingerprints[songID2]);
 }
 
 BOOST_PYTHON_MODULE(bard_ext)
@@ -215,6 +255,7 @@ BOOST_PYTHON_MODULE(bard_ext)
         .def("addSong", &FingerprintManager::addSong)
         .def("addSongAndCompare", &FingerprintManager::addSongAndCompare)
         .def("compareSongs", &FingerprintManager::compareSongs)
+        .def("compareSongsVerbose", &FingerprintManager::compareSongsVerbose)
         .def("setMaxOffset", &FingerprintManager::setMaxOffset)
         .def("maxOffset", &FingerprintManager::maxOffset);
 }
