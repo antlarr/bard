@@ -225,6 +225,14 @@ CREATE TABLE similarities(
         MusicDatabase.commit()
 
     @staticmethod
+    def getSongsCount():
+        c = MusicDatabase.conn.cursor()
+
+        result = c.execute('SELECT COUNT(*) FROM songs')
+        count = result.fetchone()
+        return count[0]
+
+    @staticmethod
     def addCover(pathToSong, pathToCover):
         if config['immutableDatabase']:
             print("Error: Can't add cover to song: "

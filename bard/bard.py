@@ -7,9 +7,11 @@ from bard.terminalcolors import TerminalColors
 import chromaprint
 import sys
 import os
+import datetime
 import re
 import ctypes
 import numpy
+import time
 import random
 from gmpy import popcount
 import mutagen
@@ -17,6 +19,10 @@ import argparse
 import subprocess
 from argparse import ArgumentParser
 from bard.config import config
+
+
+def summation(m, n):
+    return (n + 1 - m) * (n + m) / 2
 
 
 def bitsoncount(i):
@@ -599,6 +605,7 @@ class Bard:
     def findAudioDuplicates2(self, from_song_id=None):
         c = MusicDatabase.conn.cursor()
         info = {}
+        print_stats = True
         matchThreshold = 0.8
         storeThreshold = 0.58
         if not from_song_id:
@@ -606,7 +613,9 @@ class Bard:
         from bard.bard_ext import FingerprintManager
         fpm = FingerprintManager()
         fpm.setMaxOffset(100)
-
+        speeds = []
+        songs_processed = 0
+        totalSongsCount = MusicDatabase.getSongsCount()
         sql = ('SELECT id, fingerprint, sha256sum, audio_sha256sum, path, '
                'completeness FROM fingerprints, songs, checksums, '
                'properties where songs.id=fingerprints.song_id and '
@@ -627,6 +636,7 @@ class Bard:
             else:
                 # if songID > from_song_id:
                 #     return
+                start_time = time.time()
                 result = fpm.addSongAndCompare(songID, dfp[0], storeThreshold)
 
             for (songID2, offset, similarity) in result:
@@ -659,8 +669,23 @@ class Bard:
                         #       'and %s' % (msg, otherPath, path))
             if result:
                 MusicDatabase.commit()
+                if print_stats:
+                    delta_time = time.time() - start_time
+                    speeds = (speeds[{True: 1, False: 0}[len(speeds) >= 20]:] +
+                              [len(info) / delta_time])
+                    avg = numpy.mean(speeds)
+
+                    s = summation(songs_processed, totalSongsCount) / avg
+                    d = datetime.timedelta(seconds=s)
+
+                    print('Stats: %0.3f seconds in evaluating %d/%d songs '
+                          '%0.3f songs/s (avg: %0.3f, songs left: %d, '
+                          'estimated time left: %s)' %
+                          (delta_time, len(info), totalSongsCount, speeds[-1],
+                           avg, totalSongsCount - len(info), d))
 
             info[songID] = (sha256sum, audioSha256sum, path, completeness)
+            songs_processed += 1
 
     def getSongsFromIDorPath(self, id_or_path):
         try:
