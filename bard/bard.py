@@ -600,7 +600,7 @@ class Bard:
         c = MusicDatabase.conn.cursor()
         info = {}
         matchThreshold = 0.8
-        storeThreshold = 0.56
+        storeThreshold = 0.58
         if not from_song_id:
             from_song_id = 0
         from bard.bard_ext import FingerprintManager
