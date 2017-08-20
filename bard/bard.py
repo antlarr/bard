@@ -35,16 +35,17 @@ def compareBits(x, y):
     return same_bits
 
 
-def compareChromaprintFingerprints(a, b, threshold=0.9, cancelThreshold=0.55, offset=None):
+def compareChromaprintFingerprints(a, b, threshold=0.9, cancelThreshold=0.55,
+                                   offset=None):
     equal_bits = 0
     total_idx = min(len(a[0]), len(b[0]))
     total_bits = 32.0 * total_idx
     remaining = total_bits
     thresholdBits = int(total_bits * cancelThreshold)
     for i, (x, y) in enumerate(zip(a[0], b[0])):
-        #print('old', offset, i, x, y)
+        # print('old', offset, i, x, y)
         equal_bits += 32 - popcount(x.value ^ y.value)
-        #print(equal_bits)
+        # print(equal_bits)
         remaining -= 32
         if equal_bits + remaining < thresholdBits:
             return -1
@@ -69,9 +70,10 @@ def compareChromaprintFingerprintsAndOffset(a, b, maxoffset=50, debug=False):
     for offset in range(0, maxoffset):
         remaining = total_bits[offset]
         for i in range(total_idx[offset]):
-#            x = a[0][i - offset]
-#            y = b[0][i]
-            equal_bits[offset] += 32 - popcount(a[0][i-offset].value ^ b[0][i].value)
+            # x = a[0][i - offset]
+            # y = b[0][i]
+            equal_bits[offset] += 32 - popcount(a[0][i - offset].value ^
+                                                b[0][i].value)
             remaining -= 32
             if equal_bits[offset] + remaining < thresholdBits[offset]:
                 result[offset] = -1
@@ -83,10 +85,11 @@ def compareChromaprintFingerprintsAndOffset(a, b, maxoffset=50, debug=False):
     for offset in reversed(range(-maxoffset + 1, 0)):
         remaining = total_bits[offset]
         for i in range(total_idx[offset]):
-#            x = a[0][i]
-#            y = b[0][i + offset]
+            # x = a[0][i]
+            # y = b[0][i + offset]
             # print('new', offset, i, x, y)
-            equal_bits[offset] += 32 - popcount(a[0][i].value ^ b[0][i+offset].value)
+            equal_bits[offset] += 32 - popcount(a[0][i].value ^
+                                                b[0][i + offset].value)
             remaining -= 32
             if equal_bits[offset] + remaining < thresholdBits[offset]:
                 result[offset] = -1
@@ -526,7 +529,8 @@ class Bard:
             # print('.', songID,  end='', flush=True)
             dfp = chromaprint.decode_fingerprint(fingerprint)
 #            dfp = ([ctypes.c_uint32(x) for x in dfp[0]], dfp[1])
-            dfp = ([ctypes.c_uint32(x) for x in dfp[0]] + [ctypes.c_uint32(0)] * maxoffset, dfp[1])
+            dfp = ([ctypes.c_uint32(x) for x in dfp[0]] +
+                   [ctypes.c_uint32(0)] * maxoffset, dfp[1])
             if not dfp[0]:
                 print("Error calculating fingerprint of song %s (%s)" %
                       (songID, path))
@@ -613,8 +617,8 @@ class Bard:
                 fpm.addSong(songID, dfp[0])
                 result = []
             else:
-#                if songID > from_song_id:
-#                    return
+                # if songID > from_song_id:
+                #     return
                 result = fpm.addSongAndCompare(songID, dfp[0], storeThreshold)
 
             for (songID2, offset, similarity) in result:
