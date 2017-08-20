@@ -10,6 +10,7 @@ import os
 import re
 import ctypes
 import numpy
+import random
 from gmpy import popcount
 import mutagen
 import argparse
@@ -329,10 +330,17 @@ class Bard:
                 else:
                     print("%s" % song.path())
 
-    def play(self, ids_or_paths):
+    def play(self, ids_or_paths, shuffle):
         paths = []
         for id_or_path in ids_or_paths:
             songs = self.getSongsFromIDorPath(id_or_path)
+            for song in songs:
+                paths.append(song.path())
+
+        if shuffle and paths:
+            random.shuffle(paths)
+        elif shuffle:
+            songs = self.getMusic('order by random() limit 30')
             for song in songs:
                 paths.append(song.path())
 
@@ -781,7 +789,7 @@ list|ls [-l] [-i|--id] <file | song id> [file | song_id ...]
 list-similars [-l] [condition]
                     lists files marked as similar in the database
                     (with find-audio-duplicates)
-play <file | song id> [file | song_id ...]
+play --shuffle <file | song id> [file | song_id ...]
                     play the specified songs using mpv
 fix-tags <file_or_directory [file_or_directory ...]>
                     apply several normalization algorithms to fix tags of
@@ -874,7 +882,9 @@ update
         # play command
         parser = sps.add_parser('play',
                                 description='Play the specified songs')
-        parser.add_argument('paths', nargs='+')
+        parser.add_argument('--shuffle', dest='shuffle', action='store_true',
+                            help='Shuffle the songs before playing')
+        parser.add_argument('paths', nargs='*')
         # fix-tags command
         parser = sps.add_parser('fix-tags',
                                 description='Apply several normalization '
@@ -915,7 +925,7 @@ update
             self.listSimilars(condition=options.condition,
                               long_ls=options.long_ls)
         elif options.command == 'play':
-            self.play(options.paths)
+            self.play(options.paths, options.shuffle)
         elif options.command == 'import':
             paths = options.paths
             if not paths:
