@@ -22,6 +22,8 @@ from bard.config import config
 
 
 def summation(m, n):
+    if m >= n:
+        return 0
     return (n + 1 - m) * (n + m) / 2
 
 
@@ -629,6 +631,7 @@ class Bard:
             if not dfp[0]:
                 print("Error calculating fingerprint of song %s (%s)" %
                       (songID, path))
+                songs_processed += 1
                 continue
             if songID < from_song_id:
                 fpm.addSong(songID, dfp[0])
@@ -667,6 +670,8 @@ class Bard:
                         msg = 'Similarity %f' % similarity
                         # print('Duplicate songs found: %s\n     %s\n'
                         #       'and %s' % (msg, otherPath, path))
+            songs_processed += 1
+            info[songID] = (sha256sum, audioSha256sum, path, completeness)
             if result:
                 MusicDatabase.commit()
                 if print_stats:
@@ -675,17 +680,15 @@ class Bard:
                               [len(info) / delta_time])
                     avg = numpy.mean(speeds)
 
-                    s = summation(songs_processed, totalSongsCount) / avg
+                    s = summation(songs_processed, totalSongsCount - 1) / avg
                     d = datetime.timedelta(seconds=s)
+                    now = datetime.datetime.now()
 
                     print('Stats: %0.3f seconds in evaluating %d/%d songs '
                           '%0.3f songs/s (avg: %0.3f, songs left: %d, '
-                          'estimated time left: %s)' %
+                          'estimated end at: %s)' %
                           (delta_time, len(info), totalSongsCount, speeds[-1],
-                           avg, totalSongsCount - len(info), d))
-
-            info[songID] = (sha256sum, audioSha256sum, path, completeness)
-            songs_processed += 1
+                           avg, totalSongsCount - songs_processed, now + d))
 
     def getSongsFromIDorPath(self, id_or_path):
         try:
