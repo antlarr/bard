@@ -305,6 +305,20 @@ CREATE TABLE similarities(
         return row['format'], info, row['audio_sha256sum']
 
     @staticmethod
+    def getSimilarSongsToSongID(songID, similarityThreshold=0.85):
+        c = MusicDatabase.conn.cursor()
+        result = c.execute('''select song_id1, offset, similarity from similarities
+                                         where song_id2=? and similarity>=?
+                              union
+                              select song_id2, offset, similarity from similarities
+                                         where song_id1=? and similarity>=?''',
+                           (songID, similarityThreshold,
+                            songID, similarityThreshold))
+        similarSongs = [(x[0], x[1], x[2]) for x in result.fetchall()]
+
+        return similarSongs
+
+    @staticmethod
     def commit():
         if config['immutableDatabase']:
             MusicDatabase.conn.rollback()
@@ -341,6 +355,10 @@ CREATE TABLE similarities(
             songid1, songid2 = songid2, songid1
         elif songid1 == songid2 and (similarity != 1.0 or offset != 0):
             print("Error: A song should be exactly similar to itself")
+            print(songid1, songid2, similarity, offset)
+            return
+        elif songid1 == songid2:
+            print("Error: A song shouldn't be compared with itself")
             print(songid1, songid2, similarity, offset)
             return
         c = MusicDatabase.conn.cursor()

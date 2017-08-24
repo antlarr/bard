@@ -296,13 +296,19 @@ class Bard:
             print("audio track sha256sum: ", song.audioSha256sum())
 
             print('duration:', song.duration())
-            print('bitrate :', song.bitrate())
-            print('bits_per_sample:', song.bits_per_sample())
-            print('sample_rate    :', song.sample_rate())
-            print('channels:', song.channels())
+            printProperties(song)
             if song.coverWidth():
                 print('cover:  %dx%d' %
                       (song.coverWidth(), song.coverHeight()))
+
+            similar_pairs = MusicDatabase.getSimilarSongsToSongID(songID)
+            if similar_pairs:
+                print('Similar songs:')
+
+            for otherID, offset, similarity in similar_pairs:
+                otherSong = self.getSongs(songID=otherID)[0]
+                print(otherID, otherSong.path(), '(%d %f)' % (offset,
+                                                              similarity))
 
     def list(self, path, long_ls=False, show_id=False):
         try:
@@ -329,7 +335,7 @@ class Bard:
         for songID1, songID2, offset, similarity in similar_pairs:
             song1 = self.getSongs(songID=songID1)[0]
             song2 = self.getSongs(songID=songID2)[0]
-            print('------  (%d ~=~ %d) offset: %d   similarity %f' %
+            print('------  (%d %d) offset: %d   similarity %f' %
                   (songID1, songID2, offset, similarity))
             for song in (song1, song2):
                 if long_ls:

@@ -148,6 +148,27 @@ def printDictsDiff(dict1, dict2, forcePrint=False):
     return True
 
 
+def printProperties(song):
+    properties = [('', '_format'),
+                  (' bits/s', 'bitrate'),
+                  (' bits/sample', 'bits_per_sample'),
+                  (' channels', 'channels'),
+                  (' Hz', 'sample_rate')]
+    values = []
+    for suffix, prop in properties:
+        try:
+            val = getattr(song.metadata.info, prop)
+        except AttributeError:
+            val = getattr(song, prop)
+        if not val:
+            values.append('-' + suffix)
+        else:
+            values.append(TerminalColors.WARNING + str(val) +
+                          TerminalColors.ENDC + suffix)
+
+    print('Properties: ' + ', '.join(values))
+
+
 def fixTags(mutagenFile):
     # Save original values
     originalValues = {}
