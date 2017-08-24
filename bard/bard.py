@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 from bard.utils import fixTags, calculateFileSHA256, \
-    calculateAudioTrackSHA256, printDictsDiff
-from bard.song import Song
+    calculateAudioTrackSHA256, printDictsDiff, printPropertiesDiff, \
+    printProperties
+from bard.song import Song, DifferentLengthException
 from bard.musicdatabase import MusicDatabase
 from bard.terminalcolors import TerminalColors
 import chromaprint
@@ -708,7 +709,22 @@ class Bard:
         return self.getSongs(path=id_or_path)
 
     def compareSongs(self, song1, song2, verbose=False,
-                     showAudioOffsets=False):
+                     showAudioOffsets=False, storeInDB=False):
+        try:
+            id1 = song1.id
+        except AttributeError:
+            id1 = -1
+            storeInDB = False
+        try:
+            id2 = song2.id
+        except AttributeError:
+            id2 = -2
+            storeInDB = False
+
+        print('Comparing ' +
+              TerminalColors.FAIL + str(id1) + TerminalColors.ENDC +
+              ' and ' +
+              TerminalColors.OKGREEN + str(id2) + TerminalColors.ENDC)
         matchThreshold = 0.8
         storeThreshold = 0.55
         from bard.bard_ext import FingerprintManager
@@ -716,11 +732,11 @@ class Bard:
         fpm.setMaxOffset(100)
 
         dfp1 = chromaprint.decode_fingerprint(song1.getAcoustidFingerprint())
-        fpm.addSong(song1.id, dfp1[0])
+        fpm.addSong(id1, dfp1[0])
         dfp2 = chromaprint.decode_fingerprint(song2.getAcoustidFingerprint())
-        fpm.addSong(song2.id, dfp2[0])
+        fpm.addSong(id2, dfp2[0])
 
-        values = fpm.compareSongsVerbose(song1.id, song2.id)
+        values = fpm.compareSongsVerbose(id1, id2)
         if showAudioOffsets:
             for offset, similarity in values:
                 if similarity > 0.59:
@@ -728,22 +744,26 @@ class Bard:
 
         (offset, similarity) = max(values, key=lambda x: x[1])
 
-        if similarity and similarity >= storeThreshold \
+        if storeInDB and similarity and similarity >= storeThreshold \
                 and song1.id and song2.id:
-            print('******** %d %d %d %f' % (song1.id, song2.id,
-                                            offset, similarity))
+            MusicDatabase.addSongsSimilarity(song1.id, song2.id,
+                                             offset, similarity)
+            MusicDatabase.commit()
 
-        if similarity and similarity >= matchThreshold:
-            if song1.fileSha256sum() == song2.fileSha256sum():
-                msg = ('Exactly the same files (sha256 = %s)' %
-                       song1.fileSha256sum())
-                print('Duplicate songs :', msg)
-            elif song1.audioSha256sum() == song2.audioSha256sum():
-                msg = 'Exactly same audio track with different tags'
-                print('Duplicate songs :', msg)
-            else:
-                msg = 'Similarity %f, offset %d' % (similarity, offset)
-                print('Similar songs found: %s' % msg)
+        sameSong = False
+        if song1.fileSha256sum() == song2.fileSha256sum():
+            msg = ('Exactly the same files (sha256 = %s)' %
+                   song1.fileSha256sum())
+            print('Duplicate songs :', msg)
+            sameSong = True
+        elif song1.audioSha256sum() == song2.audioSha256sum():
+            msg = 'Exactly same audio track with different tags'
+            print('Duplicate songs :', msg)
+            sameSong = True
+        elif similarity and similarity >= matchThreshold:
+            msg = 'Similarity %f, offset %d' % (similarity, offset)
+            print('Similar songs found: %s' % msg)
+            sameSong = True
         else:
             print('''Songs not similar (similarity: %f, offset: %d)''' %
                   (similarity, offset))
@@ -762,6 +782,22 @@ class Bard:
 
         if song1.metadata == song2.metadata:
             print('Songs have identical metadata!')
+
+        printPropertiesDiff(song1, song2, forcePrint=True)
+
+        try:
+            cmpResult = song1.audioCmp(song2, forceSimilar=sameSong)
+        except DifferentLengthException as e:
+            print(e)
+        else:
+            if cmpResult < 0:
+                print('%d has better audio than %d' % (id1, id2))
+            elif cmpResult > 0:
+                print('%d has better audio than %d' % (id2, id1))
+            elif cmpResult == 0:
+                print('%d and %d have same audio' % (id1, id2))
+    #        except DifferentSongsException as e:
+    #            print(e)
 
     def compareSongIDsOrPaths(self, songid1, songid2):
         songs1 = self.getSongsFromIDorPath(songid1)

@@ -13,6 +13,22 @@ import acoustid
 import mutagen
 
 
+class DifferentLengthException(Exception):
+    pass
+
+
+class SlightlyDifferentLengthException(Exception):
+    pass
+
+
+class DifferentSongsException(Exception):
+    pass
+
+
+class CantCompareSongsException(Exception):
+    pass
+
+
 class Song:
 
     def __init__(self, x, rootDir=None):
@@ -32,6 +48,12 @@ class Song:
         self._root = rootDir or ''
         self._path = os.path.normpath(x)
         self.loadFile(x)
+
+    def hasID(self):
+        try:
+            return self.id is not None
+        except AttributeError:
+            return False
 
     def loadMetadata(self):
         if getattr(self, 'metadata', None) is not None:
@@ -173,6 +195,77 @@ class Song:
         self.loadMetadataInfo()
         return self._format
 
+    def isLossless(self):
+        self.loadMetadataInfo()
+        return self._format in ['flac', 'wv', 'ape', 'mpc']
+
+    def audioCmp(self, other, forceSimilar=False):
+        """Compare the audio of this object with the audio of other.
+
+        Returns -1 if self has better audio than other,
+        1 if other has better audio than self and 0 if they have
+        audio of the same characteristics. Also, it can raise
+        a SongsNotComparableException exception if audio has
+        different length or it's not similar according to
+        chromaprint fingerprints
+        """
+        self.loadMetadataInfo()
+        other.loadMetadataInfo()
+        if self._audioSha256sum == other._audioSha256sum:
+            return 0
+
+        if not forceSimilar and not MusicDatabase.areSongsSimilar(self.id,
+                                                                  other.id):
+            raise DifferentSongsException(
+                'Trying to compare different songs (%d and %d)'
+                % (self.id, other.id))
+
+        len_diff = abs(self.metadata.info.length - other.metadata.info.length)
+        if len_diff > 30:
+            raise DifferentLengthException(
+                'Songs duration is too different (%d and %d seconds)'
+                % (self.metadata.info.length, other.metadata.info.length))
+
+        if len_diff > 3:
+            raise SlightlyDifferentLengthException(
+                'Songs duration is slightly different (%d and %d seconds)'
+                % (self.metadata.info.length, other.metadata.info.length))
+
+        if self.isLossless() and not other.isLossless():
+            return -1
+        if other.isLossless() and not self.isLossless():
+            return 1
+
+        si = self.metadata.info
+        oi = other.metadata.info
+
+        if si.bitrate > oi.bitrate \
+           and ((si.bits_per_sample and oi.bits_per_sample and
+                 si.bits_per_sample >= oi.bits_per_sample) or
+                (not si.bits_per_sample and not oi.bits_per_sample)) \
+           and si.channels >= oi.channels \
+           and si.sample_rate >= oi.sample_rate:
+            return -1
+
+        if oi.bitrate > si.bitrate \
+           and ((si.bits_per_sample and oi.bits_per_sample and
+                 oi.bits_per_sample >= si.bits_per_sample) or
+                (not si.bits_per_sample and not oi.bits_per_sample)) \
+           and oi.channels >= si.channels \
+           and oi.sample_rate >= si.sample_rate:
+            return 1
+
+        if oi.bitrate == si.bitrate \
+           and ((si.bits_per_sample and oi.bits_per_sample and
+                 oi.bits_per_sample == si.bits_per_sample) or
+                (not si.bits_per_sample and not oi.bits_per_sample)) \
+           and oi.channels == si.channels \
+           and oi.sample_rate == si.sample_rate:
+            return 0
+
+        raise CantCompareSongsException(
+            'Not sure how to compare songs %d and %d' % (self.id, other.id))
+
     def __getitem__(self, key):
         if not getattr(self, 'metadata', None):
             self.loadMetadata()
@@ -310,6 +403,9 @@ class Song:
                 self._audioSha256sum = sha[0]
                 return self._audioSha256sum
             return ''
+
+    def hasCover(self):
+        return self.coverWidth() > 0
 
     def coverWidth(self):
         try:

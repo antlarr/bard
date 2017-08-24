@@ -319,6 +319,18 @@ CREATE TABLE similarities(
         return similarSongs
 
     @staticmethod
+    def areSongsSimilar(songID1, songID2, similarityThreshold=0.85):
+        if songID1 > songID2:
+            songID1, songID2 = songID2, songID1
+        c = MusicDatabase.conn.cursor()
+        sql = '''select 1 from similarities where song_id1=?
+                              and song_id2=? and similarity>=?'''
+        result = c.execute('''select 1 from similarities where song_id1=?
+                              and song_id2=? and similarity>=?''',
+                           (songID1, songID2, similarityThreshold))
+        return result.fetchone() is not None
+
+    @staticmethod
     def commit():
         if config['immutableDatabase']:
             MusicDatabase.conn.rollback()

@@ -148,6 +148,42 @@ def printDictsDiff(dict1, dict2, forcePrint=False):
     return True
 
 
+def printPropertiesDiff(song1, song2, forcePrint=False):
+    properties = [('', '_format'),
+                  (' bits/s', 'bitrate'),
+                  (' bits/sample', 'bits_per_sample'),
+                  (' channels', 'channels'),
+                  (' Hz', 'sample_rate')]
+    values1 = []
+    values2 = []
+    for suffix, prop in properties:
+        try:
+            val1 = getattr(song1.metadata.info, prop)
+        except AttributeError:
+            val1 = getattr(song1, prop)
+        try:
+            val2 = getattr(song2.metadata.info, prop)
+        except AttributeError:
+            val2 = getattr(song2, prop)
+        if val1 and val2 and val1 == val2:
+            values1.append(str(val1) + suffix)
+            values2.append(str(val2) + suffix)
+            continue
+        if not val1:
+            values1.append('-' + suffix)
+        else:
+            values1.append(TerminalColors.FAIL + str(val1) +
+                           TerminalColors.ENDC + suffix)
+
+        if not val2:
+            values2.append('-' + suffix)
+        else:
+            values2.append(TerminalColors.OKGREEN + str(val2) +
+                           TerminalColors.ENDC + suffix)
+    print('Properties: ' + ', '.join(values1))
+    print('Properties: ' + ', '.join(values2))
+
+
 def printProperties(song):
     properties = [('', '_format'),
                   (' bits/s', 'bitrate'),
