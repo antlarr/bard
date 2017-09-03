@@ -449,7 +449,7 @@ class Song:
                 self['albumartist'], self['date'], self['genre'],
                 self['tracknumber'], self.coverWidth(),
                 self['musicbrainz_trackid']]
-        value = 100 - sum([10 for x in data if not x])
+        value = 100 - sum(10 for x in data if not x)
 
         if self.coverWidth() and self.coverWidth() < 400:
             value -= 3
