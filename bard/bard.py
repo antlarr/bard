@@ -788,7 +788,9 @@ class Bard:
         printPropertiesDiff(song1, song2, forcePrint=True)
 
         try:
-            cmpResult = song1.audioCmp(song2, forceSimilar=sameSong)
+            cmpResult = song1.audioCmp(song2, forceSimilar=sameSong,
+                                       useColors=(TerminalColors.FAIL,
+                                                  TerminalColors.OKGREEN))
         except DifferentLengthException as e:
             print(e)
         else:

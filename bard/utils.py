@@ -1,4 +1,5 @@
-# import subprocess
+import subprocess
+import time
 import hashlib
 import mutagen
 import mutagen.mp3
@@ -160,10 +161,14 @@ def printPropertiesDiff(song1, song2, forcePrint=False):
             val1 = getattr(song1.metadata.info, prop)
         except AttributeError:
             val1 = getattr(song1, prop)
+        if callable(val1):
+            val1 = val1()
         try:
             val2 = getattr(song2.metadata.info, prop)
         except AttributeError:
             val2 = getattr(song2, prop)
+        if callable(val2):
+            val2 = val2()
         if val1 and val2 and val1 == val2:
             values1.append(str(val1) + suffix)
             values2.append(str(val2) + suffix)
@@ -195,6 +200,8 @@ def printProperties(song):
             val = getattr(song.metadata.info, prop)
         except AttributeError:
             val = getattr(song, prop)
+        if callable(val):
+            val = val()
         if not val:
             values.append('-' + suffix)
         else:
@@ -342,3 +349,84 @@ def calculateAudioTrackSHA256(path, tmpdir='/tmp'):
     #     os.unlink(tmpfilename)
 
     # return None
+
+
+def windowsList():
+    process = subprocess.run(['wmctrl', '-l'], stdout=subprocess.PIPE)
+    lines = [x.split(maxsplit=3) for x in
+             process.stdout.decode('utf-8').split('\n') if x]
+    return [(x[0], x[3]) for x in lines]
+
+
+def waitForWindowToOpen(title):
+    while title not in [x[1] for x in windowsList()]:
+        time.sleep(0.5)
+
+
+def waitForWindowToClose(title):
+    while title in [x[1] for x in windowsList()]:
+        time.sleep(0.5)
+
+
+def analyzeAudio(cmd, path):
+    if cmd not in ['spek', 'audacity']:
+        return None
+
+    command = [cmd, path]
+    process = subprocess.Popen(command, stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL)
+    return process
+
+
+def manualAudioCmp(path1, path2, useColors=None):
+    proc1 = analyzeAudio('spek', path1)
+    proc2 = analyzeAudio('spek', path2)
+    otherAction = ('a', '(A)udacity')
+    omsg = 'Choose the preferred option (%s1%s/%s2%s/0 (equal)'
+    if useColors:
+        omsg = omsg % (useColors[0], TerminalColors.ENDC,
+                       useColors[1], TerminalColors.ENDC)
+    else:
+        omsg = omsg % ('', '', '', '')
+
+    omsg += '/%s/(Q)uit):'
+
+    msg = omsg % otherAction[1]
+
+    while True:
+        option = input(msg).lower()
+        if option == '1':
+            r = -1
+            break
+        elif option == '2':
+            r = 1
+            break
+        elif option == '0':
+            r = 0
+            break
+        elif option == 'q':
+            r = None
+            break
+        elif option == otherAction[0]:
+            proc1.terminate()
+            proc2.terminate()
+            if option == 'a':
+                proc1 = analyzeAudio('audacity', path1)
+                waitForWindowToOpen('.aup')
+                time.sleep(1)
+                waitForWindowToClose('Recuperación automática')
+                subprocess.run(['wmctrl', '-r', '.aup', '-N', 'Song 1'])
+                proc2 = analyzeAudio('audacity', path2)
+                waitForWindowToOpen('.aup')
+                subprocess.run(['wmctrl', '-r', '.aup', '-N', 'Song 2'])
+                otherAction = ('s', '(S)pek')
+            elif option == 's':
+                proc1 = analyzeAudio('spek', path1)
+                proc2 = analyzeAudio('spek', path2)
+                otherAction = ('a', '(A)udacity')
+            msg = omsg % otherAction[1]
+
+    proc1.terminate()
+    proc2.terminate()
+
+    return r

@@ -1,11 +1,13 @@
 from bard.config import config
 from bard.utils import md5, calculateAudioTrackSHA256, extractFrontCover, \
-    md5FromData, calculateFileSHA256
+    md5FromData, calculateFileSHA256, manualAudioCmp
 from bard.musicdatabase import MusicDatabase
 from bard.normalizetags import getTag
 from bard.ffprobemetadata import FFProbeMetadata
+from bard.terminalcolors import TerminalColors
 import sqlite3
 import os
+import shutil
 import random
 import subprocess
 from PIL import Image
@@ -199,7 +201,8 @@ class Song:
         self.loadMetadataInfo()
         return self._format in ['flac', 'wv', 'ape', 'mpc']
 
-    def audioCmp(self, other, forceSimilar=False):
+    def audioCmp(self, other, forceSimilar=False, interactive=True,
+                 useColors=None):
         """Compare the audio of this object with the audio of other.
 
         Returns -1 if self has better audio than other,
@@ -238,33 +241,48 @@ class Song:
 
         si = self.metadata.info
         oi = other.metadata.info
+        try:
+            sbps = si.bits_per_sample
+        except AttributeError:
+            sbps = None
+        try:
+            obps = oi.bits_per_sample
+        except AttributeError:
+            obps = None
 
         if si.bitrate > oi.bitrate \
-           and ((si.bits_per_sample and oi.bits_per_sample and
-                 si.bits_per_sample >= oi.bits_per_sample) or
-                (not si.bits_per_sample and not oi.bits_per_sample)) \
+           and ((sbps and obps and sbps >= obps) or
+                (not sbps and not obps)) \
            and si.channels >= oi.channels \
            and si.sample_rate >= oi.sample_rate:
             return -1
 
         if oi.bitrate > si.bitrate \
-           and ((si.bits_per_sample and oi.bits_per_sample and
-                 oi.bits_per_sample >= si.bits_per_sample) or
-                (not si.bits_per_sample and not oi.bits_per_sample)) \
+           and ((sbps and obps and obps >= sbps) or
+                (not sbps and not obps)) \
            and oi.channels >= si.channels \
            and oi.sample_rate >= si.sample_rate:
             return 1
 
         if oi.bitrate == si.bitrate \
-           and ((si.bits_per_sample and oi.bits_per_sample and
-                 oi.bits_per_sample == si.bits_per_sample) or
-                (not si.bits_per_sample and not oi.bits_per_sample)) \
+           and ((sbps and obps and obps == sbps) or
+                (not sbps and not obps)) \
            and oi.channels == si.channels \
            and oi.sample_rate == si.sample_rate:
             return 0
 
-        raise CantCompareSongsException(
-            'Not sure how to compare songs %d and %d' % (self.id, other.id))
+        if interactive:
+            filename1 = '/tmp/1'
+            filename2 = '/tmp/2'
+            shutil.copyfile(self.path(), filename1)
+            shutil.copyfile(other.path(), filename2)
+            result = manualAudioCmp(filename1, filename2, useColors=useColors)
+            os.unlink(filename1)
+            os.unlink(filename2)
+            if result:
+                return result
+
+        raise CantCompareSongsException('Not sure how to compare songs')
 
     def __getitem__(self, key):
         if not getattr(self, 'metadata', None):
@@ -439,9 +457,12 @@ class Song:
             return ''
 
     def imageSize(self):
-        if not self._coverWidth:
+        try:
+            if not self._coverWidth:
+                return 'nocover'
+            return '%dx%d' % (self._coverWidth, self._coverHeight)
+        except AttributeError:
             return 'nocover'
-        return '%dx%d' % (self._coverWidth, self._coverHeight)
 
     def calculateCompleteness(self):
         value = 100
@@ -458,7 +479,7 @@ class Song:
 
     def __repr__(self):
         return ('%s %s %s %s %s %s %s %s %s %s %s %s' % (self.audioSha256sum(),
-                self._path, self.length, str(self['title']),
+                self._path, str(self.metadata.info.length), str(self['title']),
                 str(self['artist']), str(self['album']),
                 str(self['albumartist']), str(self['tracknumber']),
                 str(self['date']), str(self['genre']), str(self['discnumber']),
