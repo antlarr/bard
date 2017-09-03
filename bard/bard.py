@@ -21,6 +21,8 @@ import subprocess
 from argparse import ArgumentParser
 from bard.config import config
 
+ComparisonResult = namedtuple('ComparisonResult', ['offset', 'similarity'])
+
 
 def summation(m, n):
     if m >= n:
@@ -64,7 +66,7 @@ def compareChromaprintFingerprints(a, b, threshold=0.9, cancelThreshold=0.55,
 
 def compareChromaprintFingerprintsAndOffset(a, b, maxoffset=50, debug=False):
     if not a[0] or not b[0]:
-        return (None, None)
+        return ComparisonResult(None, None)
 
     cancelThreshold = 0.55
     equal_bits = [0] * (2 * maxoffset)
@@ -112,12 +114,12 @@ def compareChromaprintFingerprintsAndOffset(a, b, maxoffset=50, debug=False):
     max_val = result[max_idx]
     if max_idx > maxoffset:
         max_idx = -(maxoffset * 2 - max_idx)
-    return (max_idx, max_val)
+    return ComparisonResult(offset=max_idx, similarity=max_val)
 
 
 def compareChromaprintFingerprintsAndOffset2(a, b, maxoffset=50, debug=False):
     if not a[0] or not b[0]:
-        return (None, None)
+        return ComparisonResult(None, None)
     tmp = (a[0][:], a[1])
     result_offset = 0
     result = compareChromaprintFingerprints(a, b)
@@ -142,7 +144,7 @@ def compareChromaprintFingerprintsAndOffset2(a, b, maxoffset=50, debug=False):
             result_offset = -i
     if result < 0:
         result = None
-    return (result_offset, result)
+    return ComparisonResult(offset=result_offset, similarity=result)
 
 
 def normalizeDate(date):

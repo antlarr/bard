@@ -11,22 +11,21 @@ import mutagen.wavpack
 from PIL import Image
 from bard.terminalcolors import TerminalColors
 import io
-# import os
-# import shutil
 # import tempfile
 
+ImageDataTuple = namedtuple('ImageDataTuple', ['image', 'data'])
 
 def loadImageFromData(data):
     if not data:
         return None
     image = Image.open(io.BytesIO(data))
-    return (image, data)
+    return ImageDataTuple(image, data)
 
 
 def loadImageFromAPEBinaryValue(obj):
     data = obj.value[obj.value.find(b'\x00') + 1:]
     image = Image.open(io.BytesIO(data))
-    return (image, data)
+    return ImageDataTuple(image, data)
 
 
 def loadImageFromASFByteArrayAttribute(obj):
@@ -37,7 +36,7 @@ def loadImageFromASFByteArrayAttribute(obj):
         print("Error reading image from ASFByteArrayAttribute (%s):" % obj, e)
         raise
 #        return None
-    return (image, data)
+    return ImageDataTuple(image, data)
 
 
 def extractAnyImageFromList(values):
@@ -73,7 +72,7 @@ def extractFrontCover(mutagenFile):
     for pic in getattr(mutagenFile, 'pictures', []):
         if pic.type == mutagen.id3.PictureType.COVER_FRONT:
             image = Image.open(io.BytesIO(pic.data))
-            return image, pic.data
+            return ImageDataTuple(image, pic.data)
 
     if isinstance(getattr(mutagenFile, 'Cover Art (Front)', None),
                   mutagen.apev2.APEBinaryValue):
