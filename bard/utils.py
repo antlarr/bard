@@ -9,12 +9,14 @@ import mutagen.monkeysaudio
 import mutagen.asf
 import mutagen.flac
 import mutagen.wavpack
+from collections import namedtuple
 from PIL import Image
 from bard.terminalcolors import TerminalColors
 import io
 # import tempfile
 
 ImageDataTuple = namedtuple('ImageDataTuple', ['image', 'data'])
+
 
 def loadImageFromData(data):
     if not data:
