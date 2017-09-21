@@ -202,7 +202,7 @@ class Song:
         return self._format in ['flac', 'wv', 'ape', 'mpc']
 
     def audioCmp(self, other, forceSimilar=False, interactive=True,
-                 useColors=None):
+                 forceInteractive=False, useColors=None):
         """Compare the audio of this object with the audio of other.
 
         Returns -1 if self has better audio than other,
@@ -212,9 +212,12 @@ class Song:
         different length or it's not similar according to
         chromaprint fingerprints
         """
+        if forceInteractive:
+            interactive = True
         self.loadMetadataInfo()
         other.loadMetadataInfo()
-        if self._audioSha256sum == other._audioSha256sum:
+        if not forceInteractive and \
+                self._audioSha256sum == other._audioSha256sum:
             return 0
 
         if not forceSimilar and not MusicDatabase.areSongsSimilar(self.id,
@@ -234,10 +237,11 @@ class Song:
                 'Songs duration is slightly different (%d and %d seconds)'
                 % (self.metadata.info.length, other.metadata.info.length))
 
-        if self.isLossless() and not other.isLossless():
-            return -1
-        if other.isLossless() and not self.isLossless():
-            return 1
+        if not forceInteractive:
+            if self.isLossless() and not other.isLossless():
+                return -1
+            if other.isLossless() and not self.isLossless():
+                return 1
 
         si = self.metadata.info
         oi = other.metadata.info
@@ -250,26 +254,27 @@ class Song:
         except AttributeError:
             obps = None
 
-        if si.bitrate > oi.bitrate \
-           and ((sbps and obps and sbps >= obps) or
-                (not sbps and not obps)) \
-           and si.channels >= oi.channels \
-           and si.sample_rate >= oi.sample_rate:
-            return -1
+        if not forceInteractive:
+            if si.bitrate > oi.bitrate \
+               and ((sbps and obps and sbps >= obps) or
+                    (not sbps and not obps)) \
+               and si.channels >= oi.channels \
+               and si.sample_rate >= oi.sample_rate:
+                return -1
 
-        if oi.bitrate > si.bitrate \
-           and ((sbps and obps and obps >= sbps) or
-                (not sbps and not obps)) \
-           and oi.channels >= si.channels \
-           and oi.sample_rate >= si.sample_rate:
-            return 1
+            if oi.bitrate > si.bitrate \
+               and ((sbps and obps and obps >= sbps) or
+                    (not sbps and not obps)) \
+               and oi.channels >= si.channels \
+               and oi.sample_rate >= si.sample_rate:
+                return 1
 
-        if oi.bitrate == si.bitrate \
-           and ((sbps and obps and obps == sbps) or
-                (not sbps and not obps)) \
-           and oi.channels == si.channels \
-           and oi.sample_rate == si.sample_rate:
-            return 0
+            if oi.bitrate == si.bitrate \
+               and ((sbps and obps and obps == sbps) or
+                    (not sbps and not obps)) \
+               and oi.channels == si.channels \
+               and oi.sample_rate == si.sample_rate:
+                return 0
 
         if interactive:
             filename1 = '/tmp/1'

@@ -6,6 +6,7 @@ from bard.song import Song, DifferentLengthException
 from bard.musicdatabase import MusicDatabase
 from bard.terminalcolors import TerminalColors
 import chromaprint
+from collections import namedtuple
 import sys
 import os
 import datetime
@@ -22,6 +23,11 @@ from argparse import ArgumentParser
 from bard.config import config
 
 ComparisonResult = namedtuple('ComparisonResult', ['offset', 'similarity'])
+
+
+class Query (namedtuple('Query', ['root', 'genre'])):
+    def __bool__(self):
+        return self.root or self.genre or False
 
 
 def summation(m, n):
@@ -191,13 +197,22 @@ class Bard:
 
         self.excludeDirectories = ['covers', 'info']
 
-    def getMusic(self, where_clause='', where_values=None):
+    def getMusic(self, where_clause='', where_values=None, tables=[],
+                 order_by=None, limit=None):
         # print(where_clause)
         c = MusicDatabase.conn.cursor()
+
+        if 'songs' not in tables:
+            tables.insert(0, 'songs')
         statement = ('SELECT id, root, path, mtime, title, artist, album, '
                      'albumArtist, track, date, genre, discNumber, '
-                     'coverWidth, coverHeight, coverMD5 FROM songs %s' %
-                     where_clause)
+                     'coverWidth, coverHeight, coverMD5 FROM %s %s' %
+                     (','.join(tables), where_clause))
+        if order_by:
+            statement += ' ORDER BY %s' % order_by
+        if limit:
+            statement += ' LIMIT %d' % limit
+
         # print(statement, where_values)
         if where_values:
             result = c.execute(statement, where_values)
@@ -208,18 +223,37 @@ class Bard:
             r.append(Song(x))
         return r
 
-    def getSongs(self, path=None, songID=None):
+    def getSongs(self, path=None, songID=None, query=None):
+        where = ''
         values = None
         if songID:
-            where = 'WHERE id = %d' % songID
+            where = ['id = ?']
+            values = [songID]
         elif not path.startswith('/'):
-            # where = "WHERE path like '%%%s%%'" % (path)
-            where = "WHERE path like ?"
-            values = ('%' + path + '%',)
+            where = ["path like ?"]
+            values = ['%' + path + '%']
         else:
-            # where = "WHERE path = '%s'" % (path)
-            where = "WHERE path = ?"
-            values = (path, )
+            where = ["path = ?"]
+            values = [path]
+        tables = []
+        if query:
+            if query.root:
+                where.append('root = ?')
+                values.append(query.root)
+            if query.genre:
+                tables = ['tags']
+                where.append('''id = song_id
+                            AND (name like 'genre' OR name='TCON')
+                            AND value like ?''')
+                values.append(query.genre)
+
+        where = 'WHERE ' + ' AND '.join(where)
+        return self.getMusic(where_clause=where, where_values=values,
+                             tables=tables)
+
+    def getSongsAtPath(self, path):
+        where = "WHERE path like ?"
+        values = (path + '%',)
         return self.getMusic(where_clause=where, where_values=values)
 
     def addSong(self, path):
@@ -313,15 +347,15 @@ class Bard:
                 print(otherID, otherSong.path(), '(%d %f)' % (offset,
                                                               similarity))
 
-    def list(self, path, long_ls=False, show_id=False):
+    def list(self, path, long_ls=False, show_id=False, query=None):
         try:
             songID = int(path)
         except ValueError:
             songID = None
         if songID:
-            songs = self.getSongs(songID=songID)
+            songs = self.getSongs(songID=songID, query=query)
         else:
-            songs = self.getSongs(path=path)
+            songs = self.getSongs(path=path, query=query)
         for song in songs:
             if show_id:
                 print('%d) ' % song.id, end='', flush=True)
@@ -347,19 +381,27 @@ class Bard:
                 else:
                     print("%s" % song.path())
 
-    def play(self, ids_or_paths, shuffle):
+    def play(self, ids_or_paths, shuffle, query=None):
         paths = []
+        if not ids_or_paths and query:
+            ids_or_paths = ['']
         for id_or_path in ids_or_paths:
-            songs = self.getSongsFromIDorPath(id_or_path)
+            songs = self.getSongsFromIDorPath(id_or_path, query=query)
             for song in songs:
                 paths.append(song.path())
 
         if shuffle and paths:
             random.shuffle(paths)
         elif shuffle:
-            songs = self.getMusic('order by random() limit 30')
+            songs = self.getMusic(order_by='random()', limit=30)
             for song in songs:
                 paths.append(song.path())
+
+        if not paths:
+            print('No song was selected to play!')
+            return
+        for path in paths:
+            print(path)
 
         command = ['mpv'] + paths
         process = subprocess.run(command)
@@ -699,16 +741,16 @@ class Bard:
                           (delta_time, len(info), totalSongsCount, speeds[-1],
                            avg, totalSongsCount - songs_processed, now + d))
 
-    def getSongsFromIDorPath(self, id_or_path):
+    def getSongsFromIDorPath(self, id_or_path, query=None):
         try:
             songID = int(id_or_path)
         except ValueError:
             songID = None
 
         if songID:
-            return self.getSongs(songID=songID)
+            return self.getSongs(songID=songID, query=query)
 
-        return self.getSongs(path=id_or_path)
+        return self.getSongs(path=id_or_path, query=query)
 
     def compareSongs(self, song1, song2, verbose=False,
                      showAudioOffsets=False, storeInDB=False):
@@ -790,7 +832,8 @@ class Bard:
         try:
             cmpResult = song1.audioCmp(song2, forceSimilar=sameSong,
                                        useColors=(TerminalColors.FAIL,
-                                                  TerminalColors.OKGREEN))
+                                                  TerminalColors.OKGREEN),
+                                       forceInteractive=True)
         except DifferentLengthException as e:
             print(e)
         else:
@@ -819,7 +862,12 @@ class Bard:
     def compareFiles(self, path1, path2):
         song1 = Song(path1)
         song2 = Song(path2)
-        self.compareSongs(song1, song2)
+        self.compareSongs(song1, song2, storeInDB=False)
+
+    def listGenres(self, root=None):
+        genres = MusicDatabase.getGenres(root)
+        for genre, count in genres:
+            print('%s :\t%s' % (genre, count))
 
     def parseCommandLine(self):
         main_parser = ArgumentParser(
@@ -928,7 +976,11 @@ update
                             help='Actually run ls -l')
         parser.add_argument('-i', '--id', dest='show_id', action='store_true',
                             help='Show the id of each song listed')
-        parser.add_argument('paths', nargs='+')
+        parser.add_argument('-r', '--root', dest='root',
+                            help='List only songs in the given root')
+        parser.add_argument('-g', '--genre', dest='genre',
+                            help='List only songs with the given genre')
+        parser.add_argument('paths', nargs='*')
         parser = sps.add_parser('ls',
                                 description='Lists paths to songs '
                                             'from the database')
@@ -936,7 +988,17 @@ update
                             help='Actually run ls -l')
         parser.add_argument('-i', '--id', dest='show_id', action='store_true',
                             help='Show the id of each song listed')
-        parser.add_argument('paths', nargs='+')
+        parser.add_argument('-r', '--root', dest='root',
+                            help='List only songs in the given root')
+        parser.add_argument('-g', '--genre', dest='genre',
+                            help='List only songs with the given genre')
+        parser.add_argument('paths', nargs='*')
+        # list-genres command
+        parser = sps.add_parser('list-genres',
+                                description='Lists genres of songs '
+                                            'in the database')
+        parser.add_argument('-r', dest='root',
+                            help='Only list genres of songs in a given root')
         # list-similars command
         parser = sps.add_parser('list-similars',
                                 description='List files marked as similar in '
@@ -951,6 +1013,10 @@ update
                                 description='Play the specified songs')
         parser.add_argument('--shuffle', dest='shuffle', action='store_true',
                             help='Shuffle the songs before playing')
+        parser.add_argument('-r', '--root', dest='root',
+                            help='Play only songs in the given root')
+        parser.add_argument('-g', '--genre', dest='genre',
+                            help='Play only songs with the given genre')
         parser.add_argument('paths', nargs='*')
         # fix-tags command
         parser = sps.add_parser('fix-tags',
@@ -980,19 +1046,32 @@ update
             self.compareSongIDsOrPaths(options.song1, options.song2)
         elif options.command == 'compare-files':
             self.compareFiles(options.song1, options.song2)
+        elif options.command == 'compare-dirs':
+            self.compareDirectories(options.dir1, options.dir2)
         elif options.command == 'fix-tags':
             self.fixTags(options.paths)
         elif options.command == 'info':
             self.info(options.path[0])
         elif options.command == 'list' or options.command == 'ls':
+            if not options.paths and not options.root and not options.genre:
+                print('The list command needs either a path/id/root/genre '
+                      'parameter to list')
+                sys.exit(1)
+            query = Query(options.root, options.genre)
+            if not options.paths:
+                options.paths = ['']
+
             for path in options.paths:
                 self.list(path, long_ls=options.long_ls,
-                          show_id=options.show_id)
+                          show_id=options.show_id, query=query)
+        elif options.command == 'list-genres':
+            self.listGenres(root=options.root)
         elif options.command == 'list-similars':
             self.listSimilars(condition=options.condition,
                               long_ls=options.long_ls)
         elif options.command == 'play':
-            self.play(options.paths, options.shuffle)
+            query = Query(options.root, options.genre)
+            self.play(options.paths, options.shuffle, query)
         elif options.command == 'import':
             paths = options.paths
             if not paths:

@@ -397,3 +397,22 @@ CREATE TABLE similarities(
             pairs.append((songid1, songid2, offset, similarity))
         return pairs
 
+    @staticmethod
+    def getGenres(root=None):
+        if root:
+            condition = 'AND song_id IN (select id from songs where root = ?)'
+            variables = (root,)
+        else:
+            condition = ''
+            variables = ()
+        c = MusicDatabase.conn.cursor()
+        result = c.execute('''select value, count(*) 'c'
+                                from tags
+                               where name like 'genre'
+                                 %s
+                               group by value
+                               order by c''' % condition, variables)
+        pairs = []
+        for genre, count in result.fetchall():
+            pairs.append((genre, count))
+        return pairs
