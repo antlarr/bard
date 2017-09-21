@@ -31,10 +31,31 @@ class CantCompareSongsException(Exception):
     pass
 
 
+class Ratings:
+    def __init__(self):
+        c = MusicDatabase.conn.cursor()
+        sql = 'SELECT user_id, song_id, rating FROM ratings'
+        result = c.execute(sql)
+        self.ratings = {}
+        for user_id, song_id, rating in result.fetchall():
+            try:
+                self.ratings[user_id][song_id] = rating
+            except KeyError:
+                self.ratings[user_id] = {}
+                self.ratings[user_id][song_id] = rating
+
+    def getSongRatings(self, user_id, song_id):
+        try:
+            return self.ratings[user_id][song_id]
+        except KeyError:
+            return 5
+
+
 class Song:
 
     def __init__(self, x, rootDir=None):
         self.tags = {}
+        Song.ratings = None
         if type(x) == sqlite3.Row:
             self.id = x['id']
             self._root = x['root']
@@ -468,6 +489,11 @@ class Song:
             return '%dx%d' % (self._coverWidth, self._coverHeight)
         except AttributeError:
             return 'nocover'
+
+    def userRating(self, user_id=0):
+        if not Song.ratings:
+            Song.ratings = Ratings()
+        return Song.ratings.getSongRatings(user_id, self.id)
 
     def calculateCompleteness(self):
         value = 100

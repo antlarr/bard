@@ -27,7 +27,14 @@ ComparisonResult = namedtuple('ComparisonResult', ['offset', 'similarity'])
 
 class Query (namedtuple('Query', ['root', 'genre'])):
     def __bool__(self):
-        return self.root or self.genre or False
+        if self.root or self.genre:
+            return True
+        return False
+
+
+def normalized(v):
+    s = sum(v)
+    return map(lambda x: x / s, v)
 
 
 def summation(m, n):
@@ -393,15 +400,23 @@ class Bard:
         if shuffle and paths:
             random.shuffle(paths)
         elif shuffle:
-            songs = self.getMusic(order_by='random()', limit=30)
+            total_songs = 30
+            songs = self.getMusic('')
+            probabilities = []
             for song in songs:
                 paths.append(song.path())
+                probabilities.append(song.userRating() * 1000)
+
+            print(list(normalized(probabilities)))
+            paths = numpy.random.choice(paths, total_songs, replace=False,
+                                        p=list(normalized(probabilities)))
+            paths = list(paths)
 
         if not paths:
             print('No song was selected to play!')
             return
-        for path in paths:
-            print(path)
+#        for path in paths:
+#            print(path)
 
         command = ['mpv'] + paths
         process = subprocess.run(command)

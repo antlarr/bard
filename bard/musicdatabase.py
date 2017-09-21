@@ -107,6 +107,13 @@ CREATE TABLE similarities(
                   FOREIGN KEY(song_id1) REFERENCES songs(id) ON DELETE CASCADE,
                   FOREIGN KEY(song_id2) REFERENCES songs(id) ON DELETE CASCADE
                   )''')
+        c.execute('''
+ CREATE TABLE ratings (
+                  user_id INTEGER,
+                  song_id INTEGER,
+                  rating INTEGER,
+                  UNIQUE(user_id, song_id)
+                  )''')
 
     @staticmethod
     def addSong(song):
