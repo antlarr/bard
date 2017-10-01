@@ -8,6 +8,7 @@ from bard.musicdatabase import MusicDatabase
 from bard.terminalcolors import TerminalColors
 import chromaprint
 from collections import namedtuple
+import dbus
 import sys
 import os
 import datetime
@@ -259,10 +260,37 @@ class Bard:
         return self.getMusic(where_clause=where, where_values=values,
                              tables=tables)
 
-    def getSongsAtPath(self, path):
-        where = "WHERE path like ?"
-        values = (path + '%',)
+    def getSongsAtPath(self, path, exact=False):
+        if exact:
+            where = "WHERE path = ?"
+            values = (path,)
+        else:
+            where = "WHERE path like ?"
+            values = (path + '%',)
         return self.getMusic(where_clause=where, where_values=values)
+
+    def getCurrentlyPlayingSong(self):
+        bus = dbus.SessionBus()
+        names = [x for x in bus.list_names()
+                 if x.startswith('org.mpris.MediaPlayer2.mpv')]
+        if len(names) == 0:
+            return None
+        elif len(names) > 1:
+            print('More than 1 song is being played!')
+            return None
+        mpv = bus.get_object(names[0], '/org/mpris/MediaPlayer2')
+        # player = dbus.Interface(mpv,
+        #               dbus_interface='org.mpris.MediaPlayer2.Player')
+        # player.Next()
+        properties = dbus.Interface(mpv, 'org.freedesktop.DBus.Properties')
+        metadata = properties.Get('org.mpris.MediaPlayer2.Player', 'Metadata')
+        path = metadata['xesam:url']
+        songs = self.getSongsAtPath(path, exact=True)
+        if songs:
+            return songs[0]
+
+        print("Couldn't find song in database:", path)
+        return None
 
     def addSong(self, path):
         if config['immutableDatabase']:
@@ -315,15 +343,14 @@ class Bard:
             elif os.path.isdir(arg):
                 self.addDirectoryRecursively(os.path.normpath(arg))
 
-    def info(self, path):
-        try:
-            songID = int(path)
-        except ValueError:
-            songID = None
-        if songID:
-            songs = self.getSongs(songID=songID)
-        else:
-            songs = self.getSongs(path=path)
+    def info(self, ids_or_paths, currentlyPlaying=False):
+        songs = []
+        for id_or_path in ids_or_paths:
+            songs.extend(self.getSongsFromIDorPath(id_or_path))
+
+        if currentlyPlaying:
+            song = self.getCurrentlyPlayingSong()
+            songs.append(song)
 
         for song in songs:
             song.loadMetadataInfo()
@@ -346,7 +373,7 @@ class Bard:
                 print('cover:  %dx%d' %
                       (song.coverWidth(), song.coverHeight()))
 
-            similar_pairs = MusicDatabase.getSimilarSongsToSongID(songID)
+            similar_pairs = MusicDatabase.getSimilarSongsToSongID(song.id)
             if similar_pairs:
                 print('Similar songs:')
 
@@ -408,7 +435,7 @@ class Bard:
                 paths.append(song.path())
                 probabilities.append(song.userRating() * 1000)
 
-            print(list(normalized(probabilities)))
+#            print(list(normalized(probabilities)))
             paths = numpy.random.choice(paths, total_songs, replace=False,
                                         p=list(normalized(probabilities)))
             paths = list(paths)
@@ -920,7 +947,7 @@ list|ls [-l] [-i|--id] <file | song id> [file | song_id ...]
 list-similars [-l] [condition]
                     lists files marked as similar in the database
                     (with find-audio-duplicates)
-play --shuffle <file | song id> [file | song_id ...]
+play --shuffle [-r root] [-g genre] [file | song_id ...]
                     play the specified songs using mpv
 fix-tags <file_or_directory [file_or_directory ...]>
                     apply several normalization algorithms to fix tags of
@@ -983,7 +1010,9 @@ update
         parser = sps.add_parser('info',
                                 description='Shows information about a song '
                                             'from the database')
-        parser.add_argument('path', nargs=1)
+        parser.add_argument('-p', dest='playing', action='store_true',
+                            help='Show information of currently playing song')
+        parser.add_argument('paths', nargs='*')
         # list command
         parser = sps.add_parser('list',
                                 description='Lists paths to songs '
@@ -1067,7 +1096,7 @@ update
         elif options.command == 'fix-tags':
             self.fixTags(options.paths)
         elif options.command == 'info':
-            self.info(options.path[0])
+            self.info(options.paths, options.playing)
         elif options.command == 'list' or options.command == 'ls':
             if not options.paths and not options.root and not options.genre:
                 print('The list command needs either a path/id/root/genre '
