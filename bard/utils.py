@@ -3,6 +3,7 @@
 import subprocess
 import time
 import hashlib
+import audioread
 import mutagen
 import mutagen.mp3
 import mutagen.mp4
@@ -353,6 +354,14 @@ def calculateAudioTrackSHA256(path, tmpdir='/tmp'):
     #     os.unlink(tmpfilename)
 
     # return None
+
+
+def calculateAudioTrackSHA256_audioread(path):
+    hash_sha256 = hashlib.sha256()
+    with audioread.audio_open(path) as audiofile:
+        for block in audiofile:
+            hash_sha256.update(block)
+    return hash_sha256.hexdigest()
 
 
 def windowsList():

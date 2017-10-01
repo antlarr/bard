@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 from bard.utils import fixTags, calculateFileSHA256, \
-    calculateAudioTrackSHA256, printDictsDiff, printPropertiesDiff, \
+    calculateAudioTrackSHA256_audioread, printDictsDiff, printPropertiesDiff, \
     printProperties
 from bard.song import Song, DifferentLengthException
 from bard.musicdatabase import MusicDatabase
@@ -549,9 +549,8 @@ class Bard:
             audioSha256sumInDB = song.audioSha256sum()
             if not audioSha256sumInDB or forceRecalculate:
                 print('Calculating SHA256sum for %s' % song.path())
-                calc = calculateAudioTrackSHA256  # Just to prevent an E501
-                audioSha256sumInDisk = calc(song.path(),
-                                            tmpdir=config['tmpdir'])
+                calc = calculateAudioTrackSHA256_audioread
+                audioSha256sumInDisk = calc(song.path())
                 # print('Setting audio track sha256 %s to %s' %
                 #       (audioSha256sum, song.path()))
                 if audioSha256sumInDB != audioSha256sumInDisk:
