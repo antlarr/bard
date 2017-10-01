@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from bard.config import config
-from bard.utils import md5, calculateAudioTrackSHA256, extractFrontCover, \
+from bard.utils import md5, calculateAudioTrackSHA256_audioread, extractFrontCover, \
     md5FromData, calculateFileSHA256, manualAudioCmp
 from bard.musicdatabase import MusicDatabase
 from bard.normalizetags import getTag
