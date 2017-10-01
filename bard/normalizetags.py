@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import mutagen
 import mutagen.mp3
 import mutagen.mp4

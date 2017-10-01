@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+# -*- coding: utf-8 -*-
 from bard.utils import fixTags, calculateFileSHA256, \
     calculateAudioTrackSHA256, printDictsDiff, printPropertiesDiff, \
     printProperties

@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from bard.config import config
 from bard.normalizetags import normalizeTagValues
 import sqlite3

@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
+
 from bard.config import config
 from bard.utils import md5, calculateAudioTrackSHA256, extractFrontCover, \
     md5FromData, calculateFileSHA256, manualAudioCmp
 from bard.musicdatabase import MusicDatabase
 from bard.normalizetags import getTag
 from bard.ffprobemetadata import FFProbeMetadata
-from bard.terminalcolors import TerminalColors
 import sqlite3
 import os
 import shutil
