@@ -907,8 +907,15 @@ class Bard:
         song2 = Song(path2)
         self.compareSongs(song1, song2, storeInDB=False)
 
-    def listGenres(self, root=None):
-        genres = MusicDatabase.getGenres(root)
+    def listGenres(self, id_or_paths=None, root=None):
+        ids = []
+        paths = []
+        for id_or_path in id_or_paths:
+            try:
+                ids.append(int(id_or_path))
+            except ValueError:
+                paths.append(id_or_path)
+        genres = MusicDatabase.getGenres(ids=ids, paths=paths, root=root)
         for genre, count in genres:
             print('%s :\t%s' % (genre, count))
 
@@ -942,9 +949,12 @@ import [file_or_directory [file_or_directory ...]]
                     musicPaths entries in the configuration file are used
 info <file | song id>
                     shows information about a song from the database
-list|ls [-l] [-i|--id] <file | song id> [file | song_id ...]
+list|ls [-l] [-i|--id] [-r root] [-g genre] [file | song_id ...]
                     lists paths to a song from the database
 list-similars [-l] [condition]
+                    lists files marked as similar in the database
+                    (with find-audio-duplicates)
+list-genres [-r root] [file | song id]
                     lists files marked as similar in the database
                     (with find-audio-duplicates)
 play --shuffle [-r root] [-g genre] [file | song_id ...]
@@ -1044,6 +1054,7 @@ update
                                             'in the database')
         parser.add_argument('-r', dest='root',
                             help='Only list genres of songs in a given root')
+        parser.add_argument('id_or_paths', nargs='*')
         # list-similars command
         parser = sps.add_parser('list-similars',
                                 description='List files marked as similar in '
@@ -1110,7 +1121,7 @@ update
                 self.list(path, long_ls=options.long_ls,
                           show_id=options.show_id, query=query)
         elif options.command == 'list-genres':
-            self.listGenres(root=options.root)
+            self.listGenres(id_or_paths=options.id_or_paths, root=options.root)
         elif options.command == 'list-similars':
             self.listSimilars(condition=options.condition,
                               long_ls=options.long_ls)

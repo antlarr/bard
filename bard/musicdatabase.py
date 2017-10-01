@@ -411,20 +411,37 @@ CREATE TABLE similarities(
         return pairs
 
     @staticmethod
-    def getGenres(root=None):
+    def getGenres(ids=[], paths=[], root=None):
+        tables = 'tags'
         if root:
             condition = 'AND song_id IN (select id from songs where root = ?)'
             variables = (root,)
         else:
             condition = ''
             variables = ()
+        if ids:
+            condition += (' AND song_id in (%s)' %
+                          (','.join([str(x) for x in ids])))
+        if paths:
+            part = ''
+            for path in paths:
+                if part:
+                    part += ' OR path like ?'
+                else:
+                    part = 'path like ?'
+                variables += ('%' + paths[0] + '%',)
+            condition += ' AND id = song_id AND (%s)' % part
+            tables += ',songs'
+
+        sql = '''select value, count(*) 'c'
+                   from %s
+                  where (name like 'genre' OR name='TCON')
+                        %s
+                  group by value
+                  order by c''' % (tables, condition)
+        print(sql, variables)
         c = MusicDatabase.conn.cursor()
-        result = c.execute('''select value, count(*) 'c'
-                                from tags
-                               where name like 'genre'
-                                 %s
-                               group by value
-                               order by c''' % condition, variables)
+        result = c.execute(sql, variables)
         pairs = []
         for genre, count in result.fetchall():
             pairs.append((genre, count))
