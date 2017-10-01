@@ -7,7 +7,7 @@ from bard.song import Song, DifferentLengthException
 from bard.musicdatabase import MusicDatabase
 from bard.terminalcolors import TerminalColors
 import chromaprint
-from collections import namedtuple
+from collections import MutableSet, namedtuple
 import dbus
 import sys
 import os
@@ -37,6 +37,62 @@ class Query (namedtuple('Query', ['root', 'genre'])):
 def normalized(v):
     s = sum(v)
     return map(lambda x: x / s, v)
+
+
+class SongSet(MutableSet):
+    def __init__(self, iterable=[]):
+        super().__init__()
+        self.set = set()
+        self.audioHashes = set()
+        for song in iterable:
+            if isinstance(song, Song):
+                if song.id:
+                    self.set.add(song.id)
+                self.audioHashes.add(song.audioSha256sum())
+            elif isinstance(song, int):
+                self.set.add(song)
+                audio_sha256sum = MusicDatabase.getSongProperties(song)[2]
+                self.audioHashes.add(audio_sha256sum)
+
+    def copy(self):
+        x = super().copy()
+        return x
+
+    def __contains__(self, song):
+        if isinstance(song, Song):
+            songID = song.id
+            songSha256 = song.audioSha256sum()
+        else:
+            songID = song
+            songSha256 = MusicDatabase.getSongProperties(song)[2]
+        if songID in self.set:
+            return True
+        if songSha256 in self.audioHashes:
+            return True
+
+        if songID:
+            similarSongs = MusicDatabase.getSimilarSongsToSongID(songID, 0.85)
+            similarSongs = [x[0] for x in similarSongs]
+            print('songs similar to', song, ' : ', similarSongs)
+            for itsong in similarSongs:
+                if itsong in self.set:
+                    return True
+        return False
+
+    def add(self, item):
+        return self.set.add(item.id)
+
+    def __len__(self):
+        return len(self.audioHashes)
+
+    def __iter__(self):
+        return self.set.__iter__()
+
+    def discard(self, item):
+        return self.set.discard(item)
+
+    def __repr__(self):
+        return repr(self.set)
 
 
 def summation(m, n):
@@ -890,6 +946,29 @@ class Bard:
     #        except DifferentSongsException as e:
     #            print(e)
 
+    def compareDirectories(self, path1, path2, verbose=False):
+        songs1 = SongSet(self.getSongsAtPath(path1))
+        songs2 = SongSet(self.getSongsAtPath(path2))
+        print(songs1)
+        print(songs2)
+
+        firstInSecond = songs1 <= songs2
+        secondInFirst = songs1 <= songs1
+
+        if firstInSecond and secondInFirst:
+            print('The following directories contain the same set of songs:')
+            print(path1)
+            print(path2)
+        elif firstInSecond:
+            print('The directory %s is contained in %s', path1, path2)
+        elif secondInFirst:
+            print('The directory %s is contained in %s', path2, path1)
+        else:
+            print('None of the following directories is '
+                  'a subset of the other:')
+            print(path1)
+            print(path2)
+
     def compareSongIDsOrPaths(self, songid1, songid2):
         songs1 = self.getSongsFromIDorPath(songid1)
         if len(songs1) != 1:
@@ -934,6 +1013,8 @@ compare-songs [id_or_path] [id_or_path]
                     compares two songs given their paths or song id
 compare-files [path] [path]
                     compares two files not neccesarily in the database
+compare-dirs [dir1] [dir2]
+                    compares two directories neccesarily in the database
 fix-mtime           fixes the mtime of imported files (you should never
                     need to use this)
 fix-checksums       fixes the checksums of imported files (you should
@@ -986,6 +1067,11 @@ update
                                 ' neccesarily in the database')
         parser.add_argument('song1', metavar='path')
         parser.add_argument('song2', metavar='path')
+        parser = sps.add_parser('compare-dirs',
+                                description='Compares two directories'
+                                ' neccesarily in the database')
+        parser.add_argument('dir1', metavar='path')
+        parser.add_argument('dir2', metavar='path')
         # fix-mtime command
         sps.add_parser('fix-mtime',
                        description='Fixes the mtime of imported files '
