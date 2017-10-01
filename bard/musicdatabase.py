@@ -152,12 +152,16 @@ CREATE TABLE similarities(
                           values)
 
             values = [(song.fingerprint, song.id), ]
-            c.executemany('UPDATE fingerprints SET fingerprint=? WHERE song_id=?', values)
+            c.executemany('UPDATE fingerprints SET fingerprint=? '
+                          'WHERE song_id=?', values)
 
             values = [(song.format(), song.duration(), song.bitrate(),
                        song.bits_per_sample(), song.sample_rate(),
                        song.channels(), song.audioSha256sum(), song.id), ]
-            c.executemany('UPDATE properties SET format=?, duration=?, bitrate=?, bits_per_sample=?, sample_rate=?, channels=?, audio_sha256sum=? WHERE song_id=?''', values)
+            c.executemany('UPDATE properties SET format=?, duration=?, '
+                          'bitrate=?, bits_per_sample=?, sample_rate=?, '
+                          'channels=?, audio_sha256sum=? WHERE song_id=?''',
+                          values)
 
             values = [(song.id), ]
             c.execute('''DELETE from tags where song_id = ?''', (song.id,))
@@ -316,11 +320,13 @@ CREATE TABLE similarities(
     @staticmethod
     def getSimilarSongsToSongID(songID, similarityThreshold=0.85):
         c = MusicDatabase.conn.cursor()
-        result = c.execute('''select song_id1, offset, similarity from similarities
-                                         where song_id2=? and similarity>=?
-                              union
-                              select song_id2, offset, similarity from similarities
-                                         where song_id1=? and similarity>=?''',
+        result = c.execute('select song_id1, offset, similarity '
+                           '  from similarities '
+                           ' where song_id2=? and similarity>=? '
+                           '   union '
+                           'select song_id2, offset, similarity '
+                           '  from similarities '
+                           ' where song_id1=? and similarity>=?''',
                            (songID, similarityThreshold,
                             songID, similarityThreshold))
         similarSongs = [(x[0], x[1], x[2]) for x in result.fetchall()]
@@ -334,9 +340,7 @@ CREATE TABLE similarities(
         c = MusicDatabase.conn.cursor()
         sql = '''select 1 from similarities where song_id1=?
                               and song_id2=? and similarity>=?'''
-        result = c.execute('''select 1 from similarities where song_id1=?
-                              and song_id2=? and similarity>=?''',
-                           (songID1, songID2, similarityThreshold))
+        result = c.execute(sql, (songID1, songID2, similarityThreshold))
         return result.fetchone() is not None
 
     @staticmethod
