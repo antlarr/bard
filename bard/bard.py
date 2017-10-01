@@ -206,7 +206,8 @@ class Bard:
 
         self.excludeDirectories = ['covers', 'info']
 
-    def getMusic(self, where_clause='', where_values=None, tables=[],
+    @staticmethod
+    def getMusic(where_clause='', where_values=None, tables=[],
                  order_by=None, limit=None):
         # print(where_clause)
         c = MusicDatabase.conn.cursor()
@@ -232,7 +233,8 @@ class Bard:
             r.append(Song(x))
         return r
 
-    def getSongs(self, path=None, songID=None, query=None):
+    @staticmethod
+    def getSongs(path=None, songID=None, query=None):
         where = ''
         values = None
         if songID:
@@ -257,7 +259,7 @@ class Bard:
                 values.append(query.genre)
 
         where = 'WHERE ' + ' AND '.join(where)
-        return self.getMusic(where_clause=where, where_values=values,
+        return Bard.getMusic(where_clause=where, where_values=values,
                              tables=tables)
 
     def getSongsAtPath(self, path, exact=False):
@@ -378,7 +380,7 @@ class Bard:
                 print('Similar songs:')
 
             for otherID, offset, similarity in similar_pairs:
-                otherSong = self.getSongs(songID=otherID)[0]
+                otherSong = Bard.getSongs(songID=otherID)[0]
                 print(otherID, otherSong.path(), '(%d %f)' % (offset,
                                                               similarity))
 
@@ -388,9 +390,9 @@ class Bard:
         except ValueError:
             songID = None
         if songID:
-            songs = self.getSongs(songID=songID, query=query)
+            songs = Bard.getSongs(songID=songID, query=query)
         else:
-            songs = self.getSongs(path=path, query=query)
+            songs = Bard.getSongs(path=path, query=query)
         for song in songs:
             if show_id:
                 print('%d) ' % song.id, end='', flush=True)
@@ -405,8 +407,8 @@ class Bard:
             condition = ' '.join(condition)
         similar_pairs = MusicDatabase.getSimilarSongs(condition)
         for songID1, songID2, offset, similarity in similar_pairs:
-            song1 = self.getSongs(songID=songID1)[0]
-            song2 = self.getSongs(songID=songID2)[0]
+            song1 = Bard.getSongs(songID=songID1)[0]
+            song2 = Bard.getSongs(songID=songID2)[0]
             print('------  (%d %d) offset: %d   similarity %f' %
                   (songID1, songID2, offset, similarity))
             for song in (song1, song2):
@@ -791,9 +793,9 @@ class Bard:
             songID = None
 
         if songID:
-            return self.getSongs(songID=songID, query=query)
+            return Bard.getSongs(songID=songID, query=query)
 
-        return self.getSongs(path=id_or_path, query=query)
+        return Bard.getSongs(path=id_or_path, query=query)
 
     def compareSongs(self, song1, song2, verbose=False,
                      showAudioOffsets=False, storeInDB=False):
