@@ -853,7 +853,8 @@ class Bard:
         return Bard.getSongs(path=id_or_path, query=query)
 
     def compareSongs(self, song1, song2, verbose=False,
-                     showAudioOffsets=False, storeInDB=False):
+                     showAudioOffsets=False, storeInDB=False,
+                     interactive=False):
         try:
             id1 = song1.id
         except AttributeError:
@@ -933,7 +934,7 @@ class Bard:
             cmpResult = song1.audioCmp(song2, forceSimilar=sameSong,
                                        useColors=(TerminalColors.FAIL,
                                                   TerminalColors.OKGREEN),
-                                       forceInteractive=True)
+                                       interactive=interactive)
         except DifferentLengthException as e:
             print(e)
         else:
@@ -969,7 +970,7 @@ class Bard:
             print(path1)
             print(path2)
 
-    def compareSongIDsOrPaths(self, songid1, songid2):
+    def compareSongIDsOrPaths(self, songid1, songid2, interactive=False):
         songs1 = self.getSongsFromIDorPath(songid1)
         if len(songs1) != 1:
             print('No match or more than one match for ', songid1)
@@ -980,12 +981,13 @@ class Bard:
             print('No match or more than one match for ', songid2)
             return
         song2 = songs2[0]
-        self.compareSongs(song1, song2)
+        self.compareSongs(song1, song2, interactive=interactive)
 
-    def compareFiles(self, path1, path2):
+    def compareFiles(self, path1, path2, interactive=False):
         song1 = Song(path1)
         song2 = Song(path2)
-        self.compareSongs(song1, song2, storeInDB=False)
+        self.compareSongs(song1, song2, storeInDB=False,
+                          interactive=interactive)
 
     def listGenres(self, id_or_paths=None, root=None):
         ids = []
@@ -1009,9 +1011,9 @@ class Bard:
 find-duplicates     find duplicate files comparing the checksums
 find-audio-duplicates
                     find duplicate files comparing the audio fingerprint
-compare-songs [id_or_path] [id_or_path]
+compare-songs [-i] [id_or_path] [id_or_path]
                     compares two songs given their paths or song id
-compare-files [path] [path]
+compare-files [-i] [path] [path]
                     compares two files not neccesarily in the database
 compare-dirs [dir1] [dir2]
                     compares two directories neccesarily in the database
@@ -1062,11 +1064,17 @@ update
                                 description='Compares two songs')
         parser.add_argument('song1', metavar='id_or_path')
         parser.add_argument('song2', metavar='id_or_path')
+        parser.add_argument('-i', dest='interactive', action='store_true',
+                            default=False,
+                            help='Do an interactive audio comparison')
         parser = sps.add_parser('compare-files',
                                 description='Compares two files not'
                                 ' neccesarily in the database')
         parser.add_argument('song1', metavar='path')
         parser.add_argument('song2', metavar='path')
+        parser.add_argument('-i', dest='interactive', action='store_true',
+                            default=False,
+                            help='Do an interactive audio comparison')
         parser = sps.add_parser('compare-dirs',
                                 description='Compares two directories'
                                 ' neccesarily in the database')
@@ -1186,9 +1194,11 @@ update
         elif options.command == 'find-audio-duplicates':
             self.findAudioDuplicates2(options.from_song_id)
         elif options.command == 'compare-songs':
-            self.compareSongIDsOrPaths(options.song1, options.song2)
+            self.compareSongIDsOrPaths(options.song1, options.song2,
+                                       options.interactive)
         elif options.command == 'compare-files':
-            self.compareFiles(options.song1, options.song2)
+            self.compareFiles(options.song1, options.song2,
+                              interactive=options.interactive)
         elif options.command == 'compare-dirs':
             self.compareDirectories(options.dir1, options.dir2)
         elif options.command == 'fix-tags':
