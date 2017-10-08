@@ -6,6 +6,7 @@ from bard.utils import fixTags, calculateFileSHA256, \
 from bard.song import Song, DifferentLengthException
 from bard.musicdatabase import MusicDatabase
 from bard.terminalcolors import TerminalColors
+from bard.comparesongs import compareSongSets
 import chromaprint
 from collections import MutableSet, namedtuple
 import dbus
@@ -948,8 +949,12 @@ class Bard:
     #            print(e)
 
     def compareDirectories(self, path1, path2, verbose=False):
-        songs1 = SongSet(self.getSongsAtPath(path1))
-        songs2 = SongSet(self.getSongsAtPath(path2))
+        songs1 = self.getSongsAtPath(path1)
+        songs2 = self.getSongsAtPath(path2)
+        compareSongSets(songs1, songs2, path1, path2)
+
+        songs1 = SongSet(songs1)
+        songs2 = SongSet(songs2)
         print(songs1)
         print(songs2)
 
