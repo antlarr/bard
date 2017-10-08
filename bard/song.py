@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 from bard.config import config
-from bard.utils import md5, calculateAudioTrackSHA256_audioread, extractFrontCover, \
-    md5FromData, calculateFileSHA256, manualAudioCmp
+from bard.utils import md5, calculateAudioTrackSHA256_audioread, \
+    extractFrontCover, md5FromData, calculateFileSHA256, manualAudioCmp
 from bard.musicdatabase import MusicDatabase
 from bard.normalizetags import getTag
 from bard.ffprobemetadata import FFProbeMetadata
@@ -238,8 +238,9 @@ class Song:
         if self._audioSha256sum == other._audioSha256sum:
             return 0
 
-        if not forceSimilar and not MusicDatabase.areSongsSimilar(self.id,
-                                                                  other.id):
+        if (not forceSimilar and getattr(self, 'id', None) and
+                getattr(other, 'id', None) and
+                not MusicDatabase.areSongsSimilar(self.id, other.id)):
             raise DifferentSongsException(
                 'Trying to compare different songs (%d and %d)'
                 % (self.id, other.id))
@@ -506,6 +507,7 @@ class Song:
         self.completeness = value
 
     def __repr__(self):
+        self.loadMetadataInfo()
         return ('%s %s %s %s %s %s %s %s %s %s %s %s' % (self.audioSha256sum(),
                 self._path, str(self.metadata.info.length), str(self['title']),
                 str(self['artist']), str(self['album']),
