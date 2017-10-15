@@ -172,9 +172,7 @@ class Song:
             mutagen.musepack.Musepack: 'mpc', }
         self._format = formattext[type(self.metadata)]
 
-        tmpdir = config['tmpdir']
         self._audioSha256sum = calculateAudioTrackSHA256_audioread(path)
-
 
 #        self.loadCoverImageData(path)
         try:
