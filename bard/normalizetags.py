@@ -8,6 +8,7 @@ import mutagen.monkeysaudio
 import mutagen.asf
 import mutagen.flac
 import mutagen.wavpack
+import mutagen.oggvorbis
 
 
 def extractFirstElementOfTuple(x):
@@ -105,6 +106,24 @@ tagMaps = {
         'date': 'originaldate',
         'title': 'title',
         'tracknumber': 'tracknumber', },
+    mutagen.oggvorbis.OggVorbis: {
+        'album': 'album',
+        'albumartist': 'albumartist',
+        'albumgenre': 'album genre',
+        'artist': 'artist',
+        'composer': 'composer',
+        'discnumber': 'discnumber',
+        'genre': 'genre',
+        'label': 'label',
+        'language': 'language',
+        'musicbrainz_artistid': 'musicbrainz_artistid',
+        'musicbrainz_albumid': 'musicbrainz_albumid',
+        'musicbrainz_albumartistid': 'musicbrainz_albumartistid',
+        'musicbrainz_releasetrackid': 'musicbrainz_releasetrackid',
+        'musicbrainz_trackid': 'musicbrainz_trackid',
+        'date': 'originaldate',
+        'title': 'title',
+        'tracknumber': 'tracknumber', },
     mutagen.monkeysaudio.MonkeysAudio: {
         'album': 'Album',
         'albumartist': 'Album Artist',
@@ -156,6 +175,16 @@ tagMaps = {
         'tracknumber': 'WM/TrackNumber',
         'date': 'WM/Year', }}
 
+formatToType = {
+    'mp3': mutagen.mp3.MP3,
+    'mp4': mutagen.mp4.MP4,
+    'asf': mutagen.asf.ASF,
+    'flac': mutagen.flac.FLAC,
+    'ogg': mutagen.oggvorbis.OggVorbis,
+    'wv': mutagen.wavpack.WavPack,
+    'ape': mutagen.monkeysaudio.MonkeysAudio}
+#    'mpc': mutagen.musepack.Musepack}
+
 
 def normalizeTagValue(obj, mutagenFile, tag):
     if isinstance(obj, mutagen.apev2.APETextValue):
@@ -194,9 +223,14 @@ def normalizeTagValues(values, mutagenFile=None, tag=None):
     return normalizeTagValue(values, mutagenFile, tag)
 
 
-def getTag(mutagenFile, tag):
-    if type(mutagenFile) in tagMaps:
-        tagMap = tagMaps[type(mutagenFile)]
+def getTag(mutagenFile, tag, fileformat=None):
+    if fileformat:
+        typeOfFile = formatToType[fileformat]
+    else:
+        typeOfFile = type(mutagenFile)
+
+    if typeOfFile in tagMaps:
+        tagMap = tagMaps[typeOfFile]
         result = mutagenFile.get(tagMap.get(tag, tag), None)
     else:
         result = mutagenFile.get(tag, None)

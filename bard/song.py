@@ -307,9 +307,8 @@ class Song:
         raise CantCompareSongsException('Not sure how to compare songs')
 
     def __getitem__(self, key):
-        if not getattr(self, 'metadata', None):
-            self.loadMetadata()
-        return getTag(self.metadata, key)
+        self.loadMetadataInfo()
+        return getTag(self.metadata, key, fileformat=self._format)
 
 #     def title(self):
 #         tag_names = ['title', 'Title']
