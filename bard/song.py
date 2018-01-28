@@ -411,16 +411,34 @@ class Song:
         try:
             return self.metadata.info.bitrate
         except AttributeError:
-            ffprobe_metadata = FFProbeMetadata(self.path())
-            print(ffprobe_metadata)
-            return ffprobe_metadata['format.bit_rate']
+            self.extractMetadataWithFFProbe()
+            return self.metadata.info.bitrate
 
     def bits_per_sample(self):
         self.loadMetadataInfo()
         try:
             return self.metadata.info.bits_per_sample
         except AttributeError:
-            return None
+            self.extractMetadataWithFFProbe()
+            return self.metadata.info.bits_per_sample
+
+    def extractMetadataWithFFProbe(self):
+        ffprobe_metadata = FFProbeMetadata(self.path())
+        print(ffprobe_metadata)
+
+        if not getattr(self.metadata.info, 'bits_per_sample', None):
+            tmp = ffprobe_metadata['streams.stream.0.bits_per_raw_sample']
+            try:
+                self.metadata.info.bits_per_sample = int(tmp)
+            except ValueError:
+                self.metadata.info.bits_per_sample = None
+
+        if not getattr(self.metadata.info, 'bitrate', None):
+            tmp = ffprobe_metadata['format.bit_rate']
+            try:
+                self.metadata.info.bitrate = int(tmp)
+            except ValueError:
+                self.metadata.info.bitrate = None
 
     def sample_rate(self):
         self.loadMetadataInfo()
