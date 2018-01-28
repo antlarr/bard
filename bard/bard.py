@@ -364,13 +364,14 @@ class Bard:
         MusicDatabase.addSong(song)
         MusicDatabase.commit()
 
-    def addDirectoryRecursively(self, directory):
+    def addDirectoryRecursively(self, directory, verbose=False):
         if config['immutableDatabase']:
             print("Error: Can't add directory %s : "
                   "The database is configured as immutable" % directory)
             return
         for dirpath, dirnames, filenames in os.walk(directory, topdown=True):
-            print('New dir: %s' % dirpath)
+            if verbose:
+                print('New dir: %s' % dirpath)
             filenames.sort()
             dirnames.sort()
             for filename in filenames:
@@ -380,7 +381,8 @@ class Bard:
 
                 path = os.path.join(dirpath, filename)
                 if MusicDatabase.isSongInDatabase(path):
-                    print('Already in db: %s' % filename)
+                    if verbose:
+                        print('Already in db: %s' % filename)
                     continue
                 song = Song(path, rootDir=directory)
                 if not song.isValid:
@@ -395,13 +397,13 @@ class Bard:
                 except ValueError:
                     pass
 
-    def add(self, args):
+    def add(self, args, verbose=False):
         for arg in args:
             if os.path.isfile(arg):
                 self.addSong(os.path.normpath(arg))
 
             elif os.path.isdir(arg):
-                self.addDirectoryRecursively(os.path.normpath(arg))
+                self.addDirectoryRecursively(os.path.normpath(arg), verbose)
 
     def info(self, ids_or_paths, currentlyPlaying=False):
         songs = []
@@ -551,7 +553,7 @@ class Bard:
                 print('%s already fixed' % song.path())
         MusicDatabase.commit()
 
-    def checkSongsExistence(self):
+    def checkSongsExistence(self, verbose=False):
         collection = self.getMusic()
         count = 0
         for song in collection:
@@ -565,7 +567,8 @@ class Bard:
                 continue
 
             if song.mtime() == os.path.getmtime(song.path()):
-                print('Correct in db: %s' % song.path())
+                if verbose:
+                    print('Correct in db: %s' % song.path())
                 continue
             song = Song(song.path(), rootDir=song.root())
             if not song.isValid:
@@ -1170,6 +1173,8 @@ update
         parser = sps.add_parser('update',
                                 description='Update database with new/modified'
                                 '/deleted files')
+        parser.add_argument('--verbose', dest='verbose', action='store_true',
+                            help='Be verbose')
         options = main_parser.parse_args()
 
         if options.command == 'find-duplicates':
@@ -1224,8 +1229,8 @@ update
             self.add(paths)
         elif options.command == 'update':
             paths = config['musicPaths']
-            self.add(paths)
-            self.checkSongsExistence()
+            self.add(paths, verbose=options.verbose)
+            self.checkSongsExistence(verbose=options.verbose)
 
 
 def main():
