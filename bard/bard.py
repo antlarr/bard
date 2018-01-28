@@ -444,7 +444,8 @@ class Bard:
                 print(otherID, otherSong.path(), '(%d %f)' % (offset,
                                                               similarity))
 
-    def list(self, path, long_ls=False, show_id=False, query=None):
+    def list(self, path, long_ls=False, show_id=False, query=None,
+             group_by_directory=False):
         try:
             songID = int(path)
         except ValueError:
@@ -453,14 +454,27 @@ class Bard:
             songs = Bard.getSongs(songID=songID, query=query)
         else:
             songs = Bard.getSongs(path=path, query=query)
-        for song in songs:
-            if show_id:
-                print('%d) ' % song.id, end='', flush=True)
-            if long_ls:
-                command = ['ls', '-l', song.path()]
-                subprocess.run(command)
-            else:
-                print("%s" % song.path())
+        if group_by_directory:
+            dirs = {os.path.dirname(song.path()) for song in songs}
+            for directory in sorted(dirs):
+                if long_ls:
+                    try:
+                        size = int(subprocess.check_output(['du', '-s',
+                                                            directory]
+                                                           ).split()[0])
+                    except subprocess.CalledProcessError:
+                        size = -1
+                    print('%d - ' % size, end='', flush=True)
+                print("%s" % directory)
+        else:
+            for song in songs:
+                if show_id:
+                    print('%d) ' % song.id, end='', flush=True)
+                if long_ls:
+                    command = ['ls', '-l', song.path()]
+                    subprocess.run(command)
+                else:
+                    print("%s" % song.path())
 
     def listSimilars(self, condition=None, long_ls=False):
         if isinstance(condition, list):
@@ -1027,7 +1041,7 @@ import [file_or_directory [file_or_directory ...]]
                     musicPaths entries in the configuration file are used
 info <file | song id>
                     shows information about a song from the database
-list|ls [-l] [-i|--id] [-r root] [-g genre] [file | song_id ...]
+list|ls [-l] [-d] [-i|--id] [-r root] [-g genre] [file | song_id ...]
                     lists paths to a song from the database
 list-similars [-l] [condition]
                     lists files marked as similar in the database
@@ -1118,6 +1132,9 @@ update
                                             'from the database')
         parser.add_argument('-l', dest='long_ls', action='store_true',
                             help='Actually run ls -l')
+        parser.add_argument('-d', dest='group_by_directory',
+                            action='store_true',
+                            help='Group results by directory')
         parser.add_argument('-i', '--id', dest='show_id', action='store_true',
                             help='Show the id of each song listed')
         parser.add_argument('-r', '--root', dest='root',
@@ -1130,6 +1147,9 @@ update
                                             'from the database')
         parser.add_argument('-l', dest='long_ls', action='store_true',
                             help='Actually run ls -l')
+        parser.add_argument('-d', dest='group_by_directory',
+                            action='store_true',
+                            help='Group results by directory')
         parser.add_argument('-i', '--id', dest='show_id', action='store_true',
                             help='Show the id of each song listed')
         parser.add_argument('-r', '--root', dest='root',
@@ -1212,7 +1232,8 @@ update
 
             for path in options.paths:
                 self.list(path, long_ls=options.long_ls,
-                          show_id=options.show_id, query=query)
+                          show_id=options.show_id, query=query,
+                          group_by_directory=options.group_by_directory)
         elif options.command == 'list-genres':
             self.listGenres(id_or_paths=options.id_or_paths, root=options.root)
         elif options.command == 'list-similars':
