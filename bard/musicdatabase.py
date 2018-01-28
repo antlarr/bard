@@ -110,11 +110,18 @@ CREATE TABLE similarities(
                   FOREIGN KEY(song_id2) REFERENCES songs(id) ON DELETE CASCADE
                   )''')
         c.execute('''
+ CREATE TABLE users (
+                  id INTEGER PRIMARY KEY ASC AUTOINCREMENT,
+                  name TEXT
+                  )''')
+        c.execute('''
  CREATE TABLE ratings (
                   user_id INTEGER,
                   song_id INTEGER,
                   rating INTEGER,
-                  UNIQUE(user_id, song_id)
+                  UNIQUE(user_id, song_id),
+                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE,
+                  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
                   )''')
 
     @staticmethod
@@ -459,3 +466,23 @@ CREATE TABLE similarities(
         for genre, count in result.fetchall():
             pairs.append((genre, count))
         return pairs
+
+    @staticmethod
+    def getUserID(username, create=True):
+        sql = 'select id from users where name = ?'
+        c = MusicDatabase.conn.cursor()
+        result = c.execute(sql, (username,))
+        userID = result.fetchone()
+        if userID:
+            return userID[0]
+
+        if create:
+            sql = 'INSERT INTO users(name) VALUES (?)'
+            c.execute(sql, (username,))
+
+            result = c.execute('''SELECT last_insert_rowid()''')
+            userID = result.fetchone()[0]
+            MusicDatabase.commit()
+            return userID
+
+        return None

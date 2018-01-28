@@ -2,6 +2,7 @@
 import os
 import re
 import json
+import pwd
 
 
 def readConfiguration():
@@ -18,3 +19,6 @@ def readConfiguration():
 
 
 config = readConfiguration()
+
+if 'username' not in config:
+    config['username'] = pwd.getpwuid(os.getuid()).pw_name
