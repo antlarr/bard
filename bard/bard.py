@@ -327,28 +327,30 @@ class Bard:
             values = (path + '%',)
         return self.getMusic(where_clause=where, where_values=values)
 
-    def getCurrentlyPlayingSong(self):
+    def getCurrentlyPlayingSongs(self):
         bus = dbus.SessionBus()
         names = [x for x in bus.list_names()
                  if x.startswith('org.mpris.MediaPlayer2.mpv')]
         if len(names) == 0:
-            return None
-        elif len(names) > 1:
-            print('More than 1 song is being played!')
-            return None
-        mpv = bus.get_object(names[0], '/org/mpris/MediaPlayer2')
-        # player = dbus.Interface(mpv,
-        #               dbus_interface='org.mpris.MediaPlayer2.Player')
-        # player.Next()
-        properties = dbus.Interface(mpv, 'org.freedesktop.DBus.Properties')
-        metadata = properties.Get('org.mpris.MediaPlayer2.Player', 'Metadata')
-        path = metadata['xesam:url']
-        songs = self.getSongsAtPath(path, exact=True)
-        if songs:
-            return songs[0]
+            return []
+        songs = []
+        for name in names:
+            mpv = bus.get_object(name, '/org/mpris/MediaPlayer2')
+            properties = dbus.Interface(mpv, 'org.freedesktop.DBus.Properties')
+            playbackStatus = properties.Get('org.mpris.MediaPlayer2.Player',
+                                            'PlaybackStatus')
+            if playbackStatus != 'Playing':
+                continue
+            metadata = properties.Get('org.mpris.MediaPlayer2.Player',
+                                      'Metadata')
+            path = metadata['xesam:url']
+            songs.extend(self.getSongsAtPath(path, exact=True))
 
-        print("Couldn't find song in database:", path)
-        return None
+        if not songs:
+            print("Couldn't find song in database:", path)
+            return []
+
+        return songs
 
     def addSong(self, path):
         if config['immutableDatabase']:
@@ -407,8 +409,8 @@ class Bard:
             songs.extend(self.getSongsFromIDorPath(id_or_path))
 
         if currentlyPlaying:
-            song = self.getCurrentlyPlayingSong()
-            songs.append(song)
+            playingSongs = self.getCurrentlyPlayingSongs()
+            songs.extend(playingSongs)
 
         for song in songs:
             song.loadMetadataInfo()
