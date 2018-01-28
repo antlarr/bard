@@ -957,6 +957,7 @@ class Bard:
         songs2 = self.getSongsAtPath(path2)
         compareSongSets(songs1, songs2, path1, path2)
 
+        return None
         songs1 = SongSet(songs1)
         songs2 = SongSet(songs2)
         print(songs1)

@@ -2,7 +2,8 @@
 
 from bard.config import config
 from bard.utils import md5, calculateAudioTrackSHA256_audioread, \
-    extractFrontCover, md5FromData, calculateFileSHA256, manualAudioCmp
+    extractFrontCover, md5FromData, calculateFileSHA256, manualAudioCmp, \
+    printDictsDiff, printPropertiesDiff
 from bard.musicdatabase import MusicDatabase
 from bard.normalizetags import getTag
 from bard.ffprobemetadata import FFProbeMetadata
@@ -50,6 +51,10 @@ class Ratings:
             return self.ratings[user_id][song_id]
         except KeyError:
             return 5
+
+#    def setSongRating(self, user_id, song_id, rating):
+#        sql = 'SELECT user_id, song_id, rating FROM ratings'
+#        self.ratings[user_id][song_id]
 
 
 class Song:
@@ -221,7 +226,7 @@ class Song:
         return self._format in ['flac', 'wv', 'ape', 'mpc']
 
     def audioCmp(self, other, forceSimilar=False, interactive=True,
-                 useColors=None):
+                 useColors=None, printSongsInfoCallback=None):
         """Compare the audio of this object with the audio of other.
 
         Returns -1 if self has better audio than other,
@@ -249,7 +254,7 @@ class Song:
                 'Songs duration is too different (%d and %d seconds)'
                 % (self.metadata.info.length, other.metadata.info.length))
 
-        if len_diff > 3:
+        if len_diff > 5:
             raise SlightlyDifferentLengthException(
                 'Songs duration is slightly different (%d and %d seconds)'
                 % (self.metadata.info.length, other.metadata.info.length))
@@ -262,38 +267,43 @@ class Song:
 
         si = self.metadata.info
         oi = other.metadata.info
-        try:
-            sbps = si.bits_per_sample
-        except AttributeError:
-            sbps = None
-        try:
-            obps = oi.bits_per_sample
-        except AttributeError:
-            obps = None
 
-        if not interactive:
-            if si.bitrate > oi.bitrate \
-               and ((sbps and obps and sbps >= obps) or
-                    (not sbps and not obps)) \
-               and si.channels >= oi.channels \
-               and si.sample_rate >= oi.sample_rate:
-                return -1
+        # Be sure the self.metadata.info structure contains all information
+        sbps = self.bits_per_sample()
+        self.bitrate()
+        obps = other.bits_per_sample()
+        other.bitrate()
 
-            if oi.bitrate > si.bitrate \
-               and ((sbps and obps and obps >= sbps) or
-                    (not sbps and not obps)) \
-               and oi.channels >= si.channels \
-               and oi.sample_rate >= si.sample_rate:
-                return 1
+        if si.bitrate > oi.bitrate * 1.24 \
+           and ((sbps and obps and sbps >= obps) or
+                (not sbps and not obps)) \
+           and si.channels >= oi.channels \
+           and si.sample_rate >= oi.sample_rate:
+            return -1
 
-            if oi.bitrate == si.bitrate \
-               and ((sbps and obps and obps == sbps) or
-                    (not sbps and not obps)) \
-               and oi.channels == si.channels \
-               and oi.sample_rate == si.sample_rate:
-                return 0
+        if oi.bitrate > si.bitrate * 1.24 \
+           and ((sbps and obps and obps >= sbps) or
+                (not sbps and not obps)) \
+           and oi.channels >= si.channels \
+           and oi.sample_rate >= si.sample_rate:
+            return 1
+
+#        if self.completeness > other.completeness:
+#            return -1
+#
+#        if other.completeness > self.completeness:
+#            return 1
+
+        if oi.bitrate == si.bitrate \
+           and ((sbps and obps and obps == sbps) or
+                (not sbps and not obps)) \
+           and oi.channels == si.channels \
+           and oi.sample_rate == si.sample_rate:
+            return 0
 
         if interactive:
+            if printSongsInfoCallback:
+                printSongsInfoCallback(self, other)
             filename1 = '/tmp/1'
             filename2 = '/tmp/2'
             shutil.copyfile(self.path(), filename1)
