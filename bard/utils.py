@@ -21,6 +21,28 @@ import io
 ImageDataTuple = namedtuple('ImageDataTuple', ['image', 'data'])
 
 
+def printSongsInfo(song1, song2,
+                   useColors=(TerminalColors.FAIL, TerminalColors.OKGREEN)):
+    song1.calculateCompleteness()
+    song2.calculateCompleteness()
+
+    print(useColors[0] + song1.path() + TerminalColors.ENDC)
+    print(useColors[1] + song2.path() + TerminalColors.ENDC)
+
+    song1.loadMetadataInfo()
+    song2.loadMetadataInfo()
+    printDictsDiff(song1.metadata, song2.metadata, forcePrint=True)
+
+    print('Completeness: %s%d%s <-> %s%d%s)' % (
+          useColors[0], song1.completeness, TerminalColors.ENDC,
+          useColors[1], song2.completeness, TerminalColors.ENDC))
+
+    if song1.metadata == song2.metadata:
+        print('Songs have identical metadata!')
+
+    printPropertiesDiff(song1, song2, forcePrint=True)
+
+
 def loadImageFromData(data):
     if not data:
         return None

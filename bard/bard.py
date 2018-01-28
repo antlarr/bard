@@ -1,8 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 from bard.utils import fixTags, calculateFileSHA256, \
-    calculateAudioTrackSHA256_audioread, printDictsDiff, printPropertiesDiff, \
-    printProperties
+    calculateAudioTrackSHA256_audioread, printProperties, printSongsInfo
 from bard.song import Song, DifferentLengthException
 from bard.musicdatabase import MusicDatabase
 from bard.terminalcolors import TerminalColors
@@ -914,27 +913,12 @@ class Bard:
             print('''Songs not similar (similarity: %f, offset: %d)''' %
                   (similarity, offset))
 
-        song1.calculateCompleteness()
-        song2.calculateCompleteness()
-        print('Completeness: %d <-> %d)' % (song1.completeness,
-                                            song2.completeness))
-
-        print(TerminalColors.FAIL + song1.path() + TerminalColors.ENDC)
-        print(TerminalColors.OKGREEN + song2.path() + TerminalColors.ENDC)
-
-        song1.loadMetadataInfo()
-        song2.loadMetadataInfo()
-        printDictsDiff(song1.metadata, song2.metadata, forcePrint=True)
-
-        if song1.metadata == song2.metadata:
-            print('Songs have identical metadata!')
-
-        printPropertiesDiff(song1, song2, forcePrint=True)
+        colors = (TerminalColors.FAIL, TerminalColors.OKGREEN)
+        printSongsInfo(song1, song2, useColors=colors)
 
         try:
             cmpResult = song1.audioCmp(song2, forceSimilar=sameSong,
-                                       useColors=(TerminalColors.FAIL,
-                                                  TerminalColors.OKGREEN),
+                                       useColors=colors,
                                        interactive=interactive)
         except DifferentLengthException as e:
             print(e)
