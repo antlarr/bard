@@ -296,7 +296,8 @@ class Bard:
         if songID:
             where = ['id = ?']
             values = [songID]
-        elif not path.startswith('/'):
+        elif (not path.startswith('/') or path.endswith('/') or
+              os.path.isdir(path)):
             where = ["path like ?"]
             values = ['%' + path + '%']
         else:
