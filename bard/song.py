@@ -311,7 +311,7 @@ class Song:
             result = manualAudioCmp(filename1, filename2, useColors=useColors)
             os.unlink(filename1)
             os.unlink(filename2)
-            if result:
+            if result or result == 0:
                 return result
 
         raise CantCompareSongsException('Not sure how to compare songs')
