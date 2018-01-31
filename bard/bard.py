@@ -569,8 +569,8 @@ class Bard:
                 print('%s already fixed' % song.path())
         MusicDatabase.commit()
 
-    def checkSongsExistence(self, verbose=False):
-        collection = self.getMusic()
+    def checkSongsExistenceInPath(self, path, verbose=False):
+        collection = self.getSongsAtPath(path)
         count = 0
         for song in collection:
             if not os.path.exists(song.path()):
@@ -596,6 +596,10 @@ class Bard:
             if count % 10:
                 MusicDatabase.commit()
         MusicDatabase.commit()
+
+    def checkSongsExistence(self, paths, verbose=False):
+        for path in paths:
+            self.checkSongsExistenceInPath(path, verbose=verbose)
 
     def fixChecksums(self, from_song_id=None):
         if from_song_id:
@@ -1032,7 +1036,7 @@ fix-mtime           fixes the mtime of imported files (you should never
                     need to use this)
 fix-checksums       fixes the checksums of imported files (you should
                     never need to use this)
-check-songs-existence
+check-songs-existence [-v] [path]
                     check for removed files to remove them from the
                     database
 check-checksums     check that the imported files haven't been modified
@@ -1103,9 +1107,12 @@ update
                             help='Starts fixing checksums from a specific '
                                  'song_id')
         # check-songs-existence command
-        sps.add_parser('check-songs-existence',
-                       description='Check for removed files to remove them '
-                                   'from the database')
+        parser = sps.add_parser('check-songs-existence',
+                                description='Check for removed files to '
+                                            'remove them from the database')
+        parser.add_argument('-v', '--verbose', dest='verbose',
+                            action='store_true', help='Be verbose')
+        parser.add_argument('paths', nargs='*', metavar='paths')
         # check-checksums command
         parser = sps.add_parser('check-checksums',
                                 description='Check that the imported files '
@@ -1196,8 +1203,8 @@ update
         parser = sps.add_parser('update',
                                 description='Update database with new/modified'
                                 '/deleted files')
-        parser.add_argument('--verbose', dest='verbose', action='store_true',
-                            help='Be verbose')
+        parser.add_argument('-v', '--verbose', dest='verbose',
+                            action='store_true', help='Be verbose')
         options = main_parser.parse_args()
 
         if options.command == 'find-duplicates':
@@ -1207,7 +1214,10 @@ update
         elif options.command == 'fix-checksums':
             self.fixChecksums(options.from_song_id)
         elif options.command == 'check-songs-existence':
-            self.checkSongsExistence()
+            paths = options.paths
+            if not paths:
+                paths = config['musicPaths']
+            self.checkSongsExistence(paths, verbose=options.verbose)
         elif options.command == 'check-checksums':
             self.checkChecksums(options.from_song_id)
         elif options.command == 'find-audio-duplicates':
@@ -1254,7 +1264,7 @@ update
         elif options.command == 'update':
             paths = config['musicPaths']
             self.add(paths, verbose=options.verbose)
-            self.checkSongsExistence(verbose=options.verbose)
+            self.checkSongsExistence(paths, verbose=options.verbose)
 
 
 def main():
