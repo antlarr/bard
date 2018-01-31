@@ -47,10 +47,10 @@ def getUniquePairs(data):
     print('data', data)
     used = []
     for song1 in data:
-#        print('---')
-#        print(song1)
-#        for s in data[song1]:
-#            print(s)
+        # print('---')
+        # print(song1)
+        # for s in data[song1]:
+        #     print(s)
 
         candidates = [x for x in data[song1] if x[0] not in used]
         if not candidates:
@@ -78,15 +78,15 @@ def getUniquePairs(data):
 
 
 def compareSongSets(songs1, songs2, path1, path2):
-    interactive = False
+    interactive = True
     for x in songs1:
         x.loadMetadata()
         x.calculateCompleteness()
     for x in songs2:
         x.loadMetadata()
         x.calculateCompleteness()
-    print('songs1',songs1)
-    print('songs2',songs2)
+    print('songs1', songs1)
+    print('songs2', songs2)
     pairs, newSongs1, newSongs2 = findPairs(songs1, songs2)
     print(pairs)
     print(newSongs1)
@@ -134,12 +134,16 @@ def compareSongSets(songs1, songs2, path1, path2):
             result.append(song1)
             sourceOfResult.append(-1)
             if song2.completeness > song1.completeness:
-                print('WARNING: Audio is better on first set, but metadata is better on second set.')
+                colors = (TerminalColors.WARNING, TerminalColors.ENDC)
+                print('%sWARNING: Audio is better on first set, but '
+                      'metadata is better on second set.%s' % colors)
         elif take_from == 1:
             result.append(song2)
             sourceOfResult.append(1)
             if song1.completeness > song2.completeness:
-                print('WARNING: Audio is better on second set, but metadata is better on first set.')
+                colors = (TerminalColors.WARNING, TerminalColors.ENDC)
+                print('%sWARNING: Audio is better on second set, but '
+                      'metadata is better on first set.%s' % colors)
         else:
             undecided.append((song1, song2))
 
@@ -150,19 +154,26 @@ def compareSongSets(songs1, songs2, path1, path2):
     print('---')
     print(sourceOfResult)
     if not source_is_important:
-        print('Both sets are interchangeable')
+        colors = (TerminalColors.OKGREEN, TerminalColors.ENDC)
+        print('%sBoth sets are interchangeable%s' % colors)
         print(result)
         return result
     elif set(sourceOfResult) == {-1}:
-        print('Better source: first set')
+        colors = (TerminalColors.WARNING, TerminalColors.FAIL,
+                  TerminalColors.WARNING, TerminalColors.ENDC)
+        print('%sBetter source: %sfirst%s set%s' % colors)
     elif set(sourceOfResult) == {1}:
-        print('Better source: second set')
+        colors = (TerminalColors.WARNING, TerminalColors.OKGREEN,
+                  TerminalColors.WARNING, TerminalColors.ENDC)
+        print('%sBetter source: %ssecond%s set%s' % colors)
     else:
-        print('Some songs from the first set and some songs from the second')
+        colors = (TerminalColors.WARNING, TerminalColors.ENDC)
+        print('%sSome songs from the first set and '
+              'some songs from the second%s' % colors)
         for i, source in enumerate(sourceOfResult):
-            if source==-1:
+            if source == -1:
                 print(songs1[i].path())
-            elif source==1:
+            elif source == 1:
                 print(songs2[i].path())
 
     return result
