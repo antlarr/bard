@@ -226,7 +226,8 @@ class Song:
         return self._format in ['flac', 'wv', 'ape', 'mpc']
 
     def audioCmp(self, other, forceSimilar=False, interactive=True,
-                 useColors=None, printSongsInfoCallback=None):
+                 useColors=None, printSongsInfoCallback=None,
+                 forceInteractive=False):
         """Compare the audio of this object with the audio of other.
 
         Returns -1 if self has better audio than other,
@@ -259,7 +260,7 @@ class Song:
                 'Songs duration is slightly different (%d and %d seconds)'
                 % (self.metadata.info.length, other.metadata.info.length))
 
-        if not interactive:
+        if not forceInteractive:
             if self.isLossless() and not other.isLossless():
                 return -1
             if other.isLossless() and not self.isLossless():
@@ -274,19 +275,20 @@ class Song:
         obps = other.bits_per_sample()
         other.bitrate()
 
-        if si.bitrate > oi.bitrate * 1.24 \
-           and ((sbps and obps and sbps >= obps) or
-                (not sbps and not obps)) \
-           and si.channels >= oi.channels \
-           and si.sample_rate >= oi.sample_rate:
-            return -1
+        if not forceInteractive:
+            if si.bitrate > oi.bitrate * 1.24 \
+               and ((sbps and obps and sbps >= obps) or
+                    (not sbps and not obps)) \
+               and si.channels >= oi.channels \
+               and si.sample_rate >= oi.sample_rate:
+                return -1
 
-        if oi.bitrate > si.bitrate * 1.24 \
-           and ((sbps and obps and obps >= sbps) or
-                (not sbps and not obps)) \
-           and oi.channels >= si.channels \
-           and oi.sample_rate >= si.sample_rate:
-            return 1
+            if oi.bitrate > si.bitrate * 1.24 \
+               and ((sbps and obps and obps >= sbps) or
+                    (not sbps and not obps)) \
+               and oi.channels >= si.channels \
+               and oi.sample_rate >= si.sample_rate:
+                return 1
 
 #        if self.completeness > other.completeness:
 #            return -1
@@ -294,14 +296,14 @@ class Song:
 #        if other.completeness > self.completeness:
 #            return 1
 
-        if oi.bitrate == si.bitrate \
-           and ((sbps and obps and obps == sbps) or
-                (not sbps and not obps)) \
-           and oi.channels == si.channels \
-           and oi.sample_rate == si.sample_rate:
-            return 0
+            if oi.bitrate == si.bitrate \
+               and ((sbps and obps and obps == sbps) or
+                    (not sbps and not obps)) \
+               and oi.channels == si.channels \
+               and oi.sample_rate == si.sample_rate:
+                return 0
 
-        if interactive:
+        if interactive or forceInteractive:
             if printSongsInfoCallback:
                 printSongsInfoCallback(self, other)
             filename1 = '/tmp/1'
