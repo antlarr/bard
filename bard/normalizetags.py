@@ -9,6 +9,7 @@ import mutagen.asf
 import mutagen.flac
 import mutagen.wavpack
 import mutagen.oggvorbis
+import mutagen.musepack
 
 
 def extractFirstElementOfTuple(x):
@@ -173,7 +174,25 @@ tagMaps = {
         'label': 'WM/Provider',
         'publisher': 'WM/Publisher',
         'tracknumber': 'WM/TrackNumber',
-        'date': 'WM/Year', }}
+        'date': 'WM/Year', },
+    mutagen.musepack.Musepack: {
+        'album': 'Album',
+        'albumartist': 'Album Artist',
+        'albumgenre': 'Album genre',
+        'artist': 'Artist',
+        'composer': 'Composer',
+        'discnumber': 'Disc',
+        'genre': 'Genre',
+        'label': 'Label',
+        'language': 'Language',
+        'musicbrainz_artistid': 'Musicbrainz_Artistid',
+        'musicbrainz_albumid': 'Musicbrainz_Albumid',
+        'musicbrainz_albumartistid': 'Musicbrainz_Albumartistid',
+        'musicbrainz_releasetrackid': 'musicbrainz_releasetrackid',
+        'musicbrainz_trackid': 'musicbrainz_trackid',
+        'date': 'Originaldate',
+        'title': 'Title',
+        'tracknumber': 'Track', }}
 
 formatToType = {
     'mp3': mutagen.mp3.MP3,
@@ -182,8 +201,8 @@ formatToType = {
     'flac': mutagen.flac.FLAC,
     'ogg': mutagen.oggvorbis.OggVorbis,
     'wv': mutagen.wavpack.WavPack,
-    'ape': mutagen.monkeysaudio.MonkeysAudio}
-#    'mpc': mutagen.musepack.Musepack}
+    'ape': mutagen.monkeysaudio.MonkeysAudio,
+    'mpc': mutagen.musepack.Musepack}
 
 
 def normalizeTagValue(obj, mutagenFile, tag):
