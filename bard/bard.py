@@ -921,22 +921,10 @@ class Bard:
             MusicDatabase.commit()
 
         sameSong = False
-        if song1.fileSha256sum() == song2.fileSha256sum():
-            msg = ('Exactly the same files (sha256 = %s)' %
-                   song1.fileSha256sum())
-            print('Duplicate songs :', msg)
+        if (song1.fileSha256sum() == song2.fileSha256sum() or
+            song1.audioSha256sum() == song2.audioSha256sum() or
+                (similarity and similarity >= matchThreshold)):
             sameSong = True
-        elif song1.audioSha256sum() == song2.audioSha256sum():
-            msg = 'Exactly same audio track with different tags'
-            print('Duplicate songs :', msg)
-            sameSong = True
-        elif similarity and similarity >= matchThreshold:
-            msg = 'Similarity %f, offset %d' % (similarity, offset)
-            print('Similar songs found: %s' % msg)
-            sameSong = True
-        else:
-            print('''Songs not similar (similarity: %f, offset: %d)''' %
-                  (similarity, offset))
 
         colors = (TerminalColors.FAIL, TerminalColors.OKGREEN)
         printSongsInfo(song1, song2, useColors=colors)
@@ -948,12 +936,25 @@ class Bard:
         except DifferentLengthException as e:
             print(e)
         else:
+            if song1.fileSha256sum() == song2.fileSha256sum():
+                msg = ('Exactly the same files (sha256 = %s)' %
+                       song1.fileSha256sum())
+                print('Duplicate songs :', msg)
+            elif song1.audioSha256sum() == song2.audioSha256sum():
+                msg = 'Exactly same audio track with different tags'
+                print('Duplicate songs :', msg)
+            elif similarity and similarity >= matchThreshold:
+                msg = 'Similarity %f, offset %d' % (similarity, offset)
+                print('Similar songs found: %s' % msg)
+            else:
+                print('''Songs not similar (similarity: %f, offset: %d)''' %
+                      (similarity, offset))
             if cmpResult < 0:
                 print('%d has better audio than %d' % (id1, id2))
             elif cmpResult > 0:
                 print('%d has better audio than %d' % (id2, id1))
             elif cmpResult == 0:
-                print('%d and %d have same audio' % (id1, id2))
+                print('%d and %d have equivalent audio' % (id1, id2))
     #        except DifferentSongsException as e:
     #            print(e)
 
