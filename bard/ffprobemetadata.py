@@ -31,6 +31,7 @@ class FFProbeMetadata(dict):
     def __init__(self, path):
         print('Using ffprobe!', path)
         try:
+            # ffprobe -v error -select_streams a:0 -show_format -show_streams -of flat -i file
             output = subprocess.check_output(['ffprobe', '-v', 'error',
                                               '-select_streams', 'a:0',
                                               '-show_format', '-show_streams',
