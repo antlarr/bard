@@ -35,6 +35,7 @@ class CantCompareSongsException(Exception):
 
 class Ratings:
     def __init__(self):
+        """Create a Ratings object with ALL ratings from all users/songs."""
         c = MusicDatabase.conn.cursor()
         sql = 'SELECT user_id, song_id, rating FROM ratings'
         result = c.execute(sql)
@@ -52,14 +53,28 @@ class Ratings:
         except KeyError:
             return 5
 
-#    def setSongRating(self, user_id, song_id, rating):
-#        sql = 'SELECT user_id, song_id, rating FROM ratings'
-#        self.ratings[user_id][song_id]
+    def setSongRating(self, user_id, song_id, rating):
+        try:
+            self.ratings[user_id][song_id] = rating
+        except KeyError:
+            self.ratings[user_id] = {}
+            self.ratings[user_id][song_id] = rating
+
+        c = MusicDatabase.conn.cursor()
+        sql = 'UPDATE ratings set rating = ? WHERE user_id = ? AND song_id = ?'
+        c.execute(sql, (rating, user_id, song_id))
+        if c.rowcount == 0:
+            c.execute('INSERT INTO ratings '
+                      '(user_id, song_id, rating) '
+                      'VALUES (?,?,?)',
+                      (user_id, song_id, rating))
+        MusicDatabase.commit()
 
 
 class Song:
 
     def __init__(self, x, rootDir=None):
+        """Create a Song oject."""
         self.tags = {}
         Song.ratings = None
         if type(x) == sqlite3.Row:
@@ -519,6 +534,11 @@ class Song:
         if not Song.ratings:
             Song.ratings = Ratings()
         return Song.ratings.getSongRatings(user_id, self.id)
+
+    def setUserRating(self, rating, user_id=0):
+        if not Song.ratings:
+            Song.ratings = Ratings()
+        return Song.ratings.setSongRating(user_id, self.id, rating)
 
     def calculateCompleteness(self):
         value = 100

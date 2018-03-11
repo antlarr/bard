@@ -418,6 +418,8 @@ class Bard:
             playingSongs = self.getCurrentlyPlayingSongs()
             songs.extend(playingSongs)
 
+        userID = MusicDatabase.getUserID(config['username'])
+
         for song in songs:
             song.loadMetadataInfo()
             print("----------")
@@ -427,6 +429,8 @@ class Bard:
                 filesize = "File not found"
             print("%s (%s)" % (song.path(), filesize))
             print("song id:", song.id)
+            rating = song.userRating(userID)
+            print("rating:", '*' * rating, '(%d/10)' % rating)
             for k, v in song.metadata.items():
                 print(TerminalColors.WARNING + str(k) + TerminalColors.ENDC +
                       ' : ' + str(v)[:100])
@@ -1029,6 +1033,20 @@ class Bard:
         for genre, count in genres:
             print('%s :\t%s' % (genre, count))
 
+    def setRating(self, ids_or_paths, rating, currentlyPlaying):
+        songs = []
+        for id_or_path in ids_or_paths:
+            songs.extend(self.getSongsFromIDorPath(id_or_path))
+
+        if currentlyPlaying:
+            playingSongs = self.getCurrentlyPlayingSongs()
+            songs.extend(playingSongs)
+
+        userID = MusicDatabase.getUserID(config['username'])
+        for song in songs:
+            print('Setting rating of %s to %d' % (song.path(), rating))
+            song.setUserRating(rating, userID)
+
     def parseCommandLine(self):
         main_parser = ArgumentParser(
             description='Manage your music collection',
@@ -1218,6 +1236,13 @@ update
                                 '/deleted files')
         parser.add_argument('-v', '--verbose', dest='verbose',
                             action='store_true', help='Be verbose')
+        # set-rating command
+        parser = sps.add_parser('set-rating',
+                                description='Set ratings for a song or songs')
+        parser.add_argument('-p', dest='playing', action='store_true',
+                            help='Set rating for the currently playing song')
+        parser.add_argument('rating', nargs='?')
+        parser.add_argument('paths', nargs='*')
         options = main_parser.parse_args()
 
         if options.command == 'find-duplicates':
@@ -1278,6 +1303,8 @@ update
             paths = config['musicPaths']
             self.add(paths, verbose=options.verbose)
             self.checkSongsExistence(paths, verbose=options.verbose)
+        elif options.command == 'set-rating':
+            self.setRating(options.paths, int(options.rating), options.playing)
 
 
 def main():
