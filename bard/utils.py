@@ -216,7 +216,7 @@ def printPropertiesDiff(song1, song2, forcePrint=False):
     print('Properties: ' + ', '.join(values2))
 
 
-def printProperties(song):
+def getPropertiesAsString(song):
     properties = [('', '_format'),
                   (' s', 'length'),
                   (' bits/s', 'bitrate'),
@@ -236,8 +236,11 @@ def printProperties(song):
         else:
             values.append(TerminalColors.WARNING + str(val) +
                           TerminalColors.ENDC + suffix)
+    return ', '.join(values)
 
-    print('Properties: ' + ', '.join(values))
+
+def printProperties(song):
+    print('Properties: ' + getPropertiesAsString(song))
 
 
 def fixTags(mutagenFile):

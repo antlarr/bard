@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 from bard.utils import fixTags, calculateFileSHA256, \
-    calculateAudioTrackSHA256_audioread, printProperties, printSongsInfo
+    calculateAudioTrackSHA256_audioread, printProperties, printSongsInfo, \
+    getPropertiesAsString
 from bard.song import Song, DifferentLengthException
 from bard.musicdatabase import MusicDatabase
 from bard.terminalcolors import TerminalColors
