@@ -276,14 +276,14 @@ class Song:
         other.bitrate()
 
         if not forceInteractive:
-            if si.bitrate > oi.bitrate * 1.24 \
+            if si.bitrate > oi.bitrate * 1.23 \
                and ((sbps and obps and sbps >= obps) or
                     (not sbps and not obps)) \
                and si.channels >= oi.channels \
                and si.sample_rate >= oi.sample_rate:
                 return -1
 
-            if oi.bitrate > si.bitrate * 1.24 \
+            if oi.bitrate > si.bitrate * 1.23 \
                and ((sbps and obps and obps >= sbps) or
                     (not sbps and not obps)) \
                and oi.channels >= si.channels \
