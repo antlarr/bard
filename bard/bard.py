@@ -443,8 +443,17 @@ class Bard:
 
             for otherID, offset, similarity in similar_pairs:
                 otherSong = Bard.getSongs(songID=otherID)[0]
-                print(otherID, otherSong.path(), '(%d %f)' % (offset,
-                                                              similarity))
+                try:
+                    audioComparison = song.audioCmp(otherSong,
+                                                    interactive=False)
+                except DifferentLengthException:
+                    audioComparison = 0
+                propertiesString = getPropertiesAsString(otherSong)
+                color = {-1: TerminalColors.FAIL,
+                         0: TerminalColors.ENDC,
+                         1: TerminalColors.OKGREEN}[audioComparison]
+                print(color, otherID, otherSong.path(), '(%d %f %s)' % (offset,
+                      similarity, propertiesString), TerminalColors.ENDC)
 
     def list(self, path, long_ls=False, show_id=False, query=None,
              group_by_directory=False):
