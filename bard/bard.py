@@ -42,6 +42,7 @@ def normalized(v):
 
 class SongSet(MutableSet):
     def __init__(self, iterable=[]):
+        """Construct a SongSet object."""
         super().__init__()
         self.set = set()
         self.audioHashes = set()
@@ -244,6 +245,7 @@ def normalizeTrack(track):
 class Bard:
 
     def __init__(self, ro=False):
+        """Construct a Bard object."""
         self.db = MusicDatabase(ro)
 
         self.ignoreExtensions = ['.jpg', '.jpeg', '.bmp', '.tif', '.png',
