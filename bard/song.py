@@ -21,7 +21,7 @@ class DifferentLengthException(Exception):
     pass
 
 
-class SlightlyDifferentLengthException(Exception):
+class SlightlyDifferentLengthException(DifferentLengthException):
     pass
 
 
