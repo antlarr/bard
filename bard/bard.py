@@ -616,9 +616,16 @@ class Bard:
                 print('%s already fixed' % song.path())
         MusicDatabase.commit()
 
-    def addSilences(self):
-        # collection = self.getMusic()
-        collection = self.getMusic(', properties WHERE id == song_id AND silence_at_start==-1')
+    def addSilences(self, ids_or_paths=None):
+        collection = []
+        if ids_or_paths:
+            for id_or_path in ids_or_paths:
+                collection.extend(self.getSongsFromIDorPath(id_or_path))
+        else:
+            # collection = self.getMusic()
+            collection = self.getMusic(', properties WHERE id == song_id'
+                                       ' AND silence_at_start==-1')
+
         count = 0
         for song in collection:
             sha256sum = song.audioSha256sum()
@@ -1147,7 +1154,8 @@ fix-mtime           fixes the mtime of imported files (you should never
                     need to use this)
 fix-checksums       fixes the checksums of imported files (you should
                     never need to use this)
-add-silences        adds silence information to the db for files missing it
+add-silences [file | song_id ...]
+                    adds silence information to the db for files missing it
                     (you should never need to use this)
 check-songs-existence [-v] [path]
                     check for removed files to remove them from the
@@ -1216,10 +1224,11 @@ update
                        description='Fixes the mtime of imported files '
                                    '(you should never need to use this)')
         # add-silences command
-        sps.add_parser('add-silences',
-                       description='Add silence information to the db '
-                                   'for files missing it '
-                                   '(you should never need to use this)')
+        parser = sps.add_parser('add-silences',
+                                description='Add silence information to the '
+                                            'db for files missing it (you '
+                                            'should never need to use this)')
+        parser.add_argument('paths', nargs='*')
         # fix-checksums command
         parser = sps.add_parser('fix-checksums',
                                 description='Fixes the checksums of imported '
@@ -1342,7 +1351,8 @@ update
         elif options.command == 'fix-checksums':
             self.fixChecksums(options.from_song_id)
         elif options.command == 'add-silences':
-            self.addSilences()
+            paths = options.paths
+            self.addSilences(paths)
         elif options.command == 'check-songs-existence':
             paths = options.paths
             if not paths:
