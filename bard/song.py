@@ -203,8 +203,8 @@ class Song:
                                                        silence_thresh=-70)
         if silences:
             silence1, silence2 = silences
-            self._silenceAtStart = silence1[1] - silence1[0]
-            self._silenceAtEnd = silence2[1] - silence2[0]
+            self._silenceAtStart = (silence1[1] - silence1[0]) / 1000
+            self._silenceAtEnd = (silence2[1] - silence2[0]) / 1000
 
 #        self.loadCoverImageData(path)
         try:
@@ -456,8 +456,19 @@ class Song:
 #             return None
 
     def duration(self):
+        """Return the song duration in seconds."""
         self.loadMetadataInfo()
         return self.metadata.info.length
+
+    def durationWithoutSilences(self):
+        """Return the audible song duration in seconds.
+
+        That is, the song duration but without any possible silences
+        at beginning or end of the file.
+        """
+        self.loadMetadataInfo()
+        return (self.metadata.info.length -
+                self._silenceAtStart - self._silenceAtEnd)
 
     def bitrate(self):
         self.loadMetadataInfo()
@@ -574,8 +585,8 @@ class Song:
                                                        silence_thresh=-70)
         if silences:
             silence1, silence2 = silences
-            self._silenceAtStart = silence1[1] - silence1[0]
-            self._silenceAtEnd = silence2[1] - silence2[0]
+            self._silenceAtStart = (silence1[1] - silence1[0]) / 1000
+            self._silenceAtEnd = (silence2[1] - silence2[0]) / 1000
 
     def calculateCompleteness(self):
         value = 100
