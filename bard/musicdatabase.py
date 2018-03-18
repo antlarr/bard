@@ -73,6 +73,8 @@ CREATE TABLE properties(
                     sample_rate INTEGER,
                     channels INTEGER,
                     audio_sha256sum TEXT,
+                    silence_at_start REAL,
+                    silence_at_end REAL,
                     FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
                  )''')
         c.execute('''
@@ -164,10 +166,12 @@ CREATE TABLE similarities(
 
             values = [(song.format(), song.duration(), song.bitrate(),
                        song.bits_per_sample(), song.sample_rate(),
-                       song.channels(), song.audioSha256sum(), song.id), ]
+                       song.channels(), song.audioSha256sum(),
+                       song.silenceAtStart(), song.silenceAtEnd(), song.id), ]
             c.executemany('UPDATE properties SET format=?, duration=?, '
                           'bitrate=?, bits_per_sample=?, sample_rate=?, '
-                          'channels=?, audio_sha256sum=? WHERE song_id=?''',
+                          'channels=?, audio_sha256sum=?, silence_at_start=?, '
+                          'silence_at_end=? WHERE song_id=?''',
                           values)
 
             values = [(song.id), ]
@@ -209,10 +213,12 @@ CREATE TABLE similarities(
 
             values = [(song.id, song.format(), song.duration(), song.bitrate(),
                        song.bits_per_sample(), song.sample_rate(),
-                       song.channels(), song.audioSha256sum()), ]
+                       song.channels(), song.audioSha256sum(),
+                       song.silenceAtStart(), song.silenceAtEnd()), ]
             c.executemany('INSERT INTO properties(song_id, format, duration, '
                           'bitrate, bits_per_sample, sample_rate, channels, '
-                          'audio_sha256sum) VALUES (?,?,?,?,?,?,?,?)', values)
+                          'audio_sha256sum, silence_at_start, silence_at_end) '
+                          'VALUES (?,?,?,?,?,?,?,?,?,?)', values)
 
             tags = []
             for key, values in song.metadata.items():
@@ -307,7 +313,8 @@ CREATE TABLE similarities(
     def getSongProperties(songID):
         c = MusicDatabase.conn.cursor()
         result = c.execute('''SELECT format, duration, bitrate,
-                     bits_per_sample, sample_rate, channels, audio_sha256sum
+                     bits_per_sample, sample_rate, channels, audio_sha256sum,
+                     silence_at_start, silence_at_end
                      FROM properties where song_id = ? ''', (songID,))
         row = result.fetchone()
         info = type('info', (), {})()
@@ -322,7 +329,7 @@ CREATE TABLE similarities(
             print('Error getting song properties for song ID %d' % songID)
             raise
 
-        return row['format'], info, row['audio_sha256sum']
+        return row['format'], info, row['audio_sha256sum'], (row['silence_at_start'], row['silence_at_end'])
 
     @staticmethod
     def getSimilarSongsToSongID(songID, similarityThreshold=0.85):
@@ -389,6 +396,17 @@ CREATE TABLE similarities(
         c = MusicDatabase.conn.cursor()
         c.execute('UPDATE properties set audio_sha256sum=? where song_id=?',
                   (audioSha256sum, songid))
+
+    @staticmethod
+    def addAudioSilences(songid, silence_at_start, silence_at_end):
+        if config['immutableDatabase']:
+            print("Error: Can't set song silences: "
+                  "The database is configured as immutable")
+            return
+        c = MusicDatabase.conn.cursor()
+        c.execute('UPDATE properties set silence_at_start=?, silence_at_end=? where song_id=?',
+                  (silence_at_start, silence_at_end, songid))
+
 
     @staticmethod
     def addSongsSimilarity(songid1, songid2, offset, similarity):

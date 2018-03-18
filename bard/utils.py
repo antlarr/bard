@@ -17,10 +17,59 @@ import chromaprint
 from collections import namedtuple
 from PIL import Image
 from bard.terminalcolors import TerminalColors
+from pydub.utils import db_to_float
+import itertools
 import io
 # import tempfile
 
 ImageDataTuple = namedtuple('ImageDataTuple', ['image', 'data'])
+
+
+def detect_silence_at_beginning_and_end(audio_segment, min_silence_len=1000,
+                                        silence_thresh=-16, seek_step=1):
+    seg_len = len(audio_segment)
+
+    # you can't have a silent portion of a sound that is longer than the sound
+    if seg_len < min_silence_len:
+        return []
+
+    # convert silence threshold to a float value (so we can compare it to rms)
+    silence_thresh = (db_to_float(silence_thresh) *
+                      audio_segment.max_possible_amplitude)
+
+    # check successive (1 sec by default) chunk of sound for silence
+    # try a chunk at every "seek step" (or every chunk for a seek step == 1)
+    last_slice_start = seg_len - min_silence_len
+    slice_starts = range(0, last_slice_start + 1, seek_step)
+
+    # guarantee last_slice_start is included in the range
+    # to make sure the last portion of the audio is seached
+    if last_slice_start % seek_step:
+        slice_starts = itertools.chain(slice_starts, [last_slice_start])
+
+    song_start = 0
+    song_end = seg_len
+    for i in slice_starts:
+        audio_slice = audio_segment[i:i + min_silence_len]
+        if audio_slice.rms > silence_thresh:
+            if i == 0:
+                song_start = 0
+            else:
+                song_start = i + min_silence_len
+            break
+    else:
+        return [[0, 0], [song_end, song_end]]
+
+    for i in reversed(slice_starts):
+        audio_slice = audio_segment[i:i + min_silence_len]
+        if audio_slice.rms > silence_thresh:
+            if song_end == slice_starts[-1]:
+                song_end = seg_len
+            else:
+                song_end = i
+            break
+
+    return [[0, song_start], [song_end, seg_len]]
 
 
 def fingerprint_AudioSegment(audio_segment, maxlength=120000):

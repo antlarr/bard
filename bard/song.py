@@ -3,7 +3,8 @@
 from bard.config import config
 from bard.utils import md5, calculateAudioTrackSHA256_audioread, \
     extractFrontCover, md5FromData, calculateFileSHA256, manualAudioCmp, \
-    printDictsDiff, printPropertiesDiff, calculateSHA256_data
+    printDictsDiff, printPropertiesDiff, calculateSHA256_data, \
+    detect_silence_at_beginning_and_end
 from bard.musicdatabase import MusicDatabase
 from bard.normalizetags import getTag
 from bard.ffprobemetadata import FFProbeMetadata
@@ -119,8 +120,10 @@ class Song:
         elif getattr(self.metadata, 'info', None) is not None:
             return
 
-        (self._format, self.metadata.info, self._audioSha256sum) = \
+        (self._format, self.metadata.info, self._audioSha256sum, silences) = \
             MusicDatabase.getSongProperties(self.id)
+        self._silenceAtStart = silences[0]
+        self._silenceAtEnd = silences[1]
 
     def loadCoverImageData(self, path):
         self._coverWidth, self._coverHeight = 0, 0
@@ -195,6 +198,13 @@ class Song:
 
         audio_segment = AudioSegment.from_file(path)
         self._audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
+        silences = detect_silence_at_beginning_and_end(audio_segment,
+                                                       min_silence_len=10,
+                                                       silence_thresh=-70)
+        if silences:
+            silence1, silence2 = silences
+            self._silenceAtStart = silence1[1] - silence1[0]
+            self._silenceAtEnd = silence2[1] - silence2[0]
 
 #        self.loadCoverImageData(path)
         try:
@@ -233,6 +243,20 @@ class Song:
 
     def mtime(self):
         return self._mtime
+
+    def silenceAtStart(self):
+        try:
+            return self._silenceAtStart
+        except AttributeError:
+            self.loadMetadataInfo()
+            return self._silenceAtStart
+
+    def silenceAtEnd(self):
+        try:
+            return self._silenceAtEnd
+        except AttributeError:
+            self.loadMetadataInfo()
+            return self._silenceAtEnd
 
     def format(self):
         self.loadMetadataInfo()
@@ -541,6 +565,17 @@ class Song:
         if not Song.ratings:
             Song.ratings = Ratings()
         return Song.ratings.setSongRating(user_id, self.id, rating)
+
+    def calculateSilences(self):
+        audio_segment = AudioSegment.from_file(self.path())
+        self._audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
+        silences = detect_silence_at_beginning_and_end(audio_segment,
+                                                       min_silence_len=10,
+                                                       silence_thresh=-70)
+        if silences:
+            silence1, silence2 = silences
+            self._silenceAtStart = silence1[1] - silence1[0]
+            self._silenceAtEnd = silence2[1] - silence2[0]
 
     def calculateCompleteness(self):
         value = 100
