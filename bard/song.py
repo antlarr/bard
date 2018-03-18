@@ -3,7 +3,7 @@
 from bard.config import config
 from bard.utils import md5, calculateAudioTrackSHA256_audioread, \
     extractFrontCover, md5FromData, calculateFileSHA256, manualAudioCmp, \
-    printDictsDiff, printPropertiesDiff
+    printDictsDiff, printPropertiesDiff, calculateSHA256_data
 from bard.musicdatabase import MusicDatabase
 from bard.normalizetags import getTag
 from bard.ffprobemetadata import FFProbeMetadata
