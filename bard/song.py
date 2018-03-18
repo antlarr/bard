@@ -200,7 +200,7 @@ class Song:
         self._audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
         silences = detect_silence_at_beginning_and_end(audio_segment,
                                                        min_silence_len=10,
-                                                       silence_thresh=-70)
+                                                       silence_thresh=-65)
         if silences:
             silence1, silence2 = silences
             self._silenceAtStart = (silence1[1] - silence1[0]) / 1000
@@ -582,7 +582,7 @@ class Song:
         self._audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
         silences = detect_silence_at_beginning_and_end(audio_segment,
                                                        min_silence_len=10,
-                                                       silence_thresh=-70)
+                                                       silence_thresh=-65)
         if silences:
             silence1, silence2 = silences
             self._silenceAtStart = (silence1[1] - silence1[0]) / 1000
