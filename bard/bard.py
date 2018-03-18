@@ -120,6 +120,28 @@ def compareBits(x, y):
     return same_bits
 
 
+def compare_AudioSegments(audio1, audio2, showAudioOffsets=True):
+    fpa1 = fingerprint_AudioSegment(audio1)
+    fpa2 = fingerprint_AudioSegment(audio2)
+    dfpa1 = chromaprint.decode_fingerprint(fpa1)
+    dfpa2 = chromaprint.decode_fingerprint(fpa2)
+
+    from bard.bard_ext import FingerprintManager
+    fpm = FingerprintManager()
+    fpm.setMaxOffset(100)
+    fpm.addSong(1, dfpa1[0])
+    fpm.addSong(2, dfpa2[0])
+
+    values = fpm.compareSongsVerbose(1, 2)
+    if showAudioOffsets:
+        for offset, similarity in values:
+            if similarity > 0.59:
+                print(offset, similarity)
+
+    (offset, similarity) = max(values, key=lambda x: x[1])
+    return (offset, similarity)
+
+
 def compareChromaprintFingerprints(a, b, threshold=0.9, cancelThreshold=0.55,
                                    offset=None):
     equal_bits = 0

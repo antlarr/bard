@@ -13,6 +13,7 @@ import mutagen.monkeysaudio
 import mutagen.asf
 import mutagen.flac
 import mutagen.wavpack
+import chromaprint
 from collections import namedtuple
 from PIL import Image
 from bard.terminalcolors import TerminalColors
@@ -20,6 +21,32 @@ import io
 # import tempfile
 
 ImageDataTuple = namedtuple('ImageDataTuple', ['image', 'data'])
+
+
+def fingerprint_AudioSegment(audio_segment, maxlength=120000):
+    """Fingerprint audio data given a pydub AudioSegment object.
+
+    Raises a FingerprintGenerationError if anything goes wrong.
+    Based on acoustid.py's fingerprint function.
+    """
+    maxlength /= 1000
+    endposition = audio_segment.frame_rate * audio_segment.channels * maxlength
+    try:
+        fper = chromaprint.Fingerprinter()
+
+        fper.start(audio_segment.frame_rate, audio_segment.channels)
+
+        position = 0  # Samples of audio fed to the fingerprinter.
+        for start in range(0, len(audio_segment.raw_data), 4096):
+            block = audio_segment.raw_data[start:start + 4096]
+            fper.feed(block)
+            position += len(block) // 2  # 2 bytes/sample.
+            if position >= endposition:
+                break
+        return fper.finish()
+    except chromaprint.FingerprintError:
+        raise chromaprint.FingerprintGenerationError("fingerprint calculation "
+                                                     "failed")
 
 
 def printSongsInfo(song1, song2,
