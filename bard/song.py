@@ -7,6 +7,7 @@ from bard.utils import md5, calculateAudioTrackSHA256_audioread, \
 from bard.musicdatabase import MusicDatabase
 from bard.normalizetags import getTag
 from bard.ffprobemetadata import FFProbeMetadata
+from pydub import AudioSegment
 import sqlite3
 import os
 import shutil
@@ -192,7 +193,8 @@ class Song:
             mutagen.musepack.Musepack: 'mpc', }
         self._format = formattext[type(self.metadata)]
 
-        self._audioSha256sum = calculateAudioTrackSHA256_audioread(path)
+        audio_segment = AudioSegment.from_file(path)
+        self._audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
 
 #        self.loadCoverImageData(path)
         try:

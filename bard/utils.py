@@ -4,6 +4,7 @@ import subprocess
 import time
 import hashlib
 import audioread
+from pydub import AudioSegment
 import mutagen
 import mutagen.mp3
 import mutagen.mp4
@@ -316,6 +317,12 @@ def calculateSHA256(filelike):
     return hash_sha256.hexdigest()
 
 
+def calculateSHA256_data(data):
+    hash_sha256 = hashlib.sha256()
+    hash_sha256.update(data)
+    return hash_sha256.hexdigest()
+
+
 def removeAllTagsFromPath(path):
     # subprocess.check_output(['id3v2', '--delete-all', path])
     mutagenFile = mutagen.File(path)
@@ -384,6 +391,13 @@ def calculateAudioTrackSHA256(path, tmpdir='/tmp'):
     #     os.unlink(tmpfilename)
 
     # return None
+
+
+def calculateAudioTrackSHA256_pydub(path):
+    audio_segment = AudioSegment.from_file(path)
+    audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
+    print('size:', len(audio_segment.raw_data))
+    return audioSha256sum
 
 
 def calculateAudioTrackSHA256_audioread(path):
