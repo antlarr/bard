@@ -475,16 +475,22 @@ class Bard:
                     audioComparison = song.audioCmp(otherSong,
                                                     interactive=False)
                 except (DifferentLengthException):
-                    audioComparison = 0
+                    audioComparison = 2
                     colors = {'length': TerminalColors.Magenta}
+                except (CantCompareSongsException):
+                    audioComparison = 3
+                    colors = {}
                 else:
                     colors = {}
                 propertiesString = getPropertiesAsString(otherSong, colors)
-                color = {-1: TerminalColors.First,
+                color = {-1: TerminalColors.Worse,
                          0: TerminalColors.ENDC,
-                         1: TerminalColors.Second}[audioComparison]
-                print(color, otherID, otherSong.path(), '(%d %f %s)' % (offset,
-                      similarity, propertiesString), TerminalColors.ENDC)
+                         1: TerminalColors.Better,
+                         2: TerminalColors.DifferentLength,
+                         3: TerminalColors.CantCompareSongs}[audioComparison]
+                print(color, otherID, otherSong.path() + TerminalColors.ENDC,
+                      '(%d %f %s)' % (offset, similarity, propertiesString),
+                      TerminalColors.ENDC)
 
     def list(self, path, long_ls=False, show_id=False, query=None,
              group_by_directory=False):

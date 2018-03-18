@@ -25,6 +25,9 @@ class TerminalColors:
     First = Red
     Second = Green
 
+    DifferentLength = Magenta
+    CantCompareSongs = Cyan
+
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
