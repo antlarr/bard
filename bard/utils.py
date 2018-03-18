@@ -296,6 +296,7 @@ def printPropertiesDiff(song1, song2, forcePrint=False):
 def getPropertiesAsString(song, colors={}):
     properties = [('', '_format'),
                   (' s', 'length'),
+                  (' s (w/o silences)', 'durationWithoutSilences'),
                   (' bits/s', 'bitrate'),
                   (' bits/sample', 'bits_per_sample'),
                   (' channels', 'channels'),
