@@ -247,6 +247,7 @@ CREATE TABLE similarities(
         c.execute('DELETE FROM fingerprints where song_id = ? ', (song.id,))
         c.execute('DELETE FROM tags where song_id = ? ', (song.id,))
         c.execute('DELETE FROM properties where song_id = ? ', (song.id,))
+        c.execute('DELETE FROM ratings where song_id = ? ', (song.id,))
         c.execute('DELETE FROM songs where id = ? ', (song.id,))
         MusicDatabase.commit()
 
