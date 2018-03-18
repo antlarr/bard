@@ -610,6 +610,39 @@ class Bard:
                 print('%s already fixed' % song.path())
         MusicDatabase.commit()
 
+    def addSilences(self):
+        # collection = self.getMusic()
+        collection = self.getMusic(', properties WHERE id == song_id AND silence_at_start==-1')
+        count = 0
+        for song in collection:
+            sha256sum = song.audioSha256sum()
+            try:
+                song.calculateSilences()
+            except:
+                print('Error calculating silences of', song.path())
+                raise
+
+            sha256sum_pydub = song.audioSha256sum()
+            if ((song.path().endswith('flac') or
+                 song.path().endswith('ape') or
+                 song.path().endswith('.wv')) and
+                    sha256sum != sha256sum_pydub):
+                print('Error: sha256 does not match: %s != %s' %
+                      (sha256sum, sha256sum_pydub))
+            MusicDatabase.addAudioSilences(song.id, song.silenceAtStart(),
+                                           song.silenceAtEnd())
+            MusicDatabase.addAudioTrackSha256sum(song.id, sha256sum_pydub)
+
+            count += 1
+            if count % 10:
+                MusicDatabase.commit()
+
+            print('Add silences (%s, %s) for %s' % (song.silenceAtStart(),
+                  song.silenceAtEnd(), song.path()))
+#            else:
+#                print('%s already fixed' % song.path())
+        MusicDatabase.commit()
+
     def checkSongsExistenceInPath(self, path, verbose=False):
         collection = self.getSongsAtPath(path)
         count = 0
@@ -1108,6 +1141,8 @@ fix-mtime           fixes the mtime of imported files (you should never
                     need to use this)
 fix-checksums       fixes the checksums of imported files (you should
                     never need to use this)
+add-silences        adds silence information to the db for files missing it
+                    (you should never need to use this)
 check-songs-existence [-v] [path]
                     check for removed files to remove them from the
                     database
@@ -1173,6 +1208,11 @@ update
         # fix-mtime command
         sps.add_parser('fix-mtime',
                        description='Fixes the mtime of imported files '
+                                   '(you should never need to use this)')
+        # add-silences command
+        sps.add_parser('add-silences',
+                       description='Add silence information to the db '
+                                   'for files missing it '
                                    '(you should never need to use this)')
         # fix-checksums command
         parser = sps.add_parser('fix-checksums',
@@ -1295,6 +1335,8 @@ update
             self.fixMtime()
         elif options.command == 'fix-checksums':
             self.fixChecksums(options.from_song_id)
+        elif options.command == 'add-silences':
+            self.addSilences()
         elif options.command == 'check-songs-existence':
             paths = options.paths
             if not paths:
