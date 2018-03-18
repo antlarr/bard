@@ -290,7 +290,7 @@ class Song:
                 'Trying to compare different songs (%d and %d)'
                 % (self.id, other.id))
 
-        len_diff = abs(self.metadata.info.length - other.metadata.info.length)
+        len_diff = abs(self.durationWithoutSilences() - other.durationWithoutSilences())
         if len_diff > 30:
             raise DifferentLengthException(
                 'Songs duration is too different (%d and %d seconds)'
