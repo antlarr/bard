@@ -977,18 +977,29 @@ class Bard:
     #        except DifferentSongsException as e:
     #            print(e)
 
-    def compareDirectories(self, path1, path2, verbose=False):
+    def compareDirectories(self, path1, path2, subset=False, verbose=False):
         songs1 = self.getSongsAtPath(path1)
         songs2 = self.getSongsAtPath(path2)
-        compareSongSets(songs1, songs2, path1, path2)
+        try:
+            compareSongSets(songs1, songs2, path1, path2,
+                            useSubsetSemantics=subset)
+        except ValueError as e:
+            print(e)
 
         return None
+
         songs1 = SongSet(songs1)
         songs2 = SongSet(songs2)
         print(songs1)
         print(songs2)
 
         firstInSecond = songs1 <= songs2
+        if subset:
+            if firstInSecond:
+                print('%s is contained in %s' % (path1, path2))
+            else:
+                print('%s is NOT contained in %s' % (path1, path2))
+
         secondInFirst = songs1 <= songs1
 
         if firstInSecond and secondInFirst:
@@ -1069,7 +1080,7 @@ compare-songs [-i] [id_or_path] [id_or_path]
                     compares two songs given their paths or song id
 compare-files [-i] [path] [path]
                     compares two files not neccesarily in the database
-compare-dirs [dir1] [dir2]
+compare-dirs [-s] [dir1] [dir2]
                     compares two directories neccesarily in the database
 fix-mtime           fixes the mtime of imported files (you should never
                     need to use this)
@@ -1132,6 +1143,9 @@ update
         parser = sps.add_parser('compare-dirs',
                                 description='Compares two directories'
                                 ' neccesarily in the database')
+        parser.add_argument('-s', dest='subset', action='store_true',
+                            default=False,
+                            help='Only test if dir1 is a subset of dir2')
         parser.add_argument('dir1', metavar='path')
         parser.add_argument('dir2', metavar='path')
         # fix-mtime command
@@ -1275,7 +1289,8 @@ update
             self.compareFiles(options.song1, options.song2,
                               interactive=options.interactive)
         elif options.command == 'compare-dirs':
-            self.compareDirectories(options.dir1, options.dir2)
+            self.compareDirectories(options.dir1, options.dir2,
+                                    subset=options.subset)
         elif options.command == 'fix-tags':
             self.fixTags(options.paths)
         elif options.command == 'info':

@@ -44,24 +44,35 @@ def findPairs(songs1, songs2):
     return pairs, songsRemainingFrom1, songsRemainingFrom2
 
 
-def getUniquePairs(data):
+def getPairs(data, unique=True):
     pairs = []
     print('data', data)
     used = []
     for song1 in data:
-        # print('---')
-        # print(song1)
-        # for s in data[song1]:
-        #     print(s)
+        print('---')
+        print(song1.path())
+        for s in data[song1]:
+            print(' -> ', s[0], s[1])
 
         candidates = [x for x in data[song1] if x[0] not in used]
         if not candidates:
-            colors = (TerminalColors.WARNING, TerminalColors.ENDC)
+            colors = (TerminalColors.Error, TerminalColors.ENDC)
             print('%sError: Song repeated on first set?%s%s' %
                   (colors[0], colors[1], song1.path()))
             candidates = [x for x in data[song1]]
-        song2, similarity = max(candidates, key=lambda x: x[1])
-        used.append(song2)
+
+        sortedCandidates = sorted(candidates, key=lambda x: x[1], reverse=True)
+
+        for candidateSong, candidateSimilarity in sortedCandidates:
+            if abs(candidateSong.duration() - song1.duration()) < 5:
+                song2 = candidateSong
+                similarity = candidateSimilarity
+                break
+        else:
+            song2, similarity = sortedCandidates[0]
+
+        if unique:
+            used.append(song2)
         pairs.append((song1, song2, similarity))
 
     a = {x[0] for x in pairs}
@@ -74,30 +85,36 @@ def getUniquePairs(data):
         print(i, ')')
         print(x[0].path())
         print(x[1].path())
-    if len(a) != len(pairs) or len(b) != len(pairs):
+    if unique and (len(a) != len(pairs) or len(b) != len(pairs)):
         print('Number of pairs:', len(pairs), '  (%d,%d)' % (len(a), len(b)))
-        raise NotImplementedError('getUniquePairs cannot currently handle '
+        raise NotImplementedError('getPairs cannot currently handle '
                                   'the case of ' + str(pairs))
 
     return pairs
 
 
-def compareSongSets(songs1, songs2, path1, path2):
+def prepareSongs(songs):
+    for x in songs:
+        x.loadMetadata()
+        x.calculateCompleteness()
+
+
+def compareSongSets(songs1, songs2, path1, path2, useSubsetSemantics=False):
     interactive = True
-    for x in songs1:
-        x.loadMetadata()
-        x.calculateCompleteness()
-    for x in songs2:
-        x.loadMetadata()
-        x.calculateCompleteness()
+    prepareSongs(songs1)
+    prepareSongs(songs2)
     print('songs1', songs1)
     print('songs2', songs2)
     pairs, newSongs1, newSongs2 = findPairs(songs1, songs2)
     print(pairs)
     print(newSongs1)
     print(newSongs2)
+    if not songs1 and not songs2:
+        msg = (TerminalColors.Warning + 'Warning: Both sets are empty' +
+               TerminalColors.ENDC)
+        raise ValueError(msg)
 
-    pairs = getUniquePairs(pairs)
+    pairs = getPairs(pairs, unique=not useSubsetSemantics)
     print('-------')
     sourceOfResult = []
     result = []
@@ -228,7 +245,8 @@ def compareSongSets(songs1, songs2, path1, path2):
                 TerminalColors.Second + 'second' + TerminalColors.Warning,
                 TerminalColors.ENDC)
         print('%sThere are %d original songs in %s set%s' % args)
-        for song in newSongs2:
-            print(song.path())
+        if not useSubsetSemantics:
+            for song in newSongs2:
+                print(song.path())
 
     return result
