@@ -432,7 +432,7 @@ class Bard:
             rating = song.userRating(userID)
             print("rating:", '*' * rating, '(%d/10)' % rating)
             for k, v in song.metadata.items():
-                print(TerminalColors.WARNING + str(k) + TerminalColors.ENDC +
+                print(TerminalColors.Header + str(k) + TerminalColors.ENDC +
                       ' : ' + str(v)[:100])
             print("file sha256sum: ", song.fileSha256sum())
             print("audio track sha256sum: ", song.audioSha256sum())
@@ -452,12 +452,15 @@ class Bard:
                 try:
                     audioComparison = song.audioCmp(otherSong,
                                                     interactive=False)
-                except DifferentLengthException:
+                except (DifferentLengthException):
                     audioComparison = 0
-                propertiesString = getPropertiesAsString(otherSong)
-                color = {-1: TerminalColors.FAIL,
+                    colors = {'length': TerminalColors.Magenta}
+                else:
+                    colors = {}
+                propertiesString = getPropertiesAsString(otherSong, colors)
+                color = {-1: TerminalColors.First,
                          0: TerminalColors.ENDC,
-                         1: TerminalColors.OKGREEN}[audioComparison]
+                         1: TerminalColors.Second}[audioComparison]
                 print(color, otherID, otherSong.path(), '(%d %f %s)' % (offset,
                       similarity, propertiesString), TerminalColors.ENDC)
 
@@ -691,9 +694,9 @@ class Bard:
                 print('Checking %s ... ' % song.path(), end=' ', flush=True)
                 sha256InDisk = calculateFileSHA256(song.path())
                 if sha256InDB == sha256InDisk:
-                    print(TerminalColors.OKGREEN + 'OK' + TerminalColors.ENDC)
+                    print(TerminalColors.Ok + 'OK' + TerminalColors.ENDC)
                 else:
-                    print(TerminalColors.FAIL + 'FAIL' + TerminalColors.ENDC +
+                    print(TerminalColors.Error + 'FAIL' + TerminalColors.ENDC +
                           ' (db contains %s, disk is %s)' %
                           (sha256InDB, sha256InDisk))
                     failedSongs.append(song)
@@ -704,7 +707,7 @@ class Bard:
                 print('%d %s' % (song.id, song.path()))
         else:
             print('All packages successfully checked: ' +
-                  TerminalColors.OKGREEN + 'OK' + TerminalColors.ENDC)
+                  TerminalColors.Ok + 'OK' + TerminalColors.ENDC)
 
     def fixTags(self, args):
         for path in args:
@@ -908,9 +911,9 @@ class Bard:
             storeInDB = False
 
         print('Comparing ' +
-              TerminalColors.FAIL + str(id1) + TerminalColors.ENDC +
+              TerminalColors.First + str(id1) + TerminalColors.ENDC +
               ' and ' +
-              TerminalColors.OKGREEN + str(id2) + TerminalColors.ENDC)
+              TerminalColors.Second + str(id2) + TerminalColors.ENDC)
         matchThreshold = 0.8
         storeThreshold = 0.55
         from bard.bard_ext import FingerprintManager
@@ -942,7 +945,7 @@ class Bard:
                 (similarity and similarity >= matchThreshold)):
             sameSong = True
 
-        colors = (TerminalColors.FAIL, TerminalColors.OKGREEN)
+        colors = (TerminalColors.First, TerminalColors.Second)
         printSongsInfo(song1, song2, useColors=colors)
 
         try:
@@ -993,9 +996,9 @@ class Bard:
             print(path1)
             print(path2)
         elif firstInSecond:
-            print('The directory %s is contained in %s', path1, path2)
+            print('The directory %s is contained in %s' % (path1, path2))
         elif secondInFirst:
-            print('The directory %s is contained in %s', path2, path1)
+            print('The directory %s is contained in %s' % (path2, path1))
         else:
             print('None of the following directories is '
                   'a subset of the other:')

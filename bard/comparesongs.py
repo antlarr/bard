@@ -35,7 +35,7 @@ def findPairs(songs1, songs2):
         if similarSongsIn2:
             pairs[song1] = similarSongsIn2
             if len([x for x in similarSongsIn2 if x[1] == 1.0]) > 1:
-                colors = (TerminalColors.WARNING, TerminalColors.ENDC)
+                colors = (TerminalColors.Warning, TerminalColors.ENDC)
                 print('%sWARNING: Repeated songs in the same directory!%s' %
                       colors)
                 for x in similarSongsIn2:
@@ -102,7 +102,7 @@ def compareSongSets(songs1, songs2, path1, path2):
     sourceOfResult = []
     result = []
     source_is_important = False
-    colors = (TerminalColors.FAIL, TerminalColors.OKGREEN)
+    colors = (TerminalColors.First, TerminalColors.Second)
     undecided = []
     for song1, song2, similarity in pairs:
         print(song1.id, song1.path(), ' (completeness: %d)' %
@@ -143,7 +143,7 @@ def compareSongSets(songs1, songs2, path1, path2):
             result.append(song1)
             sourceOfResult.append(-1)
             if take_metadata_from == 1:
-                colors = (TerminalColors.WARNING, TerminalColors.ENDC)
+                colors = (TerminalColors.Warning, TerminalColors.ENDC)
                 print('%sWARNING: Audio is better on first set, but '
                       'metadata is better on second set.%s' % colors)
         elif take_audio_from == 1:
@@ -151,19 +151,20 @@ def compareSongSets(songs1, songs2, path1, path2):
             result.append(song2)
             sourceOfResult.append(1)
             if take_metadata_from == -1:
-                colors = (TerminalColors.WARNING, TerminalColors.ENDC)
+                colors = (TerminalColors.Warning, TerminalColors.ENDC)
                 print('%sWARNING: Audio is better on second set, but '
                       'metadata is better on first set.%s' % colors)
         else:
             if take_metadata_from != 0:
-                colors = (TerminalColors.WARNING, TerminalColors.ENDC)
+                colors = (TerminalColors.Warning, TerminalColors.ENDC)
                 which_set = {-1: 'first', 1: 'second'}[take_metadata_from]
                 print('%sWARNING: Audio is the same on both sets, but '
                       'metadata is better on the %s set.%s' %
                       (colors[0], which_set, colors[1]))
 
             if sourceOfResult:
-                print('Undecided but there was a previous decision, so reuse that', sourceOfResult[-1])
+                print('Undecided but there was a previous decision, ' +
+                      'so reuse that', sourceOfResult[-1])
                 print(song1.path(), song2.path())
                 result.append({-1: song1, 1: song2}[sourceOfResult[-1]])
                 sourceOfResult.append(sourceOfResult[-1])
@@ -183,15 +184,15 @@ def compareSongSets(songs1, songs2, path1, path2):
         print(i, x[1].path())
 
     if not source_is_important:
-        colors = (TerminalColors.OKGREEN, TerminalColors.ENDC)
+        colors = (TerminalColors.Ok, TerminalColors.ENDC)
         if not newSongs1 and not newSongs2:
             print('%sBoth sets are interchangeable%s' % colors)
         else:
             print('%sThere are %d interchangeable songs in both sets%s' %
                   (colors[0], len(sourceOfResult), colors[1]))
     elif set(sourceOfResult) == {-1}:
-        colors = (TerminalColors.WARNING, TerminalColors.FAIL,
-                  TerminalColors.WARNING, TerminalColors.ENDC)
+        colors = (TerminalColors.Warning, TerminalColors.First,
+                  TerminalColors.Warning, TerminalColors.ENDC)
         if not newSongs1 and not newSongs2:
             print('%sBetter source: %sfirst%s set%s' % colors)
         else:
@@ -199,8 +200,8 @@ def compareSongSets(songs1, songs2, path1, path2):
                   (colors[0], colors[1], colors[2], len(sourceOfResult),
                    colors[3]))
     elif set(sourceOfResult) == {1}:
-        colors = (TerminalColors.WARNING, TerminalColors.OKGREEN,
-                  TerminalColors.WARNING, TerminalColors.ENDC)
+        colors = (TerminalColors.Warning, TerminalColors.Second,
+                  TerminalColors.Warning, TerminalColors.ENDC)
         if not newSongs1 and not newSongs2:
             print('%sBetter source: %ssecond%s set%s' % colors)
         else:
@@ -208,23 +209,23 @@ def compareSongSets(songs1, songs2, path1, path2):
                   (colors[0], colors[1], colors[2], len(sourceOfResult),
                    colors[3]))
     else:
-        colors = (TerminalColors.WARNING, TerminalColors.ENDC)
+        colors = (TerminalColors.Warning, TerminalColors.ENDC)
         print('%sSome songs from the first set and '
               'some songs from the second%s' % colors)
 
     for song in result:
         print(song.path())
     if newSongs1:
-        args = (TerminalColors.WARNING, len(newSongs1),
-                TerminalColors.FAIL + 'first' + TerminalColors.WARNING,
+        args = (TerminalColors.Warning, len(newSongs1),
+                TerminalColors.First + 'first' + TerminalColors.Warning,
                 TerminalColors.ENDC)
         print('%sThere are %d original songs in %s set%s' % args)
         for song in newSongs1:
             print(song.path())
 
     if newSongs2:
-        args = (TerminalColors.WARNING, len(newSongs2),
-                TerminalColors.OKGREEN + 'second' + TerminalColors.WARNING,
+        args = (TerminalColors.Warning, len(newSongs2),
+                TerminalColors.Second + 'second' + TerminalColors.Warning,
                 TerminalColors.ENDC)
         print('%sThere are %d original songs in %s set%s' % args)
         for song in newSongs2:

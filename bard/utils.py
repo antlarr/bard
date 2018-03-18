@@ -22,7 +22,7 @@ ImageDataTuple = namedtuple('ImageDataTuple', ['image', 'data'])
 
 
 def printSongsInfo(song1, song2,
-                   useColors=(TerminalColors.FAIL, TerminalColors.OKGREEN)):
+                   useColors=(TerminalColors.First, TerminalColors.Second)):
     song1.calculateCompleteness()
     song2.calculateCompleteness()
 
@@ -160,14 +160,14 @@ def printDictsDiff(dict1, dict2, forcePrint=False):
     print(dict2.get('COMM::eng', None))
     for k in allKeys:
         if k in changedKeys:
-            print(str(k), ':', TerminalColors.WARNING, repr(dict1[k])[:50],
-                  TerminalColors.ENDC, ' -> ', TerminalColors.WARNING,
+            print(str(k), ':', TerminalColors.Highlight, repr(dict1[k])[:50],
+                  TerminalColors.ENDC, ' -> ', TerminalColors.Highlight,
                   str(dict2[k])[:50], TerminalColors.ENDC)
         elif k in removedKeys:
-            print(str(k), ':', TerminalColors.FAIL, repr(dict1[k])[:100],
+            print(str(k), ':', TerminalColors.First, repr(dict1[k])[:100],
                   TerminalColors.ENDC)
         elif k in newKeys:
-            print(str(k), ':', TerminalColors.OKGREEN, repr(dict2[k])[:100],
+            print(str(k), ':', TerminalColors.Second, repr(dict2[k])[:100],
                   TerminalColors.ENDC)
         else:
             print(str(k), ':', repr(dict1[k])[:100])
@@ -204,19 +204,19 @@ def printPropertiesDiff(song1, song2, forcePrint=False):
         if not val1:
             values1.append('-' + suffix)
         else:
-            values1.append(TerminalColors.FAIL + propformatter(val1) +
+            values1.append(TerminalColors.First + propformatter(val1) +
                            TerminalColors.ENDC + suffix)
 
         if not val2:
             values2.append('-' + suffix)
         else:
-            values2.append(TerminalColors.OKGREEN + propformatter(val2) +
+            values2.append(TerminalColors.Second + propformatter(val2) +
                            TerminalColors.ENDC + suffix)
     print('Properties: ' + ', '.join(values1))
     print('Properties: ' + ', '.join(values2))
 
 
-def getPropertiesAsString(song):
+def getPropertiesAsString(song, colors={}):
     properties = [('', '_format'),
                   (' s', 'length'),
                   (' bits/s', 'bitrate'),
@@ -226,16 +226,19 @@ def getPropertiesAsString(song):
     values = []
     for suffix, prop in properties:
         try:
+            color = colors[prop]
+        except KeyError:
+            color = TerminalColors.Highlight
+        try:
             val = getattr(song.metadata.info, prop)
         except AttributeError:
             val = getattr(song, prop)
         if callable(val):
             val = val()
         if not val:
-            values.append('-' + suffix)
+            values.append(color + '-' + TerminalColors.ENDC + suffix)
         else:
-            values.append(TerminalColors.WARNING + str(val) +
-                          TerminalColors.ENDC + suffix)
+            values.append(color + str(val) + TerminalColors.ENDC + suffix)
     return ', '.join(values)
 
 
@@ -261,9 +264,9 @@ def fixTags(mutagenFile):
     # for k, v in originalValues.items():
     #     msg = '%s : %s' % (str(k), repr(v)[:100])
     #     if k in changedKeys:
-    #         print(TerminalColors.WARNING + msg + TerminalColors.ENDC)
+    #         print(TerminalColors.Highlight + msg + TerminalColors.ENDC)
     #     elif k in removedKeys:
-    #         print(TerminalColors.FAIL + msg + TerminalColors.ENDC)
+    #         print(TerminalColors.First + msg + TerminalColors.ENDC)
     #     else:
     #         print(msg)
     #
@@ -272,7 +275,7 @@ def fixTags(mutagenFile):
     # for k, v in mutagenFile.items():
     #     msg = '%s : %s' % (str(k), repr(v)[:100])
     #     if k in changedKeys:
-    #         print(TerminalColors.WARNING + msg + TerminalColors.ENDC)
+    #         print(TerminalColors.Highlight + msg + TerminalColors.ENDC)
     #     else:
     #         print(msg)
     # print('')
