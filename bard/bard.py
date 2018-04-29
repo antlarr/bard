@@ -574,6 +574,8 @@ class Bard:
             return
 #        for path in paths:
 #            print(path)
+        if len(paths) > 2048:
+            paths = paths[:2048]
 
         command = ['mpv'] + paths
         process = subprocess.run(command)
