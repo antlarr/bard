@@ -3,6 +3,7 @@
 from bard.musicdatabase import MusicDatabase
 from bard.utils import printSongsInfo
 from bard.terminalcolors import TerminalColors
+from bard.song import CantCompareSongsException
 from functools import partial
 from contextlib import suppress
 from collections import Counter
@@ -44,7 +45,7 @@ def findPairs(songs1, songs2):
     return pairs, songsRemainingFrom1, songsRemainingFrom2
 
 
-def getPairs(data, unique=True):
+def getPairs(data, unique=True, ignoreWorseSongs=False, verbose=False):
     pairs = []
     print('data', data)
     used = []
@@ -62,14 +63,36 @@ def getPairs(data, unique=True):
             candidates = [x for x in data[song1]]
 
         sortedCandidates = sorted(candidates, key=lambda x: x[1], reverse=True)
+        if verbose: # and 'Maximizing' in song1.path():
+            i = 0
+            for candidateSong, candidateSimilarity in sortedCandidates:
+                i += 1
+                print(i, candidateSong.path(), candidateSimilarity)
 
+        track = False
         for candidateSong, candidateSimilarity in sortedCandidates:
-            if abs(candidateSong.duration() - song1.duration()) < 5:
+            if abs(candidateSong.durationWithoutSilences() -
+                   song1.durationWithoutSilences()) < 5:
+                if ignoreWorseSongs:
+                    colors = (TerminalColors.First, TerminalColors.Second)
+                    try:
+                        b = song1.audioCmp(
+                            candidateSong, interactive=False,
+                            printSongsInfoCallback=partial(
+                                printSongsInfo, useColors=colors))
+                    except CantCompareSongsException:
+                        print('supressed exception CantCompareSongsException:\n    %s\n    %s' % (song1.path(), candidateSong.path()))
+                        track = True
+                        continue
+                    if b == -1:
+                        continue
                 song2 = candidateSong
                 similarity = candidateSimilarity
                 break
         else:
             song2, similarity = sortedCandidates[0]
+            if track:
+                print('      -> ', song2.path())
 
         if unique:
             used.append(song2)
@@ -81,10 +104,11 @@ def getPairs(data, unique=True):
 #    print(len(b))
 #    print(a)
 #    print(b)
-    for i, x in enumerate(pairs):
-        print(i, ')')
-        print(x[0].path())
-        print(x[1].path())
+    if verbose:
+        for i, x in enumerate(pairs):
+            print(i, ')')
+            print(x[0].path())
+            print(x[1].path())
     if unique and (len(a) != len(pairs) or len(b) != len(pairs)):
         print('Number of pairs:', len(pairs), '  (%d,%d)' % (len(a), len(b)))
         raise NotImplementedError('getPairs cannot currently handle '
@@ -99,22 +123,25 @@ def prepareSongs(songs):
         x.calculateCompleteness()
 
 
-def compareSongSets(songs1, songs2, path1, path2, useSubsetSemantics=False):
+def compareSongSets(songs1, songs2, path1, path2, useSubsetSemantics=False, verbose=False):
     interactive = True
     prepareSongs(songs1)
     prepareSongs(songs2)
-    print('songs1', songs1)
-    print('songs2', songs2)
+    if verbose:
+        print('songs1', songs1)
+        print('songs2', songs2)
     pairs, newSongs1, newSongs2 = findPairs(songs1, songs2)
-    print(pairs)
-    print(newSongs1)
-    print(newSongs2)
+    if verbose:
+        print(pairs)
+        print(newSongs1)
+        print(newSongs2)
     if not songs1 and not songs2:
         msg = (TerminalColors.Warning + 'Warning: Both sets are empty' +
                TerminalColors.ENDC)
         raise ValueError(msg)
 
-    pairs = getPairs(pairs, unique=not useSubsetSemantics)
+    pairs = getPairs(pairs, unique=not useSubsetSemantics,
+                     ignoreWorseSongs=useSubsetSemantics, verbose=verbose)
     print('-------')
     sourceOfResult = []
     result = []

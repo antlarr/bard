@@ -346,12 +346,16 @@ class Song:
 #        if other.completeness > self.completeness:
 #            return 1
 
-            if oi.bitrate == si.bitrate \
+            if oi.bitrate//1000 == si.bitrate//1000 \
                and ((sbps and obps and obps == sbps) or
                     (not sbps and not obps)) \
-               and oi.channels == si.channels \
-               and oi.sample_rate == si.sample_rate:
-                return 0
+               and oi.channels == si.channels:
+                if oi.sample_rate > si.sample_rate:
+                    return 1
+                elif si.sample_rate > oi.sample_rate:
+                    return -1
+                else:
+                    return 0
 
         if interactive or forceInteractive:
             if printSongsInfoCallback:

@@ -1065,7 +1065,7 @@ class Bard:
         songs2 = self.getSongsAtPath(path2)
         try:
             compareSongSets(songs1, songs2, path1, path2,
-                            useSubsetSemantics=subset)
+                            useSubsetSemantics=subset, verbose=verbose)
         except ValueError as e:
             print(e)
 
@@ -1232,6 +1232,9 @@ update
         parser.add_argument('-s', dest='subset', action='store_true',
                             default=False,
                             help='Only test if dir1 is a subset of dir2')
+        parser.add_argument('-v', dest='verbose', action='store_true',
+                            default=False,
+                            help='Be verbose')
         parser.add_argument('dir1', metavar='path')
         parser.add_argument('dir2', metavar='path')
         # fix-mtime command
@@ -1402,7 +1405,8 @@ update
                               interactive=options.interactive)
         elif options.command == 'compare-dirs':
             self.compareDirectories(options.dir1, options.dir2,
-                                    subset=options.subset)
+                                    subset=options.subset,
+                                    verbose=options.verbose)
         elif options.command == 'fix-tags':
             self.fixTags(options.paths)
         elif options.command == 'info':
