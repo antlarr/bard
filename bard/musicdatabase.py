@@ -19,6 +19,7 @@ class MusicDatabase:
     conn = None
 
     def __init__(self, ro=False):
+        """Create a MusicDatabase object."""
         _databasepath = config['databasePath']
         databasepath = os.path.expanduser(os.path.expandvars(_databasepath))
         if not os.path.isdir(os.path.dirname(databasepath)):
@@ -326,11 +327,12 @@ CREATE TABLE similarities(
             info.bits_per_sample = row['bits_per_sample']
             info.sample_rate = row['sample_rate']
             info.channels = row['channels']
-        except:
+        except KeyError:
             print('Error getting song properties for song ID %d' % songID)
             raise
 
-        return row['format'], info, row['audio_sha256sum'], (row['silence_at_start'], row['silence_at_end'])
+        return row['format'], info, row['audio_sha256sum'], \
+            (row['silence_at_start'], row['silence_at_end'])
 
     @staticmethod
     def getSimilarSongsToSongID(songID, similarityThreshold=0.85):
@@ -405,9 +407,9 @@ CREATE TABLE similarities(
                   "The database is configured as immutable")
             return
         c = MusicDatabase.conn.cursor()
-        c.execute('UPDATE properties set silence_at_start=?, silence_at_end=? where song_id=?',
+        c.execute('UPDATE properties set silence_at_start=?, silence_at_end=? '
+                  'where song_id=?',
                   (silence_at_start, silence_at_end, songid))
-
 
     @staticmethod
     def addSongsSimilarity(songid1, songid2, offset, similarity):
