@@ -459,7 +459,11 @@ class Bard:
             print("file sha256sum: ", song.fileSha256sum())
             print("audio track sha256sum: ", song.audioSha256sum())
 
-            print('duration:', song.duration())
+            print('duration: %.3f s' % song.duration())
+            print(('duration without silences: %.3f s' %
+                   song.durationWithoutSilences()),
+                  ' (silences: %.3f + %.3f)' % (song.silenceAtStart(),
+                                                song.silenceAtEnd()))
             printProperties(song)
             if song.coverWidth():
                 print('cover:  %dx%d' %
@@ -616,7 +620,8 @@ class Bard:
                 print('%s already fixed' % song.path())
         MusicDatabase.commit()
 
-    def addSilences(self, ids_or_paths=None):
+    def addSilences(self, ids_or_paths=None, threshold=None, min_length=None,
+                    silence_at_start=None, silence_at_end=None, dry_run=False):
         collection = []
         if ids_or_paths:
             for id_or_path in ids_or_paths:
@@ -628,12 +633,18 @@ class Bard:
 
         count = 0
         for song in collection:
+            if (silence_at_start or silence_at_end) and \
+               not threshold and not min_length:
+                silence1 = silence_at_start or song.silenceAtStart()
+                silence2 = silence_at_end or song.silenceAtEnd()
+                if not dry_run:
+                    MusicDatabase.addAudioSilences(song.id, silence1, silence2)
+                print('Add silences (%s, %s) for %s' % (silence1, silence2,
+                                                        song.path()))
+                continue
+
             sha256sum = song.audioSha256sum()
-            try:
-                song.calculateSilences()
-            except:
-                print('Error calculating silences of', song.path())
-                raise
+            song.calculateSilences(threshold, min_length)
 
             sha256sum_pydub = song.audioSha256sum()
             if ((song.path().endswith('flac') or
@@ -642,16 +653,20 @@ class Bard:
                     sha256sum != sha256sum_pydub):
                 print('Error: sha256 does not match: %s != %s' %
                       (sha256sum, sha256sum_pydub))
-            MusicDatabase.addAudioSilences(song.id, song.silenceAtStart(),
-                                           song.silenceAtEnd())
-            MusicDatabase.addAudioTrackSha256sum(song.id, sha256sum_pydub)
+
+            silence1 = silence_at_start or song.silenceAtStart()
+            silence2 = silence_at_end or song.silenceAtEnd()
+
+            if not dry_run:
+                MusicDatabase.addAudioSilences(song.id, silence1, silence2)
+                MusicDatabase.addAudioTrackSha256sum(song.id, sha256sum_pydub)
 
             count += 1
             if count % 10:
                 MusicDatabase.commit()
 
-            print('Add silences (%s, %s) for %s' % (song.silenceAtStart(),
-                  song.silenceAtEnd(), song.path()))
+            print('Add silences (%s, %s) for %s' % (silence1, silence2,
+                                                    song.path()))
 #            else:
 #                print('%s already fixed' % song.path())
         MusicDatabase.commit()
@@ -1154,7 +1169,7 @@ fix-mtime           fixes the mtime of imported files (you should never
                     need to use this)
 fix-checksums       fixes the checksums of imported files (you should
                     never need to use this)
-add-silences [file | song_id ...]
+add-silences [-t threshold] [-l length] [-s start] [-e end] [file|song_id ...]
                     adds silence information to the db for files missing it
                     (you should never need to use this)
 check-songs-existence [-v] [path]
@@ -1228,6 +1243,22 @@ update
                                 description='Add silence information to the '
                                             'db for files missing it (you '
                                             'should never need to use this)')
+        parser.add_argument('-t', '--threshold', type=float,
+                            metavar='threshold',
+                            default=-65, help='Silence threshold (in dB)')
+        parser.add_argument('-l', '--min-length', type=int,
+                            metavar='min_length',
+                            default=10, help='Minimum silence length (in ms)')
+        parser.add_argument('-s', '--silence-at-start', type=float,
+                            metavar='length', default=None,
+                            help='Don\'t calculate silences, just use this '
+                                 'value for silence length at start of song')
+        parser.add_argument('-e', '--silence-at-end', type=float,
+                            metavar='length', default=None,
+                            help='Don\'t calculate silences, just use this '
+                                 'value for silence length at end of song')
+        parser.add_argument('-d', '--dry-run', action='store_true',
+                            help='Don\'t modify the database')
         parser.add_argument('paths', nargs='*')
         # fix-checksums command
         parser = sps.add_parser('fix-checksums',
@@ -1351,8 +1382,9 @@ update
         elif options.command == 'fix-checksums':
             self.fixChecksums(options.from_song_id)
         elif options.command == 'add-silences':
-            paths = options.paths
-            self.addSilences(paths)
+            self.addSilences(options.paths, options.threshold,
+                             options.min_length, options.silence_at_start,
+                             options.silence_at_end, options.dry_run)
         elif options.command == 'check-songs-existence':
             paths = options.paths
             if not paths:

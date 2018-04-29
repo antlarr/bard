@@ -74,6 +74,8 @@ class Ratings:
 
 
 class Song:
+    silence_threshold = -67
+    min_silence_length = 10
 
     def __init__(self, x, rootDir=None):
         """Create a Song oject."""
@@ -198,9 +200,12 @@ class Song:
 
         audio_segment = AudioSegment.from_file(path)
         self._audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
+
+        thr = Song.silence_threshold
+        minlen = Song.min_silence_length
         silences = detect_silence_at_beginning_and_end(audio_segment,
-                                                       min_silence_len=10,
-                                                       silence_thresh=-65)
+                                                       min_silence_len=minlen,
+                                                       silence_thresh=thr)
         if silences:
             silence1, silence2 = silences
             self._silenceAtStart = (silence1[1] - silence1[0]) / 1000
@@ -290,16 +295,20 @@ class Song:
                 'Trying to compare different songs (%d and %d)'
                 % (self.id, other.id))
 
-        len_diff = abs(self.durationWithoutSilences() - other.durationWithoutSilences())
+        len_diff = abs(self.durationWithoutSilences() -
+                       other.durationWithoutSilences())
         if len_diff > 30:
             raise DifferentLengthException(
-                'Songs duration is too different (%d and %d seconds)'
-                % (self.metadata.info.length, other.metadata.info.length))
+                'Songs duration is too different (%f and %f seconds / %f and %f seconds)'
+                % (self.durationWithoutSilences(), other.durationWithoutSilences(),
+                   self.metadata.info.length, other.metadata.info.length))
 
         if len_diff > 5:
+            print(self.duration(), self.durationWithoutSilences(), self.silenceAtStart(), self.silenceAtEnd())
             raise SlightlyDifferentLengthException(
-                'Songs duration is slightly different (%d and %d seconds)'
-                % (self.metadata.info.length, other.metadata.info.length))
+                'Songs duration is slightly different (%f and %f seconds / %f and %f seconds)'
+                % (self.durationWithoutSilences(), other.durationWithoutSilences(),
+                   self.metadata.info.length, other.metadata.info.length))
 
         if not forceInteractive:
             if self.isLossless() and not other.isLossless():
@@ -577,12 +586,14 @@ class Song:
             Song.ratings = Ratings()
         return Song.ratings.setSongRating(user_id, self.id, rating)
 
-    def calculateSilences(self):
+    def calculateSilences(self, threshold=None, min_length=None):
         audio_segment = AudioSegment.from_file(self.path())
         self._audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
+        thr = threshold or Song.silence_threshold
+        minlen = min_length or Song.min_silence_length
         silences = detect_silence_at_beginning_and_end(audio_segment,
-                                                       min_silence_len=10,
-                                                       silence_thresh=-65)
+                                                       min_silence_len=minlen,
+                                                       silence_thresh=thr)
         if silences:
             silence1, silence2 = silences
             self._silenceAtStart = (silence1[1] - silence1[0]) / 1000
