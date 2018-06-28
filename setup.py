@@ -9,7 +9,9 @@ module1 = Extension('bard_ext',
                     libraries=['boost_python-py3'],
                     library_dirs=['/usr/lib'],
                     sources=['bard/bard_ext.cpp'],
-                    extra_compile_args=['-std=gnu++17', '-fopenmp'])
+                    extra_compile_args=['-std=gnu++17', '-fopenmp', '-Ofast',
+                                        '-march=native', '-mtune=native',
+                                        '-funroll-loops'])
 
 setup(
     # Application name:
