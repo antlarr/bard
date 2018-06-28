@@ -57,6 +57,9 @@ public:
     void setMaxOffset(int maxoffset);
     int maxOffset() const;
 
+    void setExpectedSize(int expectedSize);
+    int size() const;
+
     void addSong(long songID, boost::python::list &fingerprint);
     boost::python::list addSongAndCompare(long songID, boost::python::list &fingerprint, double cancelThreshold=0.55);
     std::pair<int, double> compareSongs(long songID1, long songID2, double cancelThreshold=0.55);
@@ -65,9 +68,12 @@ public:
     std::pair<int, double> compareChromaprintFingerprintsAndOffset(const std::vector<int> &fp1, const std::vector<int> &fp2, double cancelThreshold) const;
     boost::python::list compareChromaprintFingerprintsAndOffsetVerbose(std::vector<int> fp1, std::vector<int> fp2) const;
 
+protected:
+    std::vector<int> songFingerprint(int songID);
+
 private:
     int m_maxoffset;
-    std::map<int, std::vector<int>> m_fingerprints;
+    std::vector<std::pair<int,std::vector<int>>> m_fingerprints;
 };
 
 FingerprintManager::FingerprintManager(): m_maxoffset(50)
@@ -85,11 +91,33 @@ int FingerprintManager::maxOffset() const
     return m_maxoffset;
 }
 
+void FingerprintManager::setExpectedSize(int expectedSize)
+{
+    m_fingerprints.reserve(expectedSize);
+}
+
+int FingerprintManager::size() const
+{
+    return m_fingerprints.size();
+}
+
+std::vector<int> FingerprintManager::songFingerprint(int songID)
+{
+    auto it = std::lower_bound( m_fingerprints.begin(), m_fingerprints.end(), songID,
+            [](auto x, auto y)
+            { return x.first < y;
+            });
+    if (it == m_fingerprints.end())
+        return std::vector<int>();
+    else
+        return it->second;
+}
+
 void FingerprintManager::addSong(long songID, boost::python::list &fingerprint)
 {
     auto v = to_std_vector<int>(fingerprint);
     v.insert(v.begin(), m_maxoffset, 0);
-    m_fingerprints[songID]=v;
+    m_fingerprints.emplace_back(std::make_pair(songID, v));
 }
 
 boost::python::list FingerprintManager::addSongAndCompare(long songID, boost::python::list &fingerprint, double cancelThreshold)
@@ -99,9 +127,7 @@ boost::python::list FingerprintManager::addSongAndCompare(long songID, boost::py
     auto v = to_std_vector<int>(fingerprint);
     v.insert(v.begin(), m_maxoffset, 0);
 
-    auto vectorizedFP = std::vector<std::pair<int,std::vector<int>>>(m_fingerprints.begin(), m_fingerprints.end());
-
-    __gnu_parallel::for_each(vectorizedFP.begin(), vectorizedFP.end(),
+    __gnu_parallel::for_each(m_fingerprints.begin(), m_fingerprints.end(),
         [&](const auto &itSong)
         {
             auto & [itSongID, itFingerprint] = itSong;
@@ -113,7 +139,7 @@ boost::python::list FingerprintManager::addSongAndCompare(long songID, boost::py
                 result_mutex.unlock();
             }
         }, __gnu_parallel::parallel_balanced);
-    m_fingerprints[songID]=v;
+    m_fingerprints.emplace_back(std::make_pair(songID, v));
     return result;
 }
 
@@ -238,12 +264,12 @@ boost::python::list FingerprintManager::compareChromaprintFingerprintsAndOffsetV
 
 std::pair<int, double> FingerprintManager::compareSongs(long songID1, long songID2, double cancelThreshold)
 {
-    return compareChromaprintFingerprintsAndOffset(m_fingerprints[songID1], m_fingerprints[songID2], cancelThreshold);
+    return compareChromaprintFingerprintsAndOffset(songFingerprint(songID1), songFingerprint(songID2), cancelThreshold);
 }
 
 boost::python::list FingerprintManager::compareSongsVerbose(long songID1, long songID2)
 {
-    return compareChromaprintFingerprintsAndOffsetVerbose(m_fingerprints[songID1], m_fingerprints[songID2]);
+    return compareChromaprintFingerprintsAndOffsetVerbose(songFingerprint(songID1), songFingerprint(songID2));
 }
 
 BOOST_PYTHON_MODULE(bard_ext)
@@ -257,7 +283,9 @@ BOOST_PYTHON_MODULE(bard_ext)
         .def("compareSongs", &FingerprintManager::compareSongs)
         .def("compareSongsVerbose", &FingerprintManager::compareSongsVerbose)
         .def("setMaxOffset", &FingerprintManager::setMaxOffset)
-        .def("maxOffset", &FingerprintManager::maxOffset);
+        .def("maxOffset", &FingerprintManager::maxOffset)
+        .def("setExpectedSize", &FingerprintManager::setExpectedSize)
+        .def("size", &FingerprintManager::size);
 }
 
 
