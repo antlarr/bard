@@ -485,7 +485,7 @@ CREATE TABLE similarities(
         result = c.execute(sql, variables)
         pairs = []
         for genre, count in result.fetchall():
-            pairs.append((genre, count))
+            pairs.append((genre.split('\0'), count))
         return pairs
 
     @staticmethod
