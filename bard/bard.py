@@ -1132,6 +1132,25 @@ class Bard:
         for genre, count in genres:
             print('%s :\t%s' % (genre, count))
 
+    def fixGenres(self, ids_or_paths=None):
+        songs = []
+        for id_or_path in ids_or_paths:
+            songs.extend(self.getSongsFromIDorPath(id_or_path))
+        for song in songs:
+            song.loadMetadata()
+            new_genres = []
+            a = song.metadata['genre']
+            print(a, type(a))
+
+            for genre in song.metadata['genre']:
+                print(genre, len(genre))
+                genre = genre.strip('\r')
+                genre = genre.strip('"')
+                genre = genre.strip("'")
+                print(genre, len(genre))
+                new_genres.append(genre)
+            print(new_genres)
+
     def setRating(self, ids_or_paths, rating, currentlyPlaying):
         rating = round(float(rating))
         songs = []
@@ -1192,8 +1211,9 @@ list-similars [-l] [condition]
                     lists files marked as similar in the database
                     (with find-audio-duplicates)
 list-genres [-r root] [file | song id]
-                    lists files marked as similar in the database
-                    (with find-audio-duplicates)
+                    lists genres of songs selected by its name or song id
+fix-genres [file | song id]
+                    fix genres of songs selected by its name or song id
 play --shuffle [-r root] [-g genre] [file | song_id ...]
                     play the specified songs using mpv
 fix-tags <file_or_directory [file_or_directory ...]>
@@ -1340,6 +1360,11 @@ update
         parser.add_argument('-r', dest='root',
                             help='Only list genres of songs in a given root')
         parser.add_argument('id_or_paths', nargs='*')
+        # fix-genres command
+        parser = sps.add_parser('fix-genres',
+                                description='Fix genres of songs '
+                                            'in the database')
+        parser.add_argument('id_or_paths', nargs='*')
         # list-similars command
         parser = sps.add_parser('list-similars',
                                 description='List files marked as similar in '
@@ -1428,6 +1453,8 @@ update
                           group_by_directory=options.group_by_directory)
         elif options.command == 'list-genres':
             self.listGenres(id_or_paths=options.id_or_paths, root=options.root)
+        elif options.command == 'fix-genres':
+            self.fixGenres(ids_or_paths=options.id_or_paths)
         elif options.command == 'list-similars':
             self.listSimilars(condition=options.condition,
                               long_ls=options.long_ls)
