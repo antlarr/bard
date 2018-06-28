@@ -169,7 +169,7 @@ def compareChromaprintFingerprintsAndOffset(a, b, maxoffset=50, debug=False):
     total_idx = ([min(len(a[0]) - maxoffset + idx,
                       len(b[0]) - maxoffset) for idx in range(maxoffset)] +
                  list(reversed([min(len(a[0]) - maxoffset,
-                                    len(b[0]) - maxoffset + idx)
+                                len(b[0]) - maxoffset + idx)
                                 for idx in range(1, maxoffset)])))
     total_bits = [32.0 * x for x in total_idx]
     remaining = total_bits[:]

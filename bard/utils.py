@@ -480,8 +480,11 @@ def calculateAudioTrackSHA256_pydub(path):
 def calculateAudioTrackSHA256_audioread(path):
     hash_sha256 = hashlib.sha256()
     with audioread.audio_open(path) as audiofile:
+        c = 0
         for block in audiofile:
+            c += len(block)
             hash_sha256.update(block)
+        print('size:', c)
     return hash_sha256.hexdigest()
 
 
