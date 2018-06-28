@@ -198,7 +198,11 @@ class Song:
             mutagen.musepack.Musepack: 'mpc', }
         self._format = formattext[type(self.metadata)]
 
-        audio_segment = AudioSegment.from_file(path)
+        try:
+            audio_segment = AudioSegment.from_file(path)
+        except:
+            print('Error processing:',path)
+            raise
         self._audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
 
         thr = Song.silence_threshold
@@ -591,7 +595,11 @@ class Song:
         return Song.ratings.setSongRating(user_id, self.id, rating)
 
     def calculateSilences(self, threshold=None, min_length=None):
-        audio_segment = AudioSegment.from_file(self.path())
+        try:
+            audio_segment = AudioSegment.from_file(self.path())
+        except:
+            print('Error processing:',path)
+            raise
         self._audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
         thr = threshold or Song.silence_threshold
         minlen = min_length or Song.min_silence_length
