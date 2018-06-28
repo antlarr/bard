@@ -3,12 +3,13 @@ from setuptools import setup, Extension
 
 module1 = Extension('bard_ext',
                     define_macros=[('MAJOR_VERSION', '1'),
-                                   ('MINOR_VERSION', '0')],
+                                   ('MINOR_VERSION', '0'),
+                                   ('_GLIBCXX_PARALLEL', None)],
                     include_dirs=['/usr/include/boost'],
                     libraries=['boost_python-py3'],
                     library_dirs=['/usr/lib'],
                     sources=['bard/bard_ext.cpp'],
-                    extra_compile_args=['-std=c++1z'])
+                    extra_compile_args=['-std=gnu++17', '-fopenmp'])
 
 setup(
     # Application name:

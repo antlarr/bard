@@ -921,6 +921,7 @@ class Bard:
                 #     return
                 start_time = time.time()
                 result = fpm.addSongAndCompare(songID, dfp[0], storeThreshold)
+                result.sort(key=lambda x: x[0])
 
             for (songID2, offset, similarity) in result:
                 print('******** %d %d %d %f' % (songID2, songID,

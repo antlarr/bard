@@ -24,6 +24,8 @@
 #include <vector>
 #include <map>
 #include <iostream>
+#include <parallel/algorithm>
+#include <mutex>
 
 template<typename T>
 inline
@@ -60,12 +62,12 @@ public:
     std::pair<int, double> compareSongs(long songID1, long songID2, double cancelThreshold=0.55);
     boost::python::list compareSongsVerbose(long songID1, long songID2);
 
-    std::pair<int, double> compareChromaprintFingerprintsAndOffset(std::vector<int> fp1, std::vector<int> fp2, double cancelThreshold) const;
+    std::pair<int, double> compareChromaprintFingerprintsAndOffset(const std::vector<int> &fp1, const std::vector<int> &fp2, double cancelThreshold) const;
     boost::python::list compareChromaprintFingerprintsAndOffsetVerbose(std::vector<int> fp1, std::vector<int> fp2) const;
 
 private:
     int m_maxoffset;
-    std::map<int, std::vector<int> > m_fingerprints;
+    std::map<int, std::vector<int>> m_fingerprints;
 };
 
 FingerprintManager::FingerprintManager(): m_maxoffset(50)
@@ -92,32 +94,30 @@ void FingerprintManager::addSong(long songID, boost::python::list &fingerprint)
 
 boost::python::list FingerprintManager::addSongAndCompare(long songID, boost::python::list &fingerprint, double cancelThreshold)
 {
+    std::mutex result_mutex;
     boost::python::list result;
     auto v = to_std_vector<int>(fingerprint);
-//    std::cout << "len: " << v.size() << std::endl;
     v.insert(v.begin(), m_maxoffset, 0);
-//    std::cout << "new len: " << v.size() << std::endl;
-    for (auto & [itSongID, itFingerprint]: m_fingerprints)
-    {
-        auto [offset, similarity] = compareChromaprintFingerprintsAndOffset(itFingerprint, v, cancelThreshold);
-        if (similarity > cancelThreshold)
+
+    auto vectorizedFP = std::vector<std::pair<int,std::vector<int>>>(m_fingerprints.begin(), m_fingerprints.end());
+
+    __gnu_parallel::for_each(vectorizedFP.begin(), vectorizedFP.end(),
+        [&](const auto &itSong)
         {
-//            std::cout << "****" << songID << " " << itSongID << " " << offset << " " << similarity << std::endl;
-            result.append(boost::python::make_tuple(itSongID, offset, similarity));
-        } /*else {
-            if (similarity < 0 )
-                std::cout << songID << " " << itSongID << " different" << std::endl;
-            else
-                std::cout << songID << " " << itSongID << " " << offset << " " << similarity << std::endl;
-        }*/
-
-    }
-
+            auto & [itSongID, itFingerprint] = itSong;
+            auto [offset, similarity] = compareChromaprintFingerprintsAndOffset(itFingerprint, v, cancelThreshold);
+            if (similarity > cancelThreshold)
+            {
+                result_mutex.lock();
+                result.append(boost::python::make_tuple(itSongID, offset, similarity));
+                result_mutex.unlock();
+            }
+        }, __gnu_parallel::parallel_balanced);
     m_fingerprints[songID]=v;
     return result;
 }
 
-std::pair<int, double> FingerprintManager::compareChromaprintFingerprintsAndOffset(std::vector<int> fp1, std::vector<int> fp2, double cancelThreshold) const
+std::pair<int, double> FingerprintManager::compareChromaprintFingerprintsAndOffset(const std::vector<int> &fp1, const std::vector<int> &fp2, double cancelThreshold) const
 {
     std::vector<int>::const_iterator it1, it2;
     int offset;
