@@ -898,7 +898,7 @@ class Bard:
         speeds = []
         songs_processed = 0
         totalSongsCount = MusicDatabase.getSongsCount()
-        fpm.setExpectedSize(totalSongsCount+5)
+        fpm.setExpectedSize(totalSongsCount + 5)
         sql = ('SELECT id, fingerprint, sha256sum, audio_sha256sum, path, '
                'completeness FROM fingerprints, songs, checksums, '
                'properties where songs.id=fingerprints.song_id and '
