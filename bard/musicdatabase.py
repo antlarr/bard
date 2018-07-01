@@ -518,3 +518,23 @@ CREATE TABLE similarities(
             return userID
 
         return None
+
+    @staticmethod
+    def lastSongID():
+        sql = 'select max(id) from songs'
+        c = MusicDatabase.conn.cursor()
+        result = c.execute(sql)
+        x = result.fetchone()
+        if x:
+            return x[0]
+        return 0
+
+    @staticmethod
+    def lastSongIDWithCalculatedSimilarities():
+        sql = 'select max(song_id2) from similarities'
+        c = MusicDatabase.conn.cursor()
+        result = c.execute(sql)
+        x = result.fetchone()
+        if x:
+            return x[0]
+        return 0
