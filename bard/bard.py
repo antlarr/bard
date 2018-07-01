@@ -891,7 +891,13 @@ class Bard:
         matchThreshold = 0.8
         storeThreshold = 0.58
         if not from_song_id:
-            from_song_id = 0
+            from_song_id = MusicDatabase.lastSongIDWithCalculatedSimilarities()
+        if from_song_id == MusicDatabase.lastSongID():
+            print('All songs are already processed in DB')
+            return
+        print('Start calculating song similarities from song id %d'
+              % from_song_id)
+        print('Preparing data structures...')
         from bard.bard_ext import FingerprintManager
         fpm = FingerprintManager()
         fpm.setMaxOffset(100)
@@ -918,6 +924,8 @@ class Bard:
                 fpm.addSong(songID, dfp[0])
                 result = []
             else:
+                if songID == from_song_id:
+                    print('Calculating song similarities...')
                 # if songID > from_song_id:
                 #     return
                 start_time = time.time()
