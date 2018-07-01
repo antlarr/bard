@@ -17,6 +17,8 @@ def toString(v):
 
 class MusicDatabase:
     conn = None
+    mtime_cache_by_path = {}
+    mtime_cache_by_id = {}
 
     def __init__(self, ro=False):
         """Create a MusicDatabase object."""
@@ -280,20 +282,29 @@ CREATE TABLE similarities(
             c.executemany('INSERT INTO covers(path, cover) VALUES (?,?)',
                           values)
 
-    @staticmethod
-    def isSongInDatabase(path=None, songID=None):
+    @classmethod
+    def prepareCache(cls):
         c = MusicDatabase.conn.cursor()
-        if songID:
-            result = c.execute('SELECT mtime, path FROM songs where id = ? ',
-                               (songID,))
-            mtime, path = result.fetchone()
-        else:
-            result = c.execute('SELECT mtime FROM songs where path = ? ',
-                               (os.path.normpath(path),))
-            mtime = result.fetchone()
-            if not mtime:
-                return False
-            mtime = mtime[0]
+        if not cls.mtime_cache_by_path:
+            result = c.execute('SELECT mtime, path, id FROM songs')
+            for x in result.fetchall():
+                mtime, path, id = x
+                cls.mtime_cache_by_path[path] = mtime
+                cls.mtime_cache_by_id[id] = (mtime, path)
+
+    @classmethod
+    def isSongInDatabase(cls, path=None, songID=None):
+        path = os.path.normpath(path)
+
+        cls.prepareCache()
+        try:
+            if songID:
+                mtime, path = cls.mtime_cache_by_id[songID]
+            else:
+                mtime = cls.mtime_cache_by_path[path]
+        except KeyError:
+            return False
+
         if mtime == os.path.getmtime(path):
             return True
         return False
