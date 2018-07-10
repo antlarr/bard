@@ -1180,6 +1180,15 @@ class Bard:
             print('Setting rating of %s to %d' % (song.path(), rating))
             song.setUserRating(rating, userID)
 
+    def printStats(self):
+        totalSongsCount = MusicDatabase.getSongsCount()
+        totalSongsWithMusicBrainzTags = \
+            MusicDatabase.getSongsWithMusicBrainzTagsCount()
+        print('Total songs: %d' % (totalSongsCount))
+        print('Songs with Musicbrainz tags: %d (%.05g%%)' %
+              (totalSongsWithMusicBrainzTags,
+               totalSongsWithMusicBrainzTags * 100.0 / totalSongsCount))
+
     def parseCommandLine(self):
         main_parser = ArgumentParser(
             description='Manage your music collection',
@@ -1413,6 +1422,10 @@ update
                             help='Set rating for the currently playing song')
         parser.add_argument('rating', nargs='?')
         parser.add_argument('paths', nargs='*')
+
+        # stats command
+        parser = sps.add_parser('stats',
+                                description='Print database statistics')
         options = main_parser.parse_args()
 
         if options.command == 'find-duplicates':
@@ -1483,6 +1496,8 @@ update
             self.checkSongsExistence(paths, verbose=options.verbose)
         elif options.command == 'set-rating':
             self.setRating(options.paths, options.rating, options.playing)
+        elif options.command == 'stats':
+            self.printStats()
 
 
 def main():

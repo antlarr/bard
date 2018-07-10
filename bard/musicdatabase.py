@@ -263,6 +263,15 @@ CREATE TABLE similarities(
         return count[0]
 
     @staticmethod
+    def getSongsWithMusicBrainzTagsCount():
+        c = MusicDatabase.conn.cursor()
+
+        result = c.execute("SELECT COUNT(*) FROM tags where name like '%musicbrainz_trackid' or name like 'UFID:http://musicbrainz.org' or name like '%MusicBrainz Track Id' or name like '%MusicBrainz/Track Id'")
+        count = result.fetchone()
+        return count[0]
+
+
+    @staticmethod
     def addCover(pathToSong, pathToCover):
         if config['immutableDatabase']:
             print("Error: Can't add cover to song: "
