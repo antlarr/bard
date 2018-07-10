@@ -239,19 +239,22 @@ CREATE TABLE similarities(
                           'VALUES (?,?,?)', tags)
 
     @staticmethod
-    def removeSong(song):
+    def removeSong(song=None, byID=None):
         if config['immutableDatabase']:
             print("Error: Can't remove song %d from DB: "
                   "The database is configured as immutable" % song.id)
             return
         c = MusicDatabase.conn.cursor()
-        c.execute('DELETE FROM covers where path = ? ', (song.path(),))
-        c.execute('DELETE FROM checksums where song_id = ? ', (song.id,))
-        c.execute('DELETE FROM fingerprints where song_id = ? ', (song.id,))
-        c.execute('DELETE FROM tags where song_id = ? ', (song.id,))
-        c.execute('DELETE FROM properties where song_id = ? ', (song.id,))
-        c.execute('DELETE FROM ratings where song_id = ? ', (song.id,))
-        c.execute('DELETE FROM songs where id = ? ', (song.id,))
+        if song:
+            c.execute('DELETE FROM covers where path = ? ', (song.path(),))
+        if song and not byID:
+            byID = song.id
+        c.execute('DELETE FROM checksums where song_id = ? ', (byID,))
+        c.execute('DELETE FROM fingerprints where song_id = ? ', (byID,))
+        c.execute('DELETE FROM tags where song_id = ? ', (byID,))
+        c.execute('DELETE FROM properties where song_id = ? ', (byID,))
+        c.execute('DELETE FROM ratings where song_id = ? ', (byID,))
+        c.execute('DELETE FROM songs where id = ? ', (byID,))
         MusicDatabase.commit()
 
     @staticmethod
