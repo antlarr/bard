@@ -14,11 +14,9 @@ import sys
 import os
 import datetime
 import re
-import ctypes
 import numpy
 import time
 import random
-from gmpy import popcount
 import mutagen
 import argparse
 import subprocess
@@ -103,23 +101,6 @@ def summation(m, n):
     return (n + 1 - m) * (n + m) / 2
 
 
-def bitsoncount(i):
-    # assert 0 <= i < 0x100000000
-    i = i - ((i >> 1) & 0x55555555)
-    i = (i & 0x33333333) + ((i >> 2) & 0x33333333)
-    return (((i + (i >> 4) & 0xF0F0F0F) * 0x1010101) & 0xffffffff) >> 24
-
-
-def compareBits(x, y):
-    i = 1
-    same_bits = 0
-    for c in range(32):
-        if x & i == y & i:
-            same_bits += 1
-        i <<= 1
-    return same_bits
-
-
 def compare_AudioSegments(audio1, audio2, showAudioOffsets=True):
     fpa1 = fingerprint_AudioSegment(audio1)
     fpa2 = fingerprint_AudioSegment(audio2)
@@ -140,106 +121,6 @@ def compare_AudioSegments(audio1, audio2, showAudioOffsets=True):
 
     (offset, similarity) = max(values, key=lambda x: x[1])
     return (offset, similarity)
-
-
-def compareChromaprintFingerprints(a, b, threshold=0.9, cancelThreshold=0.55,
-                                   offset=None):
-    equal_bits = 0
-    total_idx = min(len(a[0]), len(b[0]))
-    total_bits = 32.0 * total_idx
-    remaining = total_bits
-    thresholdBits = int(total_bits * cancelThreshold)
-    for i, (x, y) in enumerate(zip(a[0], b[0])):
-        # print('old', offset, i, x, y)
-        equal_bits += 32 - popcount(x.value ^ y.value)
-        # print(equal_bits)
-        remaining -= 32
-        if equal_bits + remaining < thresholdBits:
-            return -1
-    return equal_bits / total_bits
-
-
-def compareChromaprintFingerprintsAndOffset(a, b, maxoffset=50, debug=False):
-    if not a[0] or not b[0]:
-        return ComparisonResult(None, None)
-
-    cancelThreshold = 0.55
-    equal_bits = [0] * (2 * maxoffset)
-    result = equal_bits[:]
-    total_idx = ([min(len(a[0]) - maxoffset + idx,
-                      len(b[0]) - maxoffset) for idx in range(maxoffset)] +
-                 list(reversed([min(len(a[0]) - maxoffset,
-                                len(b[0]) - maxoffset + idx)
-                                for idx in range(1, maxoffset)])))
-    total_bits = [32.0 * x for x in total_idx]
-    remaining = total_bits[:]
-    thresholdBits = [int(x * cancelThreshold) for x in total_bits]
-    for offset in range(0, maxoffset):
-        remaining = total_bits[offset]
-        for i in range(total_idx[offset]):
-            # x = a[0][i - offset]
-            # y = b[0][i]
-            equal_bits[offset] += 32 - popcount(a[0][i - offset].value ^
-                                                b[0][i].value)
-            remaining -= 32
-            if equal_bits[offset] + remaining < thresholdBits[offset]:
-                result[offset] = -1
-                break
-        else:
-            result[offset] = equal_bits[offset] / total_bits[offset]
-#        print('new',offset, result[offset])
-
-    for offset in reversed(range(-maxoffset + 1, 0)):
-        remaining = total_bits[offset]
-        for i in range(total_idx[offset]):
-            # x = a[0][i]
-            # y = b[0][i + offset]
-            # print('new', offset, i, x, y)
-            equal_bits[offset] += 32 - popcount(a[0][i].value ^
-                                                b[0][i + offset].value)
-            remaining -= 32
-            if equal_bits[offset] + remaining < thresholdBits[offset]:
-                result[offset] = -1
-                break
-        else:
-            result[offset] = equal_bits[offset] / total_bits[offset]
-#        print('new',offset, result[offset])
-
-    max_idx = numpy.argmax(result)
-    max_val = result[max_idx]
-    if max_idx > maxoffset:
-        max_idx = -(maxoffset * 2 - max_idx)
-    return ComparisonResult(offset=max_idx, similarity=max_val)
-
-
-def compareChromaprintFingerprintsAndOffset2(a, b, maxoffset=50, debug=False):
-    if not a[0] or not b[0]:
-        return ComparisonResult(None, None)
-    tmp = (a[0][:], a[1])
-    result_offset = 0
-    result = compareChromaprintFingerprints(a, b)
-    if debug:
-        print(0, result)
-    for i in range(1, maxoffset):
-        tmp[0].insert(0, ctypes.c_uint32(0))
-        r = compareChromaprintFingerprints(tmp, b)
-        if debug:
-            print(i, r)
-        if r > result:
-            result = r
-            result_offset = i
-    tmp = (b[0][:], b[1])
-    for i in range(1, maxoffset):
-        tmp[0].insert(0, ctypes.c_uint32(0))
-        r = compareChromaprintFingerprints(a, tmp)
-        if debug:
-            print(-i, r)
-        if r > result:
-            result = r
-            result_offset = -i
-    if result < 0:
-        result = None
-    return ComparisonResult(offset=result_offset, similarity=result)
 
 
 def normalizeDate(date):
@@ -806,83 +687,6 @@ class Bard:
             if (MusicDatabase.isSongInDatabase(path) and
                not path.startswith('/tmp/')):
                 self.addSong(path)
-
-    def findAudioDuplicates(self, from_song_id=0):
-        c = MusicDatabase.conn.cursor()
-        fingerprints = {}
-        info = {}
-        decodedFPs = {}
-        matchThreshold = 0.8
-        storeThreshold = 0.55
-        maxoffset = 50
-        sql = ('SELECT id, fingerprint, sha256sum, audio_sha256sum, path, '
-               'completeness FROM fingerprints, songs, checksums, '
-               'properties where songs.id=fingerprints.song_id and '
-               'songs.id = checksums.song_id and '
-               'songs.id = properties.song_id order by id')
-        for (songID, fingerprint, sha256sum, audioSha256sum, path,
-                completeness) in c.execute(sql):
-            # print('.', songID,  end='', flush=True)
-            dfp = chromaprint.decode_fingerprint(fingerprint)
-#            dfp = ([ctypes.c_uint32(x) for x in dfp[0]], dfp[1])
-            dfp = ([ctypes.c_uint32(x) for x in dfp[0]] +
-                   [ctypes.c_uint32(0)] * maxoffset, dfp[1])
-            if not dfp[0]:
-                print("Error calculating fingerprint of song %s (%s)" %
-                      (songID, path))
-                continue
-            if songID < from_song_id:
-                fingerprints[fingerprint] = songID
-                decodedFPs[fingerprint] = dfp
-                info[songID] = (sha256sum, audioSha256sum, path, completeness)
-                continue
-            if songID > from_song_id:
-                return
-
-            for fp, otherSongID in fingerprints.items():
-                offset, similarity = \
-                    compareChromaprintFingerprintsAndOffset(
-                        decodedFPs[fp], dfp)
-                if similarity and similarity >= storeThreshold:
-                    print('******** %d %d %d %f' % (otherSongID, songID,
-                                                    offset, similarity))
-                    MusicDatabase.addSongsSimilarity(otherSongID, songID,
-                                                     offset, similarity)
-                    MusicDatabase.commit()
-                else:
-                    if similarity:
-                        print('%d %d %d %f' % (otherSongID, songID,
-                                               offset, similarity))
-                    else:
-                        print('%d %d different' % (otherSongID, songID))
-
-                if similarity and similarity >= matchThreshold:
-                    # print('''Duplicates found!\n''',
-                    #       songID, fingerprint, path)
-                    # print('''Duplicates found!\n''', fp)
-                    # print('''Duplicates found!\n''', fingerprints[fp])
-                    (otherSha256sum, otherAudioSha256sum, otherPath,
-                        otherCompleteness) = info[fingerprints[fp]]
-                    if sha256sum == otherSha256sum:
-                        msg = ('Exactly the same files (sha256 = %s)' %
-                               sha256sum)
-                        print('Duplicate songs found: %s\n'
-                              '%s\n and %s' % (msg, otherPath, path))
-                    elif audioSha256sum == otherAudioSha256sum:
-                        msg = ('Same audio track with different tags '
-                               '(completeness: %d <-> %d)' %
-                               (otherCompleteness, completeness))
-                        print('Duplicate songs found: %s\n'
-                              '%s\n and %s''' % (msg, otherPath, path))
-                    else:
-                        msg = 'Similarity %f' % similarity
-                        # print('Duplicate songs found: %s\n     %s\n'
-                        #       'and %s' % (msg, otherPath, path))
-                    break
-
-            fingerprints[fingerprint] = songID
-            decodedFPs[fingerprint] = dfp
-            info[songID] = (sha256sum, audioSha256sum, path, completeness)
 
     def findAudioDuplicates2(self, from_song_id=None):
         c = MusicDatabase.conn.cursor()

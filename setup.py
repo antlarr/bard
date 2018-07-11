@@ -44,6 +44,9 @@ setup(
         "pyacoustid",
         "mutagen",
         "Pillow",
+        "pydub",
+        "numpy",
+        "dbus-python"
     ],
     data_files=[('share/doc/packages/bard/', ['config/bard', 'README.md', 'LICENSE'])],
     scripts=["scripts/bard"],
