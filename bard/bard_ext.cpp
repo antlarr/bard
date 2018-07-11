@@ -117,7 +117,7 @@ void FingerprintManager::addSong(long songID, boost::python::list &fingerprint)
 {
     auto v = to_std_vector<int>(fingerprint);
     v.insert(v.begin(), m_maxoffset, 0);
-    m_fingerprints.emplace_back(std::make_pair(songID, v));
+    m_fingerprints.emplace_back(songID, std::move(v));
 }
 
 boost::python::list FingerprintManager::addSongAndCompare(long songID, boost::python::list &fingerprint, double cancelThreshold)
@@ -139,7 +139,7 @@ boost::python::list FingerprintManager::addSongAndCompare(long songID, boost::py
                 result_mutex.unlock();
             }
         }, __gnu_parallel::parallel_balanced);
-    m_fingerprints.emplace_back(std::make_pair(songID, v));
+    m_fingerprints.emplace_back(songID, std::move(v));
     return result;
 }
 
