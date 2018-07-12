@@ -688,7 +688,7 @@ class Bard:
                not path.startswith('/tmp/')):
                 self.addSong(path)
 
-    def findAudioDuplicates2(self, from_song_id=None):
+    def findAudioDuplicates(self, from_song_id=None):
         c = MusicDatabase.conn.cursor()
         info = {}
         print_stats = True
@@ -696,6 +696,9 @@ class Bard:
         storeThreshold = 0.58
         if not from_song_id:
             from_song_id = MusicDatabase.lastSongIDWithCalculatedSimilarities()
+        elif from_song_id < 0:
+            from_song_id = MusicDatabase.lastSongIDWithCalculatedSimilarities() + from_song_id
+
         if from_song_id == MusicDatabase.lastSongID():
             print('All songs are already processed in DB')
             return
@@ -1254,7 +1257,7 @@ update
         elif options.command == 'check-checksums':
             self.checkChecksums(options.from_song_id)
         elif options.command == 'find-audio-duplicates':
-            self.findAudioDuplicates2(options.from_song_id)
+            self.findAudioDuplicates(options.from_song_id)
         elif options.command == 'compare-songs':
             self.compareSongIDsOrPaths(options.song1, options.song2,
                                        options.interactive)
