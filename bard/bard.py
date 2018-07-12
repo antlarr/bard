@@ -820,9 +820,13 @@ class Bard:
         fpm.setMaxOffset(100)
 
         dfp1 = chromaprint.decode_fingerprint(song1.getAcoustidFingerprint())
-        fpm.addSong(id1, dfp1[0])
         dfp2 = chromaprint.decode_fingerprint(song2.getAcoustidFingerprint())
-        fpm.addSong(id2, dfp2[0])
+        if id1 < id2:
+            fpm.addSong(id1, dfp1[0])
+            fpm.addSong(id2, dfp2[0])
+        else:
+            fpm.addSong(id2, dfp2[0])
+            fpm.addSong(id1, dfp1[0])
 
         values = fpm.compareSongsVerbose(id1, id2)
         if showAudioOffsets:
