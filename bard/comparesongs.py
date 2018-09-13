@@ -132,9 +132,9 @@ def compareSongSets(songs1, songs2, path1, path2, useSubsetSemantics=False, verb
         print('songs2', songs2)
     pairs, newSongs1, newSongs2 = findPairs(songs1, songs2)
     if verbose:
-        print(pairs)
-        print(newSongs1)
-        print(newSongs2)
+        print('pairs',pairs)
+        print('new songs in set 1', newSongs1)
+        print('new songs in set 2', newSongs2)
     if not songs1 and not songs2:
         msg = (TerminalColors.Warning + 'Warning: Both sets are empty' +
                TerminalColors.ENDC)
@@ -231,6 +231,16 @@ def compareSongSets(songs1, songs2, path1, path2, useSubsetSemantics=False, verb
         colors = (TerminalColors.Ok, TerminalColors.ENDC)
         if not newSongs1 and not newSongs2:
             print('%sBoth sets are interchangeable%s' % colors)
+            if len(songs1) != len(songs2):
+                if len(songs1) > len(songs2):
+                    colors = (colors[0],
+                              TerminalColors.First + 'first' + colors[0],
+                              colors[1])
+                else:
+                    colors = (colors[0],
+                              TerminalColors.Second + 'second' + colors[0],
+                              colors[1])
+                print('%s(but %s set has more songs)%s' % colors)
         else:
             print('%sThere are %d interchangeable songs in both sets%s' %
                   (colors[0], len(sourceOfResult), colors[1]))
