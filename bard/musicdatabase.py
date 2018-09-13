@@ -5,6 +5,7 @@ from bard.normalizetags import normalizeTagValues
 import sqlite3
 import os
 import re
+import threading
 import mutagen
 
 
@@ -16,9 +17,10 @@ def toString(v):
 
 
 class MusicDatabase:
-    conn = None
+    conn = {}
     mtime_cache_by_path = {}
     mtime_cache_by_id = {}
+    uri = None
 
     def __init__(self, ro=False):
         """Create a MusicDatabase object."""
@@ -30,22 +32,39 @@ class MusicDatabase:
             if ro:
                 raise Exception("Database doesn't exist and read-only was "
                                 "requested")
-            MusicDatabase.conn = sqlite3.connect(databasepath)
+            MusicDatabase.conn[threading.get_ident()] = sqlite3.connect(databasepath)
             self.createDatabase()
         else:
-            uri = 'file:' + databasepath
+            MusicDatabase.uri = 'file:' + databasepath
             if ro:
-                uri += '?mode=ro'
-            MusicDatabase.conn = sqlite3.connect(uri, uri=True)
-        MusicDatabase.conn.execute('pragma foreign_keys=ON')
-        MusicDatabase.conn.row_factory = sqlite3.Row
+                MusicDatabase.uri += '?mode=ro'
+        c = MusicDatabase.getConnection()
+        c.execute('pragma foreign_keys=ON')
+        c.row_factory = sqlite3.Row
+
+    @staticmethod
+    def getConnection():
+        currentThread = threading.get_ident()
+        try:
+            return MusicDatabase.conn[currentThread]
+        except KeyError:
+            c = sqlite3.connect(MusicDatabase.uri, uri=True)
+            c.execute('pragma foreign_keys=ON')
+            c.row_factory = sqlite3.Row
+            MusicDatabase.conn[currentThread] = c
+            return c
+
+    @staticmethod
+    def getCursor():
+        return MusicDatabase.getConnection().cursor()
+
 
     def createDatabase(self):
         if config['immutableDatabase']:
             print("Error: Can't create database: "
                   "The database is configured as immutable")
             return
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         c.execute('''
 CREATE TABLE songs (
                     id INTEGER PRIMARY KEY ASC AUTOINCREMENT,
@@ -137,7 +156,7 @@ CREATE TABLE similarities(
             return
         song.calculateCompleteness()
 
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         result = c.execute('''SELECT id FROM songs where path = ? ''',
                            (song.path(),))
         songID = result.fetchone()
@@ -244,7 +263,7 @@ CREATE TABLE similarities(
             print("Error: Can't remove song %d from DB: "
                   "The database is configured as immutable" % song.id)
             return
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         if song:
             c.execute('DELETE FROM covers where path = ? ', (song.path(),))
         if song and not byID:
@@ -259,7 +278,7 @@ CREATE TABLE similarities(
 
     @staticmethod
     def getSongsCount():
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
 
         result = c.execute('SELECT COUNT(*) FROM songs')
         count = result.fetchone()
@@ -267,7 +286,7 @@ CREATE TABLE similarities(
 
     @staticmethod
     def getSongsWithMusicBrainzTagsCount():
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
 
         result = c.execute("SELECT COUNT(*) FROM tags where name like '%musicbrainz_trackid' or name like 'UFID:http://musicbrainz.org' or name like '%MusicBrainz Track Id' or name like '%MusicBrainz/Track Id'")
         count = result.fetchone()
@@ -280,7 +299,7 @@ CREATE TABLE similarities(
             print("Error: Can't add cover to song: "
                   "The database is configured as immutable")
             return
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
 
         result = c.execute('''SELECT path FROM covers where path = ? ''',
                            (os.path.normpath(pathToSong),))
@@ -296,7 +315,7 @@ CREATE TABLE similarities(
 
     @classmethod
     def prepareCache(cls):
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         if not cls.mtime_cache_by_path:
             result = c.execute('SELECT mtime, path, id FROM songs')
             for x in result.fetchall():
@@ -323,7 +342,7 @@ CREATE TABLE similarities(
 
     @staticmethod
     def getSongTags(songID):
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         result = c.execute('SELECT name, value FROM tags where song_id = ? ',
                            (songID,))
         tags = {}
@@ -335,8 +354,43 @@ CREATE TABLE similarities(
         return tags
 
     @staticmethod
+    def updateSongsTags(songList):
+        ids = [str(song.id) for song in songList]
+        print(ids)
+        c = MusicDatabase.getCursor()
+        sql = 'SELECT song_id, name, value FROM tags where song_id in (%s) order by song_id ' % ','.join(ids)
+        result = c.execute(sql)
+        tags = {}
+        currentSongID=None
+        metadata = None
+        for song_id, name, value in result.fetchall():
+            if song_id != currentSongID:
+                if currentSongID:
+                    tags[currentSongID] = metadata
+                metadata = type('info', (dict,), {})()
+                currentSongID = song_id
+            try:
+                metadata[name] += [value]
+            except KeyError:
+                metadata[name] = [value]
+        else:
+            if metadata:
+                tags[currentSongID] = metadata
+
+        for song in songList:
+            try:
+                song.metadata = tags[song.id]
+            except KeyError:
+                pass
+
+#        if getattr(self, 'id', None) is not None:
+#            self.metadata = type('info', (dict,), {})()
+#            self.metadata.update(MusicDatabase.getSongTags(self.id))
+#            return
+
+    @staticmethod
     def getSongProperties(songID):
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         result = c.execute('''SELECT format, duration, bitrate,
                      bits_per_sample, sample_rate, channels, audio_sha256sum,
                      silence_at_start, silence_at_end
@@ -359,7 +413,7 @@ CREATE TABLE similarities(
 
     @staticmethod
     def getSimilarSongsToSongID(songID, similarityThreshold=0.85):
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         result = c.execute('select song_id1, offset, similarity '
                            '  from similarities '
                            ' where song_id2=? and similarity>=? '
@@ -377,7 +431,7 @@ CREATE TABLE similarities(
     def areSongsSimilar(songID1, songID2, similarityThreshold=0.85):
         if songID1 > songID2:
             songID1, songID2 = songID2, songID1
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         sql = '''select 1 from similarities where song_id1=?
                               and song_id2=? and similarity>=?'''
         result = c.execute(sql, (songID1, songID2, similarityThreshold))
@@ -387,7 +441,7 @@ CREATE TABLE similarities(
     def songsSimilarity(songID1, songID2):
         if songID1 > songID2:
             songID1, songID2 = songID2, songID1
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         sql = '''select similarity from similarities where song_id1=?
                               and song_id2=?'''
         result = c.execute(sql, (songID1, songID2))
@@ -399,9 +453,9 @@ CREATE TABLE similarities(
     @staticmethod
     def commit():
         if config['immutableDatabase']:
-            MusicDatabase.conn.rollback()
+            MusicDatabase.getConnection().rollback()
             return
-        MusicDatabase.conn.commit()
+        MusicDatabase.getConnection().commit()
 
     @staticmethod
     def addFileSha256sum(songid, sha256sum):
@@ -409,7 +463,7 @@ CREATE TABLE similarities(
             print("Error: Can't add file SHA256: The database is configured "
                   "as immutable")
             return
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         c.execute('INSERT INTO checksums (song_id, sha256sum) VALUES (?, ?) ',
                   (songid, sha256sum))
 
@@ -419,7 +473,7 @@ CREATE TABLE similarities(
             print("Error: Can't add file SHA256: "
                   "The database is configured as immutable")
             return
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         c.execute('UPDATE properties set audio_sha256sum=? where song_id=?',
                   (audioSha256sum, songid))
 
@@ -429,7 +483,7 @@ CREATE TABLE similarities(
             print("Error: Can't set song silences: "
                   "The database is configured as immutable")
             return
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         c.execute('UPDATE properties set silence_at_start=?, silence_at_end=? '
                   'where song_id=?',
                   (silence_at_start, silence_at_end, songid))
@@ -450,7 +504,7 @@ CREATE TABLE similarities(
             print("Error: A song shouldn't be compared with itself")
             print(songid1, songid2, similarity, offset)
             return
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         c.execute('UPDATE similarities set offset=?, similarity=? '
                   'where song_id1=? and song_id2=?',
                   (offset, similarity, songid1, songid2))
@@ -466,7 +520,7 @@ CREATE TABLE similarities(
             condition = '> 0.85'
         else:
             condition = re.match(r'[0-9<>= .]*', condition).group()
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         result = c.execute('SELECT song_id1, song_id2, offset, similarity '
                            'FROM similarities WHERE similarity %s' % condition)
         pairs = []
@@ -504,7 +558,7 @@ CREATE TABLE similarities(
                   group by value
                   order by c''' % (tables, condition)
         print(sql, variables)
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         result = c.execute(sql, variables)
         pairs = []
         for genre, count in result.fetchall():
@@ -514,7 +568,7 @@ CREATE TABLE similarities(
     @staticmethod
     def getUserID(username, create=True):
         sql = 'select id from users where name = ?'
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         result = c.execute(sql, (username,))
         userID = result.fetchone()
         if userID:
@@ -534,7 +588,7 @@ CREATE TABLE similarities(
     @staticmethod
     def lastSongID():
         sql = 'select max(id) from songs'
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         result = c.execute(sql)
         x = result.fetchone()
         if x:
@@ -544,7 +598,7 @@ CREATE TABLE similarities(
     @staticmethod
     def lastSongIDWithCalculatedSimilarities():
         sql = 'select max(song_id2) from similarities'
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         result = c.execute(sql)
         x = result.fetchone()
         if x:

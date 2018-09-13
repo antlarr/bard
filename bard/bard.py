@@ -170,9 +170,9 @@ class Bard:
 
     @staticmethod
     def getMusic(where_clause='', where_values=None, tables=[],
-                 order_by=None, limit=None):
+                 order_by=None, limit=None, metadata=False):
         # print(where_clause)
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
 
         if 'songs' not in tables:
             tables.insert(0, 'songs')
@@ -190,13 +190,13 @@ class Bard:
             result = c.execute(statement, where_values)
         else:
             result = c.execute(statement)
-        r = []
-        for x in result.fetchall():
-            r.append(Song(x))
+        r = [Song(x) for x in result.fetchall()]
+        if metadata:
+            MusicDatabase.updateSongsTags(r)
         return r
 
     @staticmethod
-    def getSongs(path=None, songID=None, query=None):
+    def getSongs(path=None, songID=None, query=None, metadata=False):
         where = ''
         values = None
         if songID:
@@ -216,14 +216,14 @@ class Bard:
                 values.append(query.root)
             if query.genre:
                 tables = ['tags']
-                where.append('''id = song_id
-                            AND (name like 'genre' OR name='TCON')
-                            AND value like ?''')
+                where.append('''id = tags.song_id
+                            AND (tags.name like 'genre' OR tags.name='TCON')
+                            AND tags.value like ?''')
                 values.append(query.genre)
 
         where = 'WHERE ' + ' AND '.join(where)
         return Bard.getMusic(where_clause=where, where_values=values,
-                             tables=tables)
+                             tables=tables, metadata=metadata)
 
     def getSongsAtPath(self, path, exact=False):
         if exact:
@@ -492,7 +492,7 @@ class Bard:
                     continue
 
                 if not config['immutableDatabase']:
-                    c = MusicDatabase.conn.cursor()
+                    c = MusicDatabase.getCursor()
                     values = [mtime, song.id]
                     c.execute('''UPDATE songs set mtime = ? WHERE id = ?''',
                               values)
@@ -690,7 +690,7 @@ class Bard:
                 self.addSong(path)
 
     def findAudioDuplicates(self, from_song_id=None):
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         info = {}
         print_stats = True
         matchThreshold = 0.8

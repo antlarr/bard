@@ -38,7 +38,7 @@ class CantCompareSongsException(Exception):
 class Ratings:
     def __init__(self):
         """Create a Ratings object with ALL ratings from all users/songs."""
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         sql = 'SELECT user_id, song_id, rating FROM ratings'
         result = c.execute(sql)
         self.ratings = {}
@@ -62,7 +62,7 @@ class Ratings:
             self.ratings[user_id] = {}
             self.ratings[user_id][song_id] = rating
 
-        c = MusicDatabase.conn.cursor()
+        c = MusicDatabase.getCursor()
         sql = 'UPDATE ratings set rating = ? WHERE user_id = ? AND song_id = ?'
         c.execute(sql, (rating, user_id, song_id))
         if c.rowcount == 0:
@@ -533,7 +533,7 @@ class Song:
         try:
             return self._audioSha256sum
         except AttributeError:
-            c = MusicDatabase.conn.cursor()
+            c = MusicDatabase.getCursor()
             sql = 'SELECT audio_sha256sum FROM properties where song_id = ?'
             result = c.execute(sql, (self.id,))
             sha = result.fetchone()
@@ -567,7 +567,7 @@ class Song:
         try:
             return self._fileSha256sum
         except AttributeError:
-            c = MusicDatabase.conn.cursor()
+            c = MusicDatabase.getCursor()
             sql = 'SELECT sha256sum FROM checksums where song_id = ?'
             result = c.execute(sql, (self.id,))
             sha = result.fetchone()
