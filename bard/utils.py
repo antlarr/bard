@@ -235,7 +235,7 @@ def printDictsDiff(dict1, dict2, forcePrint=False):
 
     print(dict1.get('COMM::eng', None))
     print(dict2.get('COMM::eng', None))
-    for k in allKeys:
+    for k in sorted(allKeys):
         if k in changedKeys:
             print(str(k), ':', TerminalColors.Highlight, repr(dict1[k])[:50],
                   TerminalColors.ENDC, ' -> ', TerminalColors.Highlight,

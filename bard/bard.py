@@ -334,7 +334,8 @@ class Bard:
             print("song id:", song.id)
             rating = song.userRating(userID)
             print("rating:", '*' * rating, '(%d/10)' % rating)
-            for k, v in song.metadata.items():
+            for k in sorted(song.metadata):
+                v = song.metadata[k]
                 print(TerminalColors.Header + str(k) + TerminalColors.ENDC +
                       ' : ' + str(v)[:100])
             print("file sha256sum: ", song.fileSha256sum())
