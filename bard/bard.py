@@ -741,8 +741,9 @@ class Bard:
                 result.sort(key=lambda x: x[0])
 
             for (songID2, offset, similarity) in result:
-                print('******** %d %d %d %f' % (songID2, songID,
-                                                offset, similarity))
+                match = '*******' if similarity > 0.9 else ''
+                print('%d %d %d %f %s' % (songID2, songID,
+                                          offset, similarity, match))
                 MusicDatabase.addSongsSimilarity(songID2, songID,
                                                  offset, similarity)
 
