@@ -22,3 +22,6 @@ config = readConfiguration()
 
 if 'username' not in config:
     config['username'] = pwd.getpwuid(os.getuid()).pw_name
+
+if 'immutableDatabase' not in config:
+    config['immutableDatabase'] = False
