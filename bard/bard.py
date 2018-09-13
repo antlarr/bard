@@ -885,12 +885,15 @@ class Bard:
     #        except DifferentSongsException as e:
     #            print(e)
 
-    def compareDirectories(self, path1, path2, subset=False, verbose=False):
+    def compareDirectories(self, path1, paths, subset=False, verbose=False):
         songs1 = self.getSongsAtPath(path1)
-        songs2 = self.getSongsAtPath(path2)
+        songs2 = set()
+        for path in paths:
+           songs2.update(self.getSongsAtPath(path))
+        songs2 = list(songs2)
         try:
-            compareSongSets(songs1, songs2, path1, path2,
-                            useSubsetSemantics=subset, verbose=verbose)
+            compareSongSets(songs1, songs2, useSubsetSemantics=subset,
+                            verbose=verbose)
         except ValueError as e:
             print(e)
 
@@ -1090,7 +1093,7 @@ update
                             default=False,
                             help='Be verbose')
         parser.add_argument('dir1', metavar='path')
-        parser.add_argument('dir2', metavar='path')
+        parser.add_argument('dirs', metavar='path', nargs=argparse.REMAINDER)
         # fix-mtime command
         sps.add_parser('fix-mtime',
                        description='Fixes the mtime of imported files '
@@ -1267,7 +1270,7 @@ update
             self.compareFiles(options.song1, options.song2,
                               interactive=options.interactive)
         elif options.command == 'compare-dirs':
-            self.compareDirectories(options.dir1, options.dir2,
+            self.compareDirectories(options.dir1, options.dirs,
                                     subset=options.subset,
                                     verbose=options.verbose)
         elif options.command == 'fix-tags':

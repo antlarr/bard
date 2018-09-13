@@ -123,7 +123,7 @@ def prepareSongs(songs):
         x.calculateCompleteness()
 
 
-def compareSongSets(songs1, songs2, path1, path2, useSubsetSemantics=False, verbose=False):
+def compareSongSets(songs1, songs2, useSubsetSemantics=False, verbose=False):
     interactive = True
     prepareSongs(songs1)
     prepareSongs(songs2)
