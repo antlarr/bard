@@ -108,7 +108,11 @@ std::vector<int> FingerprintManager::songFingerprint(int songID)
             { return x.first < y;
             });
     if (it == m_fingerprints.end())
+    {
+        std::cout << "Fingerprint not found for song ID " << songID << " . size: " << m_fingerprints.size() << " . first: " << m_fingerprints[0].first << std::endl;
+
         return std::vector<int>();
+    }
     else
         return it->second;
 }
@@ -117,7 +121,8 @@ void FingerprintManager::addSong(long songID, boost::python::list &fingerprint)
 {
     auto v = to_std_vector<int>(fingerprint);
     v.insert(v.begin(), m_maxoffset, 0);
-    m_fingerprints.emplace_back(songID, std::move(v));
+    std::cout << "song added: " << songID << std::endl;
+    m_fingerprints.emplace_back(std::make_pair(songID, std::move(v)));
 }
 
 boost::python::list FingerprintManager::addSongAndCompare(long songID, boost::python::list &fingerprint, double cancelThreshold)
