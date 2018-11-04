@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 from bard.utils import fixTags, calculateFileSHA256, \
     calculateAudioTrackSHA256_audioread, printProperties, printSongsInfo, \
-    getPropertiesAsString, fingerprint_AudioSegment
+    getPropertiesAsString, fingerprint_AudioSegment, \
+    simple_find_matching_square_bracket
 from bard.song import Song, DifferentLengthException, CantCompareSongsException
 from bard.musicdatabase import MusicDatabase
 from bard.terminalcolors import TerminalColors
@@ -338,6 +339,17 @@ class Bard:
                 v = song.metadata[k]
                 print(TerminalColors.Header + str(k) + TerminalColors.ENDC +
                       ' : ' + str(v)[:100])
+                if k in ('TMCL', 'TIPL'):
+                    if len(v) > 1:
+                        print('*** More than one %s tag in file: The following list might be incomplete ***')
+                    txt_repr = v[0]
+                    m = re.search(r'people=', txt_repr)
+                    if m:
+                        txt = txt_repr[m.end():simple_find_matching_square_bracket(txt_repr, m.end()) + 1]
+                        list_artists = eval(txt)
+                        for instrument, artist in list_artists:
+                            print('    %s : %s' % (instrument, artist))
+
             print("file sha256sum: ", song.fileSha256sum())
             print("audio track sha256sum: ", song.audioSha256sum())
 

@@ -567,3 +567,16 @@ def manualAudioCmp(path1, path2, useColors=None):
     proc2.terminate()
 
     return r
+
+
+def simple_find_matching_square_bracket(txt, initial):
+    count = 0
+    for idx, c in enumerate(txt[initial:]):
+        if c == '[':
+            count += 1
+        elif c == ']':
+            count -= 1
+            if count == 0:
+                return idx + initial
+
+    return None
