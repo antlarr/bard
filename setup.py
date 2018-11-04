@@ -33,8 +33,6 @@ setup(
     # Details
     url="https://github.com/antlarr/bard",
 
-    #
-    # license="LICENSE.txt",
     description="Bard Music Manager - A database to manage your music, "
                 "find duplicates and fix tags",
 
@@ -50,8 +48,8 @@ setup(
         "dbus-python"
     ],
     data_files=[('share/doc/packages/bard/',
-                 ['config/bard', 'README.md', 'LICENSE'])],
+                 ['config/bard', 'README.md'])],
     scripts=["scripts/bard"],
-    license="GPLv3",
+    license="GPL-3.0-only",
     ext_modules=[bard_ext]
 )
