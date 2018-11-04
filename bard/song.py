@@ -308,7 +308,7 @@ class Song:
                    self.metadata.info.length, other.metadata.info.length))
 
         if len_diff > 5:
-            print(self.duration(), self.durationWithoutSilences(), self.silenceAtStart(), self.silenceAtEnd())
+            # print(self.duration(), self.durationWithoutSilences(), self.silenceAtStart(), self.silenceAtEnd())
             raise SlightlyDifferentLengthException(
                 'Songs duration is slightly different (%f and %f seconds / %f and %f seconds)'
                 % (self.durationWithoutSilences(), other.durationWithoutSilences(),
