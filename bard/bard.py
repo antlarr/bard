@@ -3,7 +3,7 @@
 from bard.utils import fixTags, calculateFileSHA256, \
     calculateAudioTrackSHA256_audioread, printProperties, printSongsInfo, \
     getPropertiesAsString, fingerprint_AudioSegment, \
-    simple_find_matching_square_bracket
+    simple_find_matching_square_bracket, formatLength
 from bard.song import Song, DifferentLengthException, CantCompareSongsException
 from bard.musicdatabase import MusicDatabase
 from bard.terminalcolors import TerminalColors
@@ -353,11 +353,11 @@ class Bard:
             print("file sha256sum: ", song.fileSha256sum())
             print("audio track sha256sum: ", song.audioSha256sum())
 
-            print('duration: %.3f s' % song.duration())
-            print(('duration without silences: %.3f s' %
-                   song.durationWithoutSilences()),
-                  ' (silences: %.3f + %.3f)' % (song.silenceAtStart(),
-                                                song.silenceAtEnd()))
+            print('duration: %s s' % formatLength(song.duration()))
+            print(('duration without silences: %s s' %
+                   formatLength(song.durationWithoutSilences())),
+                  ' (silences: %s + %s)' % (formatLength(song.silenceAtStart()),
+                                                formatLength(song.silenceAtEnd())))
             printProperties(song)
             if song.coverWidth():
                 print('cover:  %dx%d' %
@@ -380,6 +380,7 @@ class Bard:
                     colors = {}
                 else:
                     colors = {}
+                colors['bitrate'] = TerminalColors.Blue
                 propertiesString = getPropertiesAsString(otherSong, colors)
                 color = {-1: TerminalColors.Worse,
                          0: TerminalColors.ENDC,

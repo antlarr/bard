@@ -3,6 +3,7 @@
 import subprocess
 import time
 import hashlib
+import math
 import audioread
 from pydub import AudioSegment
 import mutagen
@@ -252,9 +253,31 @@ def printDictsDiff(dict1, dict2, forcePrint=False):
     return True
 
 
+def formatLength(seconds):
+    hours, remainder = divmod(seconds, 3600)
+    minutes, remseconds = divmod(remainder, 60)
+    string = ''
+    if hours:
+        minformat = '%02d'
+    else:
+        minformat = '%d'
+
+    if hours or minutes:
+        minseconds = '%02d'
+    else:
+        minseconds = '%d'
+
+    string = ':'.join([y % x for x, y in [(hours, '%d'), (minutes, minformat),
+                                          (remseconds, minseconds)] if x])
+    miliseconds = math.modf(remseconds)[0]
+    if miliseconds:
+        string += '{0:.3f}'.format(miliseconds)[1:]
+    return string
+
+
 def printPropertiesDiff(song1, song2, forcePrint=False):
     properties = [('', '_format', str),
-                  (' s', 'length', lambda x: '%03g' % x),
+                  (' s', 'length', formatLength),
                   (' bits/s', 'bitrate', str),
                   (' bits/sample', 'bits_per_sample', str),
                   (' channels', 'channels', str),
@@ -294,15 +317,16 @@ def printPropertiesDiff(song1, song2, forcePrint=False):
 
 
 def getPropertiesAsString(song, colors={}):
-    properties = [('', '_format'),
-                  (' s', 'length'),
-                  (' s (w/o silences)', 'durationWithoutSilences'),
-                  (' bits/s', 'bitrate'),
-                  (' bits/sample', 'bits_per_sample'),
-                  (' channels', 'channels'),
-                  (' Hz', 'sample_rate')]
+    properties = [('', '_format', str),
+                  (' s', 'length', formatLength),
+                  (' s (w/o silences)', 'durationWithoutSilences',
+                   formatLength),
+                  (' bits/s', 'bitrate', str),
+                  (' bits/sample', 'bits_per_sample', str),
+                  (' channels', 'channels', str),
+                  (' Hz', 'sample_rate', str)]
     values = []
-    for suffix, prop in properties:
+    for suffix, prop, propformatter in properties:
         try:
             color = colors[prop]
         except KeyError:
@@ -316,7 +340,8 @@ def getPropertiesAsString(song, colors={}):
         if not val:
             values.append(color + '-' + TerminalColors.ENDC + suffix)
         else:
-            values.append(color + str(val) + TerminalColors.ENDC + suffix)
+            values.append(color + propformatter(val) + TerminalColors.ENDC +
+                          suffix)
     return ', '.join(values)
 
 
