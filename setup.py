@@ -1,7 +1,7 @@
 from setuptools import setup, Extension
 
 
-module1 = Extension('bard_ext',
+bard_ext = Extension('bard_ext',
                     define_macros=[('MAJOR_VERSION', '1'),
                                    ('MINOR_VERSION', '0'),
                                    ('_GLIBCXX_PARALLEL', None)],
@@ -28,14 +28,15 @@ setup(
     packages=["bard"],
 
     # Include additional files into the package
-    # include_package_data=True,
+    include_package_data=True,
 
     # Details
     url="https://github.com/antlarr/bard",
 
     #
     # license="LICENSE.txt",
-    description="Bard Music Manager - A database to manage your music, find duplicates and fix tags",
+    description="Bard Music Manager - A database to manage your music, "
+                "find duplicates and fix tags",
 
     # long_description=open("README.txt").read(),
 
@@ -48,8 +49,9 @@ setup(
         "numpy",
         "dbus-python"
     ],
-    data_files=[('share/doc/packages/bard/', ['config/bard', 'README.md', 'LICENSE'])],
+    data_files=[('share/doc/packages/bard/',
+                 ['config/bard', 'README.md', 'LICENSE'])],
     scripts=["scripts/bard"],
     license="GPLv3",
-    ext_modules=[module1]
+    ext_modules=[bard_ext]
 )
