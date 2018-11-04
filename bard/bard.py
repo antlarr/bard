@@ -705,7 +705,8 @@ class Bard:
             return
         print('Start calculating song similarities from song id %d'
               % from_song_id)
-        print('Preparing data structures...')
+        print('Preparing data structures... ', end='')
+        percentage = ''
         from bard.bard_ext import FingerprintManager
         fpm = FingerprintManager()
         fpm.setMaxOffset(100)
@@ -730,9 +731,15 @@ class Bard:
                 continue
             if songID < from_song_id:
                 fpm.addSong(songID, dfp[0])
+                tmp = '%d%%' % (songID*100.0/from_song_id)
+                if tmp != percentage:
+                    backspaces = '\b' * len(percentage)
+                    percentage = tmp
+                    print(backspaces + percentage, end='', flush=True)
                 result = []
             else:
                 if songID == from_song_id:
+                    print(('\b' * len(percentage)) + '100%')
                     print('Calculating song similarities...')
                 # if songID > from_song_id:
                 #     return

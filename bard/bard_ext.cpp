@@ -121,7 +121,7 @@ void FingerprintManager::addSong(long songID, boost::python::list &fingerprint)
 {
     auto v = to_std_vector<int>(fingerprint);
     v.insert(v.begin(), m_maxoffset, 0);
-    std::cout << "song added: " << songID << std::endl;
+//    std::cout << "song added: " << songID << std::endl;
     m_fingerprints.emplace_back(std::make_pair(songID, std::move(v)));
 }
 
