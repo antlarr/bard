@@ -628,6 +628,31 @@ class Song:
 
         self.completeness = value
 
+    def getCoverImage(self):
+        path = self.path()
+        directory = os.path.dirname(path)
+        for cover in ['cover.jpg', 'cover.png']:
+            coverfilename = os.path.join(directory, cover)
+            if os.path.exists(coverfilename):
+                return coverfilename
+
+        try:
+            metadata = self.metadata
+        except AttributeError:
+            try:
+                metadata = mutagen.File(path)
+            except mutagen.mp3.HeaderNotFoundError as e:
+                print("Error reading %s:" % path, e)
+                return None
+
+        try:
+            (image, data) = extractFrontCover(metadata)
+        except OSError:
+            print('Error extracting image from %s' % path)
+            return None
+
+        return (image, data)
+
     def __repr__(self):
         self.loadMetadataInfo()
         return ('%s %s %s %s %s %s %s %s %s %s %s %s' % (self.audioSha256sum(),
