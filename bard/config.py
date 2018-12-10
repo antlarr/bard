@@ -13,7 +13,7 @@ def readConfiguration():
                                 % cfgfile)
 
     data = ''.join([line for line in open(cfgfile).readlines()
-                    if not re.match('\s*(#|//)', line)])
+                    if not re.match(r'\s*(#|//)', line)])
 
     return json.loads(data)
 
