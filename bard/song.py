@@ -122,10 +122,9 @@ class Song:
         elif getattr(self.metadata, 'info', None) is not None:
             return
 
-        (self._format, self.metadata.info, self._audioSha256sum, silences) = \
+        (self._format, self.metadata.info, self._audioSha256sum,
+         self._silenceAtStart, self._silenceAtEnd) = \
             MusicDatabase.getSongProperties(self.id)
-        self._silenceAtStart = silences[0]
-        self._silenceAtEnd = silences[1]
 
     def loadCoverImageData(self, path):
         self._coverWidth, self._coverHeight = 0, 0
@@ -201,7 +200,7 @@ class Song:
         try:
             audio_segment = AudioSegment.from_file(path)
         except:
-            print('Error processing:',path)
+            print('Error processing:', path)
             raise
         self._audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
 
@@ -378,6 +377,11 @@ class Song:
 
     def __getitem__(self, key):
         self.loadMetadataInfo()
+        return getTag(self.metadata, key, fileformat=self._format)
+
+    def getTagIfAvailable(self, key):
+        if not getattr(self, 'metadata', None):
+            return None
         return getTag(self.metadata, key, fileformat=self._format)
 
 #     def title(self):
@@ -598,7 +602,7 @@ class Song:
         try:
             audio_segment = AudioSegment.from_file(self.path())
         except:
-            print('Error processing:',path)
+            print('Error processing:', self.path())
             raise
         self._audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
         thr = threshold or Song.silence_threshold
