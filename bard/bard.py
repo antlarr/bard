@@ -242,23 +242,29 @@ class Bard:
         if len(names) == 0:
             return []
         songs = []
+        pausedSongs = []
         for name in names:
             mpv = bus.get_object(name, '/org/mpris/MediaPlayer2')
             properties = dbus.Interface(mpv, 'org.freedesktop.DBus.Properties')
             playbackStatus = properties.Get('org.mpris.MediaPlayer2.Player',
                                             'PlaybackStatus')
-            if playbackStatus != 'Playing':
+            if playbackStatus != 'Playing' and playbackStatus != 'Paused':
                 continue
             metadata = properties.Get('org.mpris.MediaPlayer2.Player',
                                       'Metadata')
             path = metadata['xesam:url']
-            songs.extend(self.getSongsAtPath(path, exact=True))
+            if playbackStatus == 'Playing':
+                songs.extend(self.getSongsAtPath(path, exact=True))
+            else:
+                pausedSongs.extend(self.getSongsAtPath(path, exact=True))
 
-        if not songs:
-            print("Couldn't find song in database:", path)
-            return []
+        if songs:
+            return songs
+        if len(pausedSongs) == 1:
+            return pausedSongs
 
-        return songs
+        print("Couldn't find song in database:", path)
+        return []
 
     def addSong(self, path):
         if config['immutableDatabase']:
