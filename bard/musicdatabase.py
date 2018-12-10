@@ -367,7 +367,7 @@ CREATE TABLE similarities(
             if song_id != currentSongID:
                 if currentSongID:
                     tags[currentSongID] = metadata
-                metadata = type('info', (dict,), {})()
+                metadata = type('metadata', (dict,), {})()
                 currentSongID = song_id
             try:
                 metadata[name] += [value]
