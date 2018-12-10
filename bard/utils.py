@@ -2,6 +2,7 @@
 
 import subprocess
 import time
+import re
 import hashlib
 import math
 import audioread
@@ -316,17 +317,36 @@ def printPropertiesDiff(song1, song2, forcePrint=False):
     print('Properties: ' + ', '.join(values2))
 
 
+def colorizeAll(color, text):
+    return color + text + TerminalColors.ENDC
+
+
+def colorizeTime(color, text):
+    pos = text.find('.')
+    if pos == -1:
+        return colorizeAll(color, text)
+    return color + text[:pos] + TerminalColors.ENDC + text[pos:]
+
+
+def colorizeBps(color, text):
+    pos = text.find('.')
+    if pos == -1:
+        return colorizeAll(color, text)
+    pos -= 3
+    return color + text[:pos] + TerminalColors.ENDC + text[pos:]
+
+
 def getPropertiesAsString(song, colors={}):
-    properties = [('', '_format', str),
-                  (' s', 'length', formatLength),
+    properties = [('', '_format', str, colorizeAll),
+                  (' s', 'length', formatLength, colorizeTime),
                   (' s (w/o silences)', 'durationWithoutSilences',
-                   formatLength),
-                  (' bits/s', 'bitrate', str),
-                  (' bits/sample', 'bits_per_sample', str),
-                  (' channels', 'channels', str),
-                  (' Hz', 'sample_rate', str)]
+                   formatLength, colorizeTime),
+                  (' bits/s', 'bitrate', str, colorizeBps),
+                  (' bits/sample', 'bits_per_sample', str, colorizeAll),
+                  (' channels', 'channels', str, colorizeAll),
+                  (' Hz', 'sample_rate', str, colorizeAll)]
     values = []
-    for suffix, prop, propformatter in properties:
+    for suffix, prop, propformatter, propcolorizer in properties:
         try:
             color = colors[prop]
         except KeyError:
@@ -340,8 +360,7 @@ def getPropertiesAsString(song, colors={}):
         if not val:
             values.append(color + '-' + TerminalColors.ENDC + suffix)
         else:
-            values.append(color + propformatter(val) + TerminalColors.ENDC +
-                          suffix)
+            values.append(propcolorizer(color, propformatter(val)) + suffix)
     return ', '.join(values)
 
 
@@ -605,3 +624,38 @@ def simple_find_matching_square_bracket(txt, initial):
                 return idx + initial
 
     return None
+
+
+def printableLen(text):
+    """Return length of printable characters in string."""
+    strip_ANSI_pat = re.compile(r"""\x1b\[[;\d]*[A-Za-z]""", re.VERBOSE)
+    return len(strip_ANSI_pat.sub("", text))
+
+
+def alignColumns(lines, col_alignments=None):
+    """Align columns of text.
+
+    lines is a list containing lists of columns. The function returns a list
+    of strings where the respective columns have been aligned. col_alignments
+    can be passed as a list of boolean values for every column which specify
+    if the column should be left aligned (True) or right aligned (False).
+    """
+    aligned = []
+    if not lines:
+        return []
+    maxlengths = [max([printableLen(y) for y in x]) for x in zip(*lines)]
+    maxlengths[-1] = 0
+
+    if not col_alignments:
+        col_alignments = [True for x in maxlengths]
+
+    for cols in lines:
+        newline = ''
+        for col, maxlength, alignleft in zip(cols, maxlengths, col_alignments):
+            num_spaces = maxlength + 1 - printableLen(col)
+            if alignleft:
+                newline += col + ' ' * num_spaces
+            else:
+                newline += ' ' * num_spaces + col
+        aligned.append(newline)
+    return aligned

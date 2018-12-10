@@ -3,7 +3,7 @@
 from bard.utils import fixTags, calculateFileSHA256, \
     calculateAudioTrackSHA256_audioread, printProperties, printSongsInfo, \
     getPropertiesAsString, fingerprint_AudioSegment, \
-    simple_find_matching_square_bracket, formatLength
+    simple_find_matching_square_bracket, formatLength, alignColumns
 from bard.song import Song, DifferentLengthException, CantCompareSongsException
 from bard.musicdatabase import MusicDatabase
 from bard.terminalcolors import TerminalColors
@@ -373,6 +373,7 @@ class Bard:
             if similar_pairs:
                 print('Similar songs:')
 
+            similarSongs = []
             for otherID, offset, similarity in similar_pairs:
                 otherSong = Bard.getSongs(songID=otherID)[0]
                 try:
@@ -393,9 +394,14 @@ class Bard:
                          1: TerminalColors.Better,
                          2: TerminalColors.DifferentLength,
                          3: TerminalColors.CantCompareSongs}[audioComparison]
-                print(color, otherID, otherSong.path() + TerminalColors.ENDC,
-                      '(%d %f %s)' % (offset, similarity, propertiesString),
-                      TerminalColors.ENDC)
+                songpath = (color + ' %d ' % otherID + otherSong.path() +
+                            TerminalColors.ENDC)
+                songprop = '(%d %f %s)' % (offset, similarity,
+                                           propertiesString)
+                similarSongs.append([songpath] + songprop.split())
+            aligned = alignColumns(similarSongs)
+            for line in aligned:
+                print(line)
 
     def list(self, path, long_ls=False, show_id=False, query=None,
              group_by_directory=False):
