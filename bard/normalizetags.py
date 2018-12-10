@@ -243,6 +243,9 @@ def normalizeTagValues(values, mutagenFile=None, tag=None):
 
 
 def getTag(mutagenFile, tag, fileformat=None):
+    if not mutagenFile:
+        return None
+
     if fileformat:
         typeOfFile = formatToType[fileformat]
     else:
