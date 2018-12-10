@@ -1,6 +1,8 @@
 {
+# The path to the bard sqlite database
     "databasePath": "~/.local/share/bard/music.db",
 
+# musicPaths contains a list of paths where music is stored
     "musicPaths": [
         "~/Music",
 #       "~/Music2",
