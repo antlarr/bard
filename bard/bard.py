@@ -691,12 +691,12 @@ class Bard:
                     print(TerminalColors.Error + 'FAIL' + TerminalColors.ENDC +
                           ' (db contains %s, disk is %s)' %
                           (sha256InDB, sha256InDisk))
-                    failedSongs.append(song)
+                    failedSongs.append((song, sha256InDB, sha256InDisk))
 
         if failedSongs:
             print('Failed songs:')
-            for song in failedSongs:
-                print('%d %s' % (song.id, song.path()))
+            for song, sha256InDB, sha256InDisk in failedSongs:
+                print('%d %s (db contains %s, disk is %s)' % (song.id, song.path(), sha256InDB, sha256InDisk))
         else:
             print('All packages successfully checked: ' +
                   TerminalColors.Ok + 'OK' + TerminalColors.ENDC)
