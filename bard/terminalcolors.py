@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+# See https://en.wikipedia.org/wiki/ANSI_escape_code for reference
 
 class TerminalColors:
     Red = '\033[91m'
@@ -28,6 +28,11 @@ class TerminalColors:
     DifferentLength = Magenta
     CantCompareSongs = Cyan
 
+    BackgroundRed = '\033[48;5;52m'
+    BackgroundGreen = '\033[48;5;22m'
+    BackgroundBlue = '\033[48;5;4'
+
     ENDC = '\033[0m'
     BOLD = '\033[1m'
+    ITALIC = '\033[1m'
     UNDERLINE = '\033[4m'
