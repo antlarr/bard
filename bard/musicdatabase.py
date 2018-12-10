@@ -354,14 +354,15 @@ CREATE TABLE similarities(
         return tags
 
     @staticmethod
-    def updateSongsTags(songList):
-        ids = [str(song.id) for song in songList]
-        print(ids)
+    def updateSongsTags(songList, readProperties=True):
+        ids = ','.join([str(song.id) for song in songList])
+        if readProperties:
+            properties = MusicDatabase.getSongsProperties(ids)
         c = MusicDatabase.getCursor()
-        sql = 'SELECT song_id, name, value FROM tags where song_id in (%s) order by song_id ' % ','.join(ids)
+        sql = 'SELECT song_id, name, value FROM tags where song_id in (%s) order by song_id ' % ids
         result = c.execute(sql)
         tags = {}
-        currentSongID=None
+        currentSongID = None
         metadata = None
         for song_id, name, value in result.fetchall():
             if song_id != currentSongID:
@@ -380,8 +381,13 @@ CREATE TABLE similarities(
         for song in songList:
             try:
                 song.metadata = tags[song.id]
+                if readProperties:
+                    props = properties[song.id]
+                    (song._format, song.metadata.info, song._audioSha256sum,
+                     song._silenceAtStart, song._silenceAtEnd) = props
             except KeyError:
                 pass
+
 
 #        if getattr(self, 'id', None) is not None:
 #            self.metadata = type('info', (dict,), {})()
@@ -389,27 +395,41 @@ CREATE TABLE similarities(
 #            return
 
     @staticmethod
-    def getSongProperties(songID):
+    def getSongsProperties(songIDs):
+        if isinstance(songIDs, str):
+            ids = songIDs
+        elif isinstance(songIDs, int):
+            ids = str(songIDs)
+        elif isinstance(songIDs, list):
+            ids = ','.join([str(sid) for sid in songIDs])
         c = MusicDatabase.getCursor()
-        result = c.execute('''SELECT format, duration, bitrate,
+        result = c.execute('''SELECT song_id, format, duration, bitrate,
                      bits_per_sample, sample_rate, channels, audio_sha256sum,
                      silence_at_start, silence_at_end
-                     FROM properties where song_id = ? ''', (songID,))
-        row = result.fetchone()
-        info = type('info', (), {})()
+                     FROM properties where song_id in (%s) ''' % ids)
 
-        try:
-            info.length = row['duration']
-            info.bitrate = row['bitrate']
-            info.bits_per_sample = row['bits_per_sample']
-            info.sample_rate = row['sample_rate']
-            info.channels = row['channels']
-        except KeyError:
-            print('Error getting song properties for song ID %d' % songID)
-            raise
+        r = {}
+        for row in result.fetchall():
+            try:
+                info = type('info', (), {})()
+                songID = row['song_id']
+                info.length = row['duration']
+                info.bitrate = row['bitrate']
+                info.bits_per_sample = row['bits_per_sample']
+                info.sample_rate = row['sample_rate']
+                info.channels = row['channels']
 
-        return row['format'], info, row['audio_sha256sum'], \
-            (row['silence_at_start'], row['silence_at_end'])
+                r[songID] = (row['format'], info, row['audio_sha256sum'],
+                             row['silence_at_start'], row['silence_at_end'])
+            except KeyError:
+                print('Error getting song properties for song ID %d' % songID)
+                raise
+
+        return r
+
+    @staticmethod
+    def getSongProperties(songID):
+        return MusicDatabase.getSongsProperties([songID])[songID]
 
     @staticmethod
     def getSimilarSongsToSongID(songID, similarityThreshold=0.85):
