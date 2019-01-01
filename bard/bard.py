@@ -612,7 +612,7 @@ class Bard:
         for path in paths:
             self.checkSongsExistenceInPath(path, verbose=verbose)
 
-    def fixChecksums(self, from_song_id=None):
+    def fixChecksums(self, from_song_id=None, ignoreMissingFiles=False):
         if from_song_id:
             collection = self.getMusic("WHERE id >= ?", (int(from_song_id),))
         else:
@@ -621,6 +621,10 @@ class Bard:
         forceRecalculate = True
         for song in collection:
             if not os.path.exists(song.path()):
+                if ignoreMissingFiles:
+                    print('Missing file at %s' % song.path())
+                    continue
+
                 if os.path.lexists(song.path()):
                     print('Broken symlink at %s' % song.path())
                 else:
@@ -661,7 +665,7 @@ class Bard:
         MusicDatabase.commit()
         print('done')
 
-    def checkChecksums(self, from_song_id=None):
+    def checkChecksums(self, from_song_id=None, ignoreMissingFiles=False):
         if from_song_id:
             collection = self.getMusic("WHERE id >= ?", (int(from_song_id),))
         else:
@@ -669,6 +673,10 @@ class Bard:
         failedSongs = []
         for song in collection:
             if not os.path.exists(song.path()):
+                if ignoreMissingFiles:
+                    print('Missing file at %s' % song.path())
+                    continue
+
                 if os.path.lexists(song.path()):
                     print('Broken symlink at %s' % song.path())
                 else:
@@ -1174,6 +1182,9 @@ update
         parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
                             help='Starts fixing checksums from a specific '
                                  'song_id')
+        parser.add_argument('--ignore-missing-files',
+                            dest='ignore_missing_files', action='store_true',
+                            help='Ignore missing files')
         # check-songs-existence command
         parser = sps.add_parser('check-songs-existence',
                                 description='Check for removed files to '
@@ -1189,6 +1200,9 @@ update
         parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
                             help='Starts fixing checksums '
                                  'from a specific song_id')
+        parser.add_argument('--ignore-missing-files',
+                            dest='ignore_missing_files', action='store_true',
+                            help='Ignore missing files')
         # import command
         parser = sps.add_parser('import',
                                 description='Import new (or update) music. '
@@ -1298,7 +1312,8 @@ update
         elif options.command == 'find-duplicates':
             self.fixMtime()
         elif options.command == 'fix-checksums':
-            self.fixChecksums(options.from_song_id)
+            self.fixChecksums(options.from_song_id,
+                              ignoreMissingFiles=options.ignore_missing_files)
         elif options.command == 'add-silences':
             self.addSilences(options.paths, options.threshold,
                              options.min_length, options.silence_at_start,
@@ -1309,7 +1324,9 @@ update
                 paths = config['musicPaths']
             self.checkSongsExistence(paths, verbose=options.verbose)
         elif options.command == 'check-checksums':
-            self.checkChecksums(options.from_song_id)
+            self.checkChecksums(options.from_song_id,
+                                ignoreMissingFiles=options.ignore_missing_files
+                                )
         elif options.command == 'find-audio-duplicates':
             self.findAudioDuplicates(options.from_song_id)
         elif options.command == 'compare-songs':
