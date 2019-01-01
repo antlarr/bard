@@ -129,6 +129,7 @@ boost::python::list FingerprintManager::addSongAndCompare(long songID, boost::py
 {
     std::mutex result_mutex;
     boost::python::list result;
+#if __GNUC__ >= 7 || __clang_major__ >= 5
     auto v = to_std_vector<int>(fingerprint);
     v.insert(v.begin(), m_maxoffset, 0);
 
@@ -145,6 +146,10 @@ boost::python::list FingerprintManager::addSongAndCompare(long songID, boost::py
             }
         }, __gnu_parallel::parallel_balanced);
     m_fingerprints.emplace_back(songID, std::move(v));
+#else
+    #warning Support to compare audio signatures will not be built
+    std::cout << "The support to compare audio signatures was not built since the compiler was too old" << std::endl;
+#endif
     return result;
 }
 
