@@ -652,10 +652,10 @@ def alignColumns(lines, col_alignments=None):
     for cols in lines:
         newline = ''
         for col, maxlength, alignleft in zip(cols, maxlengths, col_alignments):
-            num_spaces = maxlength + 1 - printableLen(col)
+            num_spaces = maxlength - printableLen(col)
             if alignleft:
-                newline += col + ' ' * num_spaces
+                newline += col + ' ' * (num_spaces + 1)
             else:
-                newline += ' ' * num_spaces + col
+                newline += ' ' * num_spaces + col + ' '
         aligned.append(newline)
     return aligned
