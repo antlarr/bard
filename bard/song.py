@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from bard.config import config
+from bard.config import config, translatePath
 from bard.utils import md5, calculateAudioTrackSHA256_audioread, \
     extractFrontCover, md5FromData, calculateFileSHA256, manualAudioCmp, \
     printDictsDiff, printPropertiesDiff, calculateSHA256_data, \
@@ -238,13 +238,7 @@ class Song:
         return self._root
 
     def path(self):
-        if config['translatePaths']:
-            for (src, tgt) in config['pathTranslationMap']:
-                src = src.rstrip('/')
-                tgt = tgt.rstrip('/')
-                if self._path.startswith(src):
-                    return tgt + self._path[len(src):]
-        return self._path
+        return translatePath(self._path)
 
     def filename(self):
         return os.path.basename(self._path)

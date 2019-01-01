@@ -22,7 +22,7 @@ import mutagen
 import argparse
 import subprocess
 from argparse import ArgumentParser
-from bard.config import config
+from bard.config import config, translatePath
 
 ComparisonResult = namedtuple('ComparisonResult', ['offset', 'similarity'])
 
@@ -1028,7 +1028,7 @@ class Bard:
             print('Setting rating of %s to %d' % (song.path(), rating))
             song.setUserRating(rating, userID)
 
-    def printStats(self):
+    def printStats(self, verbose=False):
         totalSongsCount = MusicDatabase.getSongsCount()
         totalSongsWithMusicBrainzTags = \
             MusicDatabase.getSongsWithMusicBrainzTagsCount()
@@ -1036,6 +1036,21 @@ class Bard:
         print('Songs with Musicbrainz tags: %d (%.05g%%)' %
               (totalSongsWithMusicBrainzTags,
                totalSongsWithMusicBrainzTags * 100.0 / totalSongsCount))
+        if verbose:
+            roots = MusicDatabase.getRoots()
+            table = []
+            for root in roots:
+                root = translatePath(root)
+                try:
+                    size = int(subprocess.check_output(['du', '-sm', root]
+                                                       ).split()[0])
+                except subprocess.CalledProcessError:
+                    size = -1
+                table.append((str(size)+'M', root))
+            aligned = alignColumns(table, (False, True))
+            for line in aligned:
+                print(line)
+
 
     def parseCommandLine(self):
         main_parser = ArgumentParser(
@@ -1274,6 +1289,8 @@ update
         # stats command
         parser = sps.add_parser('stats',
                                 description='Print database statistics')
+        parser.add_argument('-v', '--verbose', dest='verbose',
+                            action='store_true', help='Be verbose')
         options = main_parser.parse_args()
 
         if options.command == 'find-duplicates':
@@ -1345,7 +1362,7 @@ update
         elif options.command == 'set-rating':
             self.setRating(options.paths, options.rating, options.playing)
         elif options.command == 'stats':
-            self.printStats()
+            self.printStats(options.verbose)
 
 
 def main():

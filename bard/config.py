@@ -25,3 +25,13 @@ if 'username' not in config:
 
 if 'immutableDatabase' not in config:
     config['immutableDatabase'] = False
+
+
+def translatePath(path):
+    if config['translatePaths']:
+        for (src, tgt) in config['pathTranslationMap']:
+            src = src.rstrip('/')
+            tgt = tgt.rstrip('/')
+            if path.startswith(src):
+                return tgt + path[len(src):]
+    return path

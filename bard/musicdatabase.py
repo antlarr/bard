@@ -624,3 +624,10 @@ CREATE TABLE similarities(
         if x:
             return x[0]
         return 0
+
+    @staticmethod
+    def getRoots():
+        sql = 'select distinct(root) from songs'
+        c = MusicDatabase.getCursor()
+        result = c.execute(sql)
+        return [x[0] for x in result.fetchall()]
