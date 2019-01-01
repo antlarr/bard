@@ -347,11 +347,14 @@ class Bard:
                       ' : ' + str(v)[:100])
                 if k in ('TMCL', 'TIPL'):
                     if len(v) > 1:
-                        print('*** More than one %s tag in file: The following list might be incomplete ***')
+                        print('*** More than one %s tag in file: ' +
+                              'The following list might be incomplete ***')
                     txt_repr = v[0]
                     m = re.search(r'people=', txt_repr)
                     if m:
-                        txt = txt_repr[m.end():simple_find_matching_square_bracket(txt_repr, m.end()) + 1]
+                        pos_bracket = simple_find_matching_square_bracket(
+                            txt_repr, m.end())
+                        txt = txt_repr[m.end():pos_bracket + 1]
                         list_artists = eval(txt)
                         for instrument, artist in list_artists:
                             print('    %s : %s' % (instrument, artist))
@@ -362,8 +365,9 @@ class Bard:
             print('duration: %s s' % formatLength(song.duration()))
             print(('duration without silences: %s s' %
                    formatLength(song.durationWithoutSilences())),
-                  ' (silences: %s + %s)' % (formatLength(song.silenceAtStart()),
-                                                formatLength(song.silenceAtEnd())))
+                  ' (silences: %s + %s)' %
+                  (formatLength(song.silenceAtStart()),
+                   formatLength(song.silenceAtEnd())))
             printProperties(song)
             if song.coverWidth():
                 print('cover:  %dx%d' %
@@ -704,7 +708,8 @@ class Bard:
         if failedSongs:
             print('Failed songs:')
             for song, sha256InDB, sha256InDisk in failedSongs:
-                print('%d %s (db contains %s, disk is %s)' % (song.id, song.path(), sha256InDB, sha256InDisk))
+                print('%d %s (db contains %s, disk is %s)' %
+                      (song.id, song.path(), sha256InDB, sha256InDisk))
         else:
             print('All packages successfully checked: ' +
                   TerminalColors.Ok + 'OK' + TerminalColors.ENDC)
@@ -731,7 +736,8 @@ class Bard:
         if not from_song_id:
             from_song_id = MusicDatabase.lastSongIDWithCalculatedSimilarities()
         elif from_song_id < 0:
-            from_song_id = MusicDatabase.lastSongIDWithCalculatedSimilarities() + from_song_id
+            last = MusicDatabase.lastSongIDWithCalculatedSimilarities()
+            from_song_id = last + from_song_id
 
         if from_song_id == MusicDatabase.lastSongID():
             print('All songs are already processed in DB')
@@ -764,7 +770,7 @@ class Bard:
                 continue
             if songID < from_song_id:
                 fpm.addSong(songID, dfp[0])
-                tmp = '%d%%' % (songID*100.0/from_song_id)
+                tmp = '%d%%' % (songID * 100.0 / from_song_id)
                 if tmp != percentage:
                     backspaces = '\b' * len(percentage)
                     percentage = tmp
@@ -929,7 +935,11 @@ class Bard:
         songs1 = self.getSongsAtPath(path1)
         songs2 = set()
         for path in paths:
-           songs2.update(self.getSongsAtPath(path))
+            songs2.update(self.getSongsAtPath(path))
+        if len(paths) == 1:
+            path2 = paths[0]
+        else:
+            path2 = '(' + ' + '.join(paths) + ')'
         songs2 = list(songs2)
         try:
             compareSongSets(songs1, songs2, useSubsetSemantics=subset,
@@ -1054,7 +1064,7 @@ class Bard:
                                                        ).split()[0])
                 except subprocess.CalledProcessError:
                     size = -1
-                table.append((str(size)+'M', root))
+                table.append((str(size) + 'M', root))
             aligned = alignColumns(table, (False, True))
             for line in aligned:
                 print(line)
