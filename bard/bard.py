@@ -10,6 +10,7 @@ from bard.terminalcolors import TerminalColors
 from bard.comparesongs import compareSongSets
 import chromaprint
 from collections import MutableSet, namedtuple
+from sqlalchemy import text
 import dbus
 import sys
 import os
@@ -188,9 +189,9 @@ class Bard:
 
         # print(statement, where_values)
         if where_values:
-            result = c.execute(statement, where_values)
+            result = c.execute(text(statement).bindparams(**where_values))
         else:
-            result = c.execute(statement)
+            result = c.execute(text(statement))
         r = [Song(x) for x in result.fetchall()]
         if metadata:
             MusicDatabase.updateSongsTags(r)
@@ -200,39 +201,42 @@ class Bard:
     def getSongs(path=None, songID=None, query=None, metadata=False):
         where = ''
         values = None
+        like = MusicDatabase.like
         if songID:
-            where = ['id = ?']
-            values = [songID]
+            where = ['id = :id']
+            values = {'id': songID}
         elif (not path.startswith('/') or path.endswith('/') or
               os.path.isdir(path)):
-            where = ["path like ?"]
-            values = ['%' + path + '%']
+            where = [f"path {like} :path"]
+            values = {'path': '%' + path + '%'}
         else:
-            where = ["path = ?"]
-            values = [path]
+            where = ["path = :path"]
+            values = {'path': path}
         tables = []
         if query:
             if query.root:
-                where.append('root = ?')
-                values.append(query.root)
+                where.append('root = :root')
+                values['query'] = query.root
             if query.genre:
                 tables = ['tags']
-                where.append('''id = tags.song_id
-                            AND (tags.name like 'genre' OR tags.name='TCON')
-                            AND tags.value like ?''')
-                values.append(query.genre)
+                where.append(f'''id = tags.song_id
+                            AND (lower(tags.name) = 'genre'
+                                 OR tags.name='TCON')
+                            AND tags.value {like} :tag''')
+                values['tag'] = query.genre
 
         where = 'WHERE ' + ' AND '.join(where)
         return Bard.getMusic(where_clause=where, where_values=values,
-                             tables=tables, metadata=metadata)
+                             tables=tables, metadata=metadata, order_by='path')
 
     def getSongsAtPath(self, path, exact=False):
         if exact:
-            where = "WHERE path = ?"
-            values = (path,)
+            where = "WHERE path = :path"
+            values = {'path': path}
         else:
-            where = "WHERE path like ?"
-            values = (path + '%',)
+            like = MusicDatabase.like
+            where = f"WHERE path {like} :path"
+            values = {'path': path + '%'}
         return self.getMusic(where_clause=where, where_values=values)
 
     def getCurrentlyPlayingSongs(self):
@@ -522,9 +526,9 @@ class Bard:
 
                 if not config['immutableDatabase']:
                     c = MusicDatabase.getCursor()
-                    values = [mtime, song.id]
-                    c.execute('''UPDATE songs set mtime = ? WHERE id = ?''',
-                              values)
+                    sql = text('UPDATE songs set mtime = :mtime '
+                               'WHERE id = :id')
+                    c.execute(sql.bindparams(mtime=mtime, id=song.id))
                     count += 1
                     if count % 10:
                         MusicDatabase.commit()
@@ -618,7 +622,8 @@ class Bard:
 
     def fixChecksums(self, from_song_id=None, ignoreMissingFiles=False):
         if from_song_id:
-            collection = self.getMusic("WHERE id >= ?", (int(from_song_id),))
+            collection = self.getMusic("WHERE id >= :id",
+                                       {'id': int(from_song_id)})
         else:
             collection = self.getMusic()
         count = 0
@@ -671,7 +676,8 @@ class Bard:
 
     def checkChecksums(self, from_song_id=None, ignoreMissingFiles=False):
         if from_song_id:
-            collection = self.getMusic("WHERE id >= ?", (int(from_song_id),))
+            collection = self.getMusic("WHERE id >= :id",
+                                       {'id': int(from_song_id)})
         else:
             collection = self.getMusic()
         failedSongs = []
@@ -759,10 +765,11 @@ class Bard:
                'songs.id = checksums.song_id and '
                'songs.id = properties.song_id order by id')
 
+        result = c.execute(text(sql))
         for (songID, fingerprint, sha256sum, audioSha256sum, path,
-                completeness) in c.execute(sql):
+                completeness, duration) in result.fetchall():
             # print('.', songID,  end='', flush=True)
-            dfp = chromaprint.decode_fingerprint(fingerprint)
+            dfp = chromaprint.decode_fingerprint(fingerprint.tobytes())
             if not dfp[0]:
                 print("Error calculating fingerprint of song %s (%s)" %
                       (songID, path))

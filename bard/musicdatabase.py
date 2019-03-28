@@ -2,6 +2,8 @@
 
 from bard.config import config
 from bard.normalizetags import normalizeTagValues
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import Session
 import sqlite3
 import os
 import re
@@ -21,26 +23,39 @@ class MusicDatabase:
     mtime_cache_by_path = {}
     mtime_cache_by_id = {}
     uri = None
+    like = 'like'
 
     def __init__(self, ro=False):
         """Create a MusicDatabase object."""
-        _databasepath = config['databasePath']
-        databasepath = os.path.expanduser(os.path.expandvars(_databasepath))
-        if not os.path.isdir(os.path.dirname(databasepath)):
-            os.makedirs(os.path.dirname(databasepath))
-        if not os.path.isfile(databasepath):
-            if ro:
-                raise Exception("Database doesn't exist and read-only was "
-                                "requested")
-            MusicDatabase.conn[threading.get_ident()] = sqlite3.connect(databasepath)
-            self.createDatabase()
+        try:
+            database = config['database']
+        except KeyError:
+            database = 'sqlite'
+
+        if database == 'postgresql':
+            name = config['database_name']
+            user = config['database_user']
+            password = config['database_password']
+            MusicDatabase.uri = f'postgresql://{user}:{password}@/{name}'
+            MusicDatabase.like = 'ilike'
         else:
-            MusicDatabase.uri = 'file:' + databasepath
-            if ro:
-                MusicDatabase.uri += '?mode=ro'
-        c = MusicDatabase.getConnection()
-        c.execute('pragma foreign_keys=ON')
-        c.row_factory = sqlite3.Row
+            _dbpath = config['databasePath']
+            databasepath = os.path.expanduser(os.path.expandvars(_dbpath))
+            if not os.path.isdir(os.path.dirname(databasepath)):
+                os.makedirs(os.path.dirname(databasepath))
+            if not os.path.isfile(databasepath):
+                if ro:
+                    raise Exception("Database doesn't exist and read-only was "
+                                    "requested")
+                MusicDatabase.conn[threading.get_ident()] = \
+                    sqlite3.connect(databasepath)
+                self.createDatabase()
+            else:
+                MusicDatabase.uri = 'sqlite:///' + databasepath
+                if ro:
+                    MusicDatabase.uri += '?mode=ro'
+        MusicDatabase.engine = create_engine(MusicDatabase.uri)
+        MusicDatabase.getConnection()
 
     @staticmethod
     def getConnection():
@@ -48,16 +63,13 @@ class MusicDatabase:
         try:
             return MusicDatabase.conn[currentThread]
         except KeyError:
-            c = sqlite3.connect(MusicDatabase.uri, uri=True)
-            c.execute('pragma foreign_keys=ON')
-            c.row_factory = sqlite3.Row
-            MusicDatabase.conn[currentThread] = c
-            return c
+            s = Session(bind=MusicDatabase.engine)
+            MusicDatabase.conn[currentThread] = s
+            return s
 
     @staticmethod
     def getCursor():
-        return MusicDatabase.getConnection().cursor()
-
+        return MusicDatabase.getConnection()
 
     def createDatabase(self):
         if config['immutableDatabase']:
@@ -71,7 +83,7 @@ CREATE TABLE songs (
                     root TEXT,
                     path TEXT,
                     filename TEXT,
-                    mtime TIMESTAMP,
+                    mtime NUMERIC(20,8),
                     title TEXT,
                     artist TEXT,
                     album TEXT,
@@ -87,7 +99,7 @@ CREATE TABLE songs (
                    )''')
         c.execute('''
 CREATE TABLE properties(
-                    song_id INTEGER,
+                    song_id INTEGER PRIMARY KEY,
                     format TEXT,
                     duration REAL,
                     bitrate REAL,
@@ -102,41 +114,47 @@ CREATE TABLE properties(
         c.execute('''
 CREATE TABLE tags(
                     song_id INTEGER,
-                    name TEXT,
+                    name TEXT NOT NULL,
                     value TEXT,
+                    pos INTEGER,
                     FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
                  )''')
+        c.execute('CREATE INDEX ON tags (song_id)')
         c.execute('''
 CREATE TABLE covers(
                   path TEXT,
-                  cover TEXT
+                  cover BYTEA NOT NULL
                   )''')
         c.execute('''
 CREATE TABLE checksums(
-                  song_id INTEGER,
-                  sha256sum TEXT,
+                  song_id INTEGER PRIMARY KEY,
+                  sha256sum TEXT NOT NULL,
                   FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
                   )''')
         c.execute('''
 CREATE TABLE fingerprints(
-                  song_id INTEGER,
-                  fingerprint TEXT,
+                  song_id INTEGER PRIMARY KEY,
+                  fingerprint BYTEA NOT NULL,
                   FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
                   )''')
         c.execute('''
 CREATE TABLE similarities(
                   song_id1 INTEGER,
                   song_id2 INTEGER,
-                  offset INTEGER,
-                  similarity REAL,
+                  match_offset INTEGER NOT NULL,
+                  similarity REAL NOT NULL,
                   UNIQUE(song_id1, song_id2),
                   FOREIGN KEY(song_id1) REFERENCES songs(id) ON DELETE CASCADE,
                   FOREIGN KEY(song_id2) REFERENCES songs(id) ON DELETE CASCADE
                   )''')
+        c.execute('CREATE INDEX similarities_song_id1_idx ON similarities (song_id1)')
+        c.execute('CREATE INDEX similarities_song_id2_idx ON similarities (song_id2)')
+
         c.execute('''
  CREATE TABLE users (
                   id INTEGER PRIMARY KEY ASC AUTOINCREMENT,
-                  name TEXT
+                  name TEXT,
+                  password TEXT
                   )''')
         c.execute('''
  CREATE TABLE ratings (
@@ -157,105 +175,179 @@ CREATE TABLE similarities(
         song.calculateCompleteness()
 
         c = MusicDatabase.getCursor()
-        result = c.execute('''SELECT id FROM songs where path = ? ''',
-                           (song.path(),))
+        sql = text('SELECT id FROM songs where path = :path')
+
+        result = c.execute(sql.bindparams(path=song.path()))
         songID = result.fetchone()
 
-        values = [(song.root(), song.path(), song.filename(), song.mtime(),
-                   song['title'], toString(song['artist']), song['album'],
-                   song['albumartist'], song['tracknumber'], song['date'],
-                   toString(song['genre']), song['discnumber'],
-                   song.coverWidth(), song.coverHeight(), song.coverMD5(),
-                   song.completeness), ]
+        values = {'path': song.path(),
+                  'mtime': song.mtime(),
+                  'title': song['title'],
+                  'artist': toString(song['artist']),
+                  'album': song['album'],
+                  'albumartist': song['albumartist'],
+                  'track': song['tracknumber'],
+                  'date': song['date'],
+                  'genre': toString(song['genre']),
+                  'discnumber': song['discnumber'],
+                  'coverwidth': song.coverWidth(),
+                  'coverheight': song.coverHeight(),
+                  'covermd5': song.coverMD5(),
+                  'completeness': song.completeness
+                  }
 
         if songID:  # song is already in db, we have to update it
             song.id = songID[0]
             print('Updating song %s' % song.path())
-            values = [values[0][3:] + (song.path(), )]
-            sql = ('UPDATE songs SET mtime=?, title=?, artist=?, album=?, '
-                   'albumArtist=?, track=?, date=?, genre=?, discNumber=?, '
-                   'coverWidth=?, coverHeight=?, coverMD5=?, completeness=? '
-                   'WHERE path = ?')
-            c.executemany(sql, values)
+            sql = ('UPDATE songs SET mtime=:mtime, title=:title, '
+                   'artist=:artist, album=:album, albumArtist=:albumartist, '
+                   'track=:track, date=:date, genre=:genre, '
+                   'discNumber=:discnumber, coverWidth=:coverwidth, '
+                   'coverHeight=:coverheight, coverMD5=:covermd5, '
+                   'completeness=:completeness WHERE path = :path')
 
-            values = [(song.fileSha256sum(), song.id), ]
-            c.executemany('UPDATE checksums SET sha256sum=? WHERE song_id=?',
-                          values)
+            c.execute(text(sql).bindparams(**values))
 
-            values = [(song.fingerprint, song.id), ]
-            c.executemany('UPDATE fingerprints SET fingerprint=? '
-                          'WHERE song_id=?', values)
+            values = {'sha256sum': song.fileSha256sum(),
+                      'id': song.id}
+            sql = 'UPDATE checksums SET sha256sum=:sha256sum WHERE song_id=:id'
+            c.execute(text(sql).bindparams(**values))
 
-            values = [(song.format(), song.duration(), song.bitrate(),
-                       song.bits_per_sample(), song.sample_rate(),
-                       song.channels(), song.audioSha256sum(),
-                       song.silenceAtStart(), song.silenceAtEnd(), song.id), ]
-            c.executemany('UPDATE properties SET format=?, duration=?, '
-                          'bitrate=?, bits_per_sample=?, sample_rate=?, '
-                          'channels=?, audio_sha256sum=?, silence_at_start=?, '
-                          'silence_at_end=? WHERE song_id=?''',
-                          values)
+            values = {'fingerprint': song.fingerprint,
+                      'id': song.id}
+            sql = ('UPDATE fingerprints SET fingerprint=:fingerprint '
+                   'WHERE song_id=:id')
+            c.execute(text(sql).bindparams(**values))
 
-            values = [(song.id), ]
-            c.execute('''DELETE from tags where song_id = ?''', (song.id,))
+            values = {'format': song.format(),
+                      'duration': song.duration(),
+                      'bitrate': song.bitrate(),
+                      'bits_per_sample': song.bits_per_sample(),
+                      'sample_rate': song.sample_rate(),
+                      'channels': song.channels(),
+                      'audio_sha256sum': song.audioSha256sum(),
+                      'silence_at_start': song.silenceAtStart(),
+                      'silence_at_end': song.silenceAtEnd(),
+                      'id': song.id}
+            sql = ('UPDATE properties SET format=:format, duration=:duration, '
+                   'bitrate=:bitrate, bits_per_sample=:bits_per_sample, '
+                   'sample_rate=:sample_rate, channels=:channels, '
+                   'audio_sha256sum=:audio_sha256sum, '
+                   'silence_at_start=:silence_at_start, '
+                   'silence_at_end=:silence_at_end WHERE song_id=:id')
+            c.execute(text(sql).bindparams(**values))
+
+            values = {'id': song.id}
+            sql = 'DELETE from tags where song_id = :id'
+            c.execute(text(sql).bindparams(**values))
 
             tags = []
             for key, values in song.metadata.items():
-                values = normalizeTagValues(values, song.metadata, key)
+                key, values = normalizeTagValues(values, song.metadata, key, removeBinaryData=True)
 
                 if isinstance(values, list):
-                    for value in values:
-                        tags.append((song.id, key, value))
+                    for pos, value in enumerate(values):
+                        tags.append({'id': song.id,
+                                     'name': key,
+                                     'value': value,
+                                     'pos': pos if len(values) > 1 else None
+                                     })
                 else:
                     if isinstance(values, mutagen.apev2.APEBinaryValue):
                         continue
-                    tags.append((song.id, key, str(values)))
-            # print(tags)
-            c.executemany('INSERT INTO tags(song_id, name, value) '
-                          'VALUES (?,?,?)', tags)
+                    tags.append({'id': song.id,
+                                 'name': key,
+                                 'value': values,
+                                 'pos': None
+                                 })
+            if tags:
+                # print('1', tags)
+                sql = ('INSERT INTO tags(song_id, name, value, pos) '
+                       'VALUES (:id,:name,:value,:pos)')
+                try:
+                    c.execute(text(sql), tags)
+                except ValueError:
+                    c.rollback()
+                    print(sql, tags)
+                    raise
         else:
             print('Adding new song %s' % song.path())
-            print(values[0][3:])
-            c.executemany('INSERT INTO songs(root, path, filename, mtime, '
-                          'title, artist, album, albumArtist, track, date, '
-                          'genre, discNumber, coverWidth, coverHeight, '
-                          'coverMD5, completeness) '
-                          'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', values)
+            values.update({'root': song.root(),
+                           'filename': song.filename()})
+            print(values)
+            sql = ('INSERT INTO songs(root, path, filename, mtime, '
+                   'title, artist, album, albumArtist, track, date, '
+                   'genre, discNumber, coverWidth, coverHeight, '
+                   'coverMD5, completeness) '
+                   'VALUES (:root,:path,:filename,:mtime,:title,:artist,'
+                   ':album,:albumartist,:track,:date,:genre,:discnumber,'
+                   ':coverwidth,:coverheight,:covermd5,:completeness)')
+            c.execute(text(sql).bindparams(**values))
 
-            result = c.execute('''SELECT last_insert_rowid()''')
+#            result = c.execute('SELECT last_insert_rowid()')
+            sql = "SELECT currval(pg_get_serial_sequence('songs','id'))"
+            result = c.execute(sql)
             song.id = result.fetchone()[0]
 
-            values = [(song.id, song.fileSha256sum()), ]
-            c.executemany('INSERT INTO checksums(song_id, sha256sum) '
-                          'VALUES (?,?)', values)
+            values = {'sha256sum': song.fileSha256sum(),
+                      'id': song.id}
+            sql = ('INSERT INTO checksums(song_id, sha256sum) '
+                   'VALUES (:id,:sha256sum)')
+            c.execute(text(sql).bindparams(**values))
 
-            values = [(song.id, song.fingerprint), ]
-            c.executemany('INSERT INTO fingerprints(song_id, fingerprint) '
-                          'VALUES (?,?)', values)
+            values = {'fingerprint': song.fingerprint,
+                      'id': song.id}
+            sql = ('INSERT INTO fingerprints(song_id, fingerprint) '
+                   'VALUES (:id,:fingerprint)')
+            c.execute(text(sql).bindparams(**values))
 
-            values = [(song.id, song.format(), song.duration(), song.bitrate(),
-                       song.bits_per_sample(), song.sample_rate(),
-                       song.channels(), song.audioSha256sum(),
-                       song.silenceAtStart(), song.silenceAtEnd()), ]
-            c.executemany('INSERT INTO properties(song_id, format, duration, '
-                          'bitrate, bits_per_sample, sample_rate, channels, '
-                          'audio_sha256sum, silence_at_start, silence_at_end) '
-                          'VALUES (?,?,?,?,?,?,?,?,?,?)', values)
+            values = {'format': song.format(),
+                      'duration': song.duration(),
+                      'bitrate': song.bitrate(),
+                      'bits_per_sample': song.bits_per_sample(),
+                      'sample_rate': song.sample_rate(),
+                      'channels': song.channels(),
+                      'audio_sha256sum': song.audioSha256sum(),
+                      'silence_at_start': song.silenceAtStart(),
+                      'silence_at_end': song.silenceAtEnd(),
+                      'id': song.id}
+            sql = ('INSERT INTO properties(song_id, format, duration, '
+                   'bitrate, bits_per_sample, sample_rate, channels, '
+                   'audio_sha256sum, silence_at_start, silence_at_end) '
+                   'VALUES (:id,:format,:duration,:bitrate,:bits_per_sample,'
+                   ':sample_rate,:channels,:audio_sha256sum,'
+                   ':silence_at_start,:silence_at_end)')
+            c.execute(text(sql).bindparams(**values))
 
             tags = []
             for key, values in song.metadata.items():
-                values = normalizeTagValues(values, song.metadata, key)
+                key, values = normalizeTagValues(values, song.metadata, key, removeBinaryData=True)
 
                 if isinstance(values, list):
-                    for value in values:
-                        tags.append((song.id, key, value))
+                    for pos, value in enumerate(values):
+                        tags.append({'id': song.id,
+                                     'name': key,
+                                     'value': value,
+                                     'pos': pos if len(values) > 1 else None
+                                     })
                 else:
                     if isinstance(values, mutagen.apev2.APEBinaryValue):
                         continue
-                    tags.append((song.id, key, str(values)))
-            # print(tags)
-            c.executemany('INSERT INTO tags(song_id, name, value) '
-                          'VALUES (?,?,?)', tags)
+                    tags.append({'id': song.id,
+                                 'name': key,
+                                 'value': values,
+                                 'pos': None
+                                 })
+            if tags:
+                # print('2', tags)
+                sql = ('INSERT INTO tags(song_id, name, value, pos) '
+                       'VALUES (:id,:name,:value,:pos)')
+                try:
+                    c.execute(text(sql), tags)
+                except ValueError:
+                    c.rollback()
+                    print(sql, tags)
+                    raise
 
     @staticmethod
     def removeSong(song=None, byID=None):
@@ -265,15 +357,17 @@ CREATE TABLE similarities(
             return
         c = MusicDatabase.getCursor()
         if song:
-            c.execute('DELETE FROM covers where path = ? ', (song.path(),))
+            sql = text('DELETE FROM covers where path = :path')
+            c.execute(sql.bindparams(path=song.path()))
         if song and not byID:
             byID = song.id
-        c.execute('DELETE FROM checksums where song_id = ? ', (byID,))
-        c.execute('DELETE FROM fingerprints where song_id = ? ', (byID,))
-        c.execute('DELETE FROM tags where song_id = ? ', (byID,))
-        c.execute('DELETE FROM properties where song_id = ? ', (byID,))
-        c.execute('DELETE FROM ratings where song_id = ? ', (byID,))
-        c.execute('DELETE FROM songs where id = ? ', (byID,))
+        params = {'id': byID}
+        c.execute('DELETE FROM checksums where song_id=:id', params)
+        c.execute('DELETE FROM fingerprints where song_id=:id', params)
+        c.execute('DELETE FROM tags where song_id=:id', params)
+        c.execute('DELETE FROM properties where song_id=:id', params)
+        c.execute('DELETE FROM ratings where song_id=:id', params)
+        c.execute('DELETE FROM songs where id=:id', params)
         MusicDatabase.commit()
 
     @staticmethod
@@ -288,10 +382,14 @@ CREATE TABLE similarities(
     def getSongsWithMusicBrainzTagsCount():
         c = MusicDatabase.getCursor()
 
-        result = c.execute("SELECT COUNT(*) FROM tags where name like '%musicbrainz_trackid' or name like 'UFID:http://musicbrainz.org' or name like '%MusicBrainz Track Id' or name like '%MusicBrainz/Track Id'")
+        like = MusicDatabase.like
+        result = c.execute(f"""SELECT COUNT(*) FROM tags where
+   name {like} '%%musicbrainz_trackid'
+or name {like} 'UFID:http://musicbrainz.org'
+or name {like} '%%MusicBrainz Track Id'
+or name {like} '%%MusicBrainz/Track Id'""")
         count = result.fetchone()
         return count[0]
-
 
     @staticmethod
     def addCover(pathToSong, pathToCover):
@@ -301,17 +399,19 @@ CREATE TABLE similarities(
             return
         c = MusicDatabase.getCursor()
 
-        result = c.execute('''SELECT path FROM covers where path = ? ''',
-                           (os.path.normpath(pathToSong),))
+        result = c.execute(text('SELECT path FROM covers where path=:path'),
+                           {'path': os.path.normpath(pathToSong)})
         path = result.fetchone()
         if path:  # cover is already in db, we have to update it
-            values = [(pathToCover, os.path.normpath(pathToSong)), ]
-            c.executemany('UPDATE covers set cover=?  WHERE path = ?',
-                          values)
+            values = {'cover': pathToCover,
+                      'path': os.path.normpath(pathToSong)}
+            c.execute(text('UPDATE covers set cover=:cover WHERE path=:path'),
+                      values)
         else:
-            values = [(os.path.normpath(pathToSong), pathToCover), ]
-            c.executemany('INSERT INTO covers(path, cover) VALUES (?,?)',
-                          values)
+            values = {'cover': pathToCover,
+                      'path': os.path.normpath(pathToSong)}
+            sql = 'INSERT INTO covers(path, cover) VALUES (:path,:cover)'
+            c.execute(text(sql), values)
 
     @classmethod
     def prepareCache(cls):
@@ -320,6 +420,7 @@ CREATE TABLE similarities(
             result = c.execute('SELECT mtime, path, id FROM songs')
             for x in result.fetchall():
                 mtime, path, id = x
+                mtime = float(mtime)
                 cls.mtime_cache_by_path[path] = mtime
                 cls.mtime_cache_by_id[id] = (mtime, path)
 
@@ -343,8 +444,8 @@ CREATE TABLE similarities(
     @staticmethod
     def getSongTags(songID):
         c = MusicDatabase.getCursor()
-        result = c.execute('SELECT name, value FROM tags where song_id = ? ',
-                           (songID,))
+        sql = text('SELECT name, value FROM tags where song_id = :id ORDER BY pos')
+        result = c.execute(sql, {'id': songID})
         tags = {}
         for name, value in result.fetchall():
             if name not in tags:
@@ -355,12 +456,14 @@ CREATE TABLE similarities(
 
     @staticmethod
     def updateSongsTags(songList, readProperties=True):
-        ids = ','.join([str(song.id) for song in songList])
+        ids = tuple([song.id for song in songList])
+        # print('aa', ids)
         if readProperties:
             properties = MusicDatabase.getSongsProperties(ids)
         c = MusicDatabase.getCursor()
-        sql = 'SELECT song_id, name, value FROM tags where song_id in (%s) order by song_id ' % ids
-        result = c.execute(sql)
+        sql = ('SELECT song_id, name, value FROM tags '
+               'where song_id in :ids order by song_id, pos')
+        result = c.execute(text(sql), {'ids': ids})
         tags = {}
         currentSongID = None
         metadata = None
@@ -388,7 +491,6 @@ CREATE TABLE similarities(
             except KeyError:
                 pass
 
-
 #        if getattr(self, 'id', None) is not None:
 #            self.metadata = type('info', (dict,), {})()
 #            self.metadata.update(MusicDatabase.getSongTags(self.id))
@@ -397,16 +499,18 @@ CREATE TABLE similarities(
     @staticmethod
     def getSongsProperties(songIDs):
         if isinstance(songIDs, str):
-            ids = songIDs
+            ids = [int(songID) for songID in songIDs.split(',')]
         elif isinstance(songIDs, int):
-            ids = str(songIDs)
-        elif isinstance(songIDs, list):
-            ids = ','.join([str(sid) for sid in songIDs])
+            ids = (songIDs,)
+        elif isinstance(songIDs, (list, tuple)):
+            ids = [int(songID) for songID in songIDs]
+        ids = tuple(ids)
         c = MusicDatabase.getCursor()
-        result = c.execute('''SELECT song_id, format, duration, bitrate,
-                     bits_per_sample, sample_rate, channels, audio_sha256sum,
-                     silence_at_start, silence_at_end
-                     FROM properties where song_id in (%s) ''' % ids)
+        sql = ('SELECT song_id, format, duration, bitrate, '
+               'bits_per_sample, sample_rate, channels, audio_sha256sum, '
+               'silence_at_start, silence_at_end '
+               'FROM properties where song_id in :ids')
+        result = c.execute(text(sql), {'ids': ids})
 
         r = {}
         for row in result.fetchall():
@@ -434,15 +538,15 @@ CREATE TABLE similarities(
     @staticmethod
     def getSimilarSongsToSongID(songID, similarityThreshold=0.85):
         c = MusicDatabase.getCursor()
-        result = c.execute('select song_id1, offset, similarity '
-                           '  from similarities '
-                           ' where song_id2=? and similarity>=? '
-                           '   union '
-                           'select song_id2, offset, similarity '
-                           '  from similarities '
-                           ' where song_id1=? and similarity>=?''',
-                           (songID, similarityThreshold,
-                            songID, similarityThreshold))
+        sql = text('select song_id1, match_offset, similarity '
+                   '  from similarities '
+                   ' where song_id2=:id and similarity>=:similarity '
+                   '   union '
+                   'select song_id2, match_offset, similarity '
+                   '  from similarities '
+                   ' where song_id1=:id and similarity>=:similarity')
+        result = c.execute(sql.bindparams(id=songID,
+                                          similarity=similarityThreshold))
         similarSongs = [(x[0], x[1], x[2]) for x in result.fetchall()]
 
         return similarSongs
@@ -452,9 +556,10 @@ CREATE TABLE similarities(
         if songID1 > songID2:
             songID1, songID2 = songID2, songID1
         c = MusicDatabase.getCursor()
-        sql = '''select 1 from similarities where song_id1=?
-                              and song_id2=? and similarity>=?'''
-        result = c.execute(sql, (songID1, songID2, similarityThreshold))
+        sql = '''select 1 from similarities where song_id1=:id1
+                              and song_id2=:id2 and similarity>=:similarity'''
+        result = c.execute(text(sql).bindparams(id1=songID1, id2=songID2,
+                           similarity=similarityThreshold))
         return result.fetchone() is not None
 
     @staticmethod
@@ -462,9 +567,9 @@ CREATE TABLE similarities(
         if songID1 > songID2:
             songID1, songID2 = songID2, songID1
         c = MusicDatabase.getCursor()
-        sql = '''select similarity from similarities where song_id1=?
-                              and song_id2=?'''
-        result = c.execute(sql, (songID1, songID2))
+        sql = '''select similarity from similarities where song_id1=:id1
+                              and song_id2=:id2'''
+        result = c.execute(text(sql).bindparams(id1=songID1, id2=songID2))
         x = result.fetchone()
         if not x:
             return 0
@@ -484,8 +589,9 @@ CREATE TABLE similarities(
                   "as immutable")
             return
         c = MusicDatabase.getCursor()
-        c.execute('INSERT INTO checksums (song_id, sha256sum) VALUES (?, ?) ',
-                  (songid, sha256sum))
+        sql = ('INSERT INTO checksums (song_id, sha256sum) '
+               'VALUES (:id, :sha256sum)')
+        c.execute(text(sql).bindparams(id=songid, sha256sum=sha256sum))
 
     @staticmethod
     def addAudioTrackSha256sum(songid, audioSha256sum):
@@ -494,8 +600,10 @@ CREATE TABLE similarities(
                   "The database is configured as immutable")
             return
         c = MusicDatabase.getCursor()
-        c.execute('UPDATE properties set audio_sha256sum=? where song_id=?',
-                  (audioSha256sum, songid))
+        sql = ('UPDATE properties set audio_sha256sum=:audio_sha256sum '
+               'where song_id=:id')
+        c.execute(text(sql).bindparams(audio_sha256sum=audioSha256sum,
+                                       id=songid))
 
     @staticmethod
     def addAudioSilences(songid, silence_at_start, silence_at_end):
@@ -504,9 +612,10 @@ CREATE TABLE similarities(
                   "The database is configured as immutable")
             return
         c = MusicDatabase.getCursor()
-        c.execute('UPDATE properties set silence_at_start=?, silence_at_end=? '
-                  'where song_id=?',
-                  (silence_at_start, silence_at_end, songid))
+        sql = ('UPDATE properties set silence_at_start=:silence_at_start,'
+               'silence_at_end=:silence_at_end where song_id=:id')
+        c.execute(text(sql).bindparams(silence_at_start=silence_at_start,
+                  silence_at_end=silence_at_end, id=songid))
 
     @staticmethod
     def addSongsSimilarity(songid1, songid2, offset, similarity):
@@ -525,14 +634,17 @@ CREATE TABLE similarities(
             print(songid1, songid2, similarity, offset)
             return
         c = MusicDatabase.getCursor()
-        c.execute('UPDATE similarities set offset=?, similarity=? '
-                  'where song_id1=? and song_id2=?',
-                  (offset, similarity, songid1, songid2))
-        if c.rowcount == 0:
-            c.execute('INSERT INTO similarities '
-                      '(song_id1, song_id2, offset, similarity) '
-                      'VALUES (?,?,?,?)',
-                      (songid1, songid2, offset, similarity))
+        sql = ('UPDATE similarities set match_offset=:match_offset, '
+               'similarity=:similarity where song_id1=:id1 and song_id2=:id2')
+        result = c.execute(text(sql).bindparams(match_offset=offset,
+                           similarity=similarity, id1=songid1, id2=songid2))
+        if result.rowcount == 0:
+            sql = ('INSERT INTO similarities '
+                   '(song_id1, song_id2, match_offset, similarity) '
+                   'VALUES (:id1,:id2,:match_offset,:similarity)')
+            result = c.execute(text(sql).bindparams(match_offset=offset,
+                               similarity=similarity,
+                               id1=songid1, id2=songid2))
 
     @staticmethod
     def getSimilarSongs(condition=None):
@@ -541,8 +653,9 @@ CREATE TABLE similarities(
         else:
             condition = re.match(r'[0-9<>= .]*', condition).group()
         c = MusicDatabase.getCursor()
-        result = c.execute('SELECT song_id1, song_id2, offset, similarity '
-                           'FROM similarities WHERE similarity %s' % condition)
+        sql = ('SELECT song_id1, song_id2, match_offset, similarity '
+               'FROM similarities WHERE similarity %s' % condition)
+        result = c.execute(sql)
         pairs = []
         for songid1, songid2, offset, similarity in result.fetchall():
             pairs.append((songid1, songid2, offset, similarity))
@@ -550,36 +663,38 @@ CREATE TABLE similarities(
 
     @staticmethod
     def getGenres(ids=[], paths=[], root=None):
+        like = MusicDatabase.like
         tables = 'tags'
         if root:
-            condition = 'AND song_id IN (select id from songs where root = ?)'
-            variables = (root,)
+            condition = ('AND song_id IN '
+                         '(select id from songs where root = :root)')
+            variables = {'root': root}
         else:
             condition = ''
-            variables = ()
+            variables = {}
         if ids:
-            condition += (' AND song_id in (%s)' %
-                          (','.join([str(x) for x in ids])))
+            condition += ' AND song_id in :ids'
+            variables['ids'] = tuple(ids)
         if paths:
             part = ''
-            for path in paths:
+            for idx, path in enumerate(paths):
                 if part:
-                    part += ' OR path like ?'
+                    part += f' OR path {like} :path%d' % idx
                 else:
-                    part = 'path like ?'
-                variables += ('%' + paths[0] + '%',)
+                    part = f'path {like} :path%d' % idx
+                variables['path%d' % idx] = ('%' + path + '%')
             condition += ' AND id = song_id AND (%s)' % part
             tables += ',songs'
 
-        sql = '''select value, count(*) 'c'
+        sql = '''select value, count(*)
                    from %s
-                  where (name like 'genre' OR name='TCON')
+                  where (lower(name) = 'genre' OR name='TCON')
                         %s
                   group by value
-                  order by c''' % (tables, condition)
+                  order by 2''' % (tables, condition)
         print(sql, variables)
         c = MusicDatabase.getCursor()
-        result = c.execute(sql, variables)
+        result = c.execute(text(sql).bindparams(**variables))
         pairs = []
         for genre, count in result.fetchall():
             pairs.append((genre.split('\0'), count))
@@ -587,18 +702,21 @@ CREATE TABLE similarities(
 
     @staticmethod
     def getUserID(username, create=True):
-        sql = 'select id from users where name = ?'
+        sql = text('select id from users where name = :name')
         c = MusicDatabase.getCursor()
-        result = c.execute(sql, (username,))
+        params = {'name': username}
+        result = c.execute(sql.bindparams(**params))
         userID = result.fetchone()
         if userID:
             return userID[0]
 
         if create:
-            sql = 'INSERT INTO users(name) VALUES (?)'
-            c.execute(sql, (username,))
+            sql = 'INSERT INTO users(name) VALUES (:name)'
+            c.execute(text(sql).bindparams(name=username))
 
-            result = c.execute('''SELECT last_insert_rowid()''')
+            # sql = 'SELECT last_insert_rowid()'
+            sql = "SELECT currval(pg_get_serial_sequence('users','id'))"
+            result = c.execute(sql)
             userID = result.fetchone()[0]
             MusicDatabase.commit()
             return userID

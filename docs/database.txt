@@ -1,0 +1,40 @@
+# Install postgresql server
+
+```
+zypper in postgresql11-server
+su postgres
+```
+
+# Create user and database
+
+Create user bard (it will request the password)
+
+```
+createuser --pwprompt --createdb --superuser bard
+```
+
+Create the database for user bard:
+
+```
+createdb -O bard -U bard bard
+```
+
+Note:
+If the above command fails with an error message like:
+
+```
+   createdb: could not connect to database template1: FATAL:  Peer authentication failed for user "bard"
+```
+
+You might need to add the following line as the first uncommented line of /var/lib/pgsql/data/pg_hba.conf:
+
+```
+    local   all             all                                     md5
+```
+
+
+[//]: # "\i Extensions.sql"
+[//]: # "\i CreateTables.sql"
+
+[//]: # "\copy artist from '/home/antonio/git/bard/bard/mbdb/mbdump/artist' with (delimiter E'\t', null '\N') ;"
+

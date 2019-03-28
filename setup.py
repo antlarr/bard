@@ -34,7 +34,8 @@ setup(
         "Pillow",
         "pydub",
         "numpy",
-        "dbus-python"
+        "dbus-python",
+        "SQLAlchemy"
     ],
     data_files=[('share/doc/packages/bard/',
                  ['config/bard', 'README.md'])],

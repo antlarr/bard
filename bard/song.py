@@ -9,6 +9,7 @@ from bard.musicdatabase import MusicDatabase
 from bard.normalizetags import getTag
 from bard.ffprobemetadata import FFProbeMetadata
 from pydub import AudioSegment
+from sqlalchemy import text
 import sqlite3
 import os
 import shutil
@@ -63,13 +64,18 @@ class Ratings:
             self.ratings[user_id][song_id] = rating
 
         c = MusicDatabase.getCursor()
-        sql = 'UPDATE ratings set rating = ? WHERE user_id = ? AND song_id = ?'
-        c.execute(sql, (rating, user_id, song_id))
-        if c.rowcount == 0:
-            c.execute('INSERT INTO ratings '
-                      '(user_id, song_id, rating) '
-                      'VALUES (?,?,?)',
-                      (user_id, song_id, rating))
+        sql = ('UPDATE ratings set rating = :rating '
+               'WHERE user_id = :user_id AND song_id = :song_id')
+        sql = text(sql).bindparams(rating=rating, user_id=user_id,
+                                   song_id=song_id)
+        result = c.execute(sql)
+        if result.rowcount == 0:
+            sql = ('INSERT INTO ratings '
+                   '(user_id, song_id, rating) '
+                   'VALUES (:user_id,:song_id,:rating)')
+            sql = text(sql).bindparams(rating=rating, user_id=user_id,
+                                       song_id=song_id)
+            c.execute(sql)
         MusicDatabase.commit()
 
 
@@ -81,14 +87,15 @@ class Song:
         """Create a Song oject."""
         self.tags = {}
         Song.ratings = None
-        if type(x) == sqlite3.Row:
+        if type(x) == sqlite3.Row or \
+           hasattr(x, 'keys'):
             self.id = x['id']
             self._root = x['root']
             self._path = x['path']
-            self._mtime = x['mtime']
-            self._coverWidth = x['coverWidth']
-            self._coverHeight = x['coverHeight']
-            self._coverMD5 = x['coverMD5']
+            self._mtime = float(x['mtime'])
+            self._coverWidth = x['coverwidth']
+            self._coverHeight = x['coverheight']
+            self._coverMD5 = x['covermd5']
             # metadata will be loaded on demand
             self.isValid = True
             return
@@ -532,8 +539,8 @@ class Song:
             return self._audioSha256sum
         except AttributeError:
             c = MusicDatabase.getCursor()
-            sql = 'SELECT audio_sha256sum FROM properties where song_id = ?'
-            result = c.execute(sql, (self.id,))
+            sql = 'SELECT audio_sha256sum FROM properties where song_id = :id'
+            result = c.execute(text(sql).bindparams(id=self.id))
             sha = result.fetchone()
             if sha:
                 self._audioSha256sum = sha[0]
@@ -566,8 +573,8 @@ class Song:
             return self._fileSha256sum
         except AttributeError:
             c = MusicDatabase.getCursor()
-            sql = 'SELECT sha256sum FROM checksums where song_id = ?'
-            result = c.execute(sql, (self.id,))
+            sql = 'SELECT sha256sum FROM checksums where song_id = :id'
+            result = c.execute(text(sql).bindparams(id=self.id))
             sha = result.fetchone()
             if sha:
                 self._fileSha256sum = sha[0]

@@ -122,7 +122,7 @@ tagMaps = {
         'musicbrainz_albumartistid': 'musicbrainz_albumartistid',
         'musicbrainz_releasetrackid': 'musicbrainz_releasetrackid',
         'musicbrainz_trackid': 'musicbrainz_trackid',
-        'date': 'originaldate',
+        # 'date': 'originaldate',
         'title': 'title',
         'tracknumber': 'tracknumber', },
     mutagen.monkeysaudio.MonkeysAudio: {
@@ -205,24 +205,87 @@ formatToType = {
     'mpc': mutagen.musepack.Musepack}
 
 
-def normalizeTagValue(obj, mutagenFile, tag):
+def removeFromNullChar(s):
+    pos = s.find('\x00')
+    if pos >= 0:
+        return s[:pos]
+    return s
+
+
+def normalizeTagName(obj, mutagenFile, tag):
+    if isinstance(obj, mutagen.id3.PRIV):
+        return 'PRIV:' + obj.owner
+    if isinstance(obj, mutagen.id3.APIC):
+        return 'APIC'
+    if isinstance(obj, mutagen.id3.COMM):
+        return 'COMM:%s:%s' % (removeFromNullChar(obj.desc),
+                               removeFromNullChar(obj.lang))
+    return tag
+
+
+def normalizeTagValue(obj, mutagenFile, tag, removeBinaryData=False):
     if isinstance(obj, mutagen.apev2.APETextValue):
         splitted = [x for x in str(obj).split('\x00') if x]
         if len(splitted) == 1:
             return splitted[0]
         return splitted
 
-    if isinstance(obj, mutagen.apev2.APEBinaryValue) or \
-       isinstance(obj, mutagen.asf._attrs.ASFByteArrayAttribute) or \
-       isinstance(obj, mutagen.mp4.MP4Cover) or \
-       isinstance(obj, mutagen.id3.APIC):
+    if (removeBinaryData and
+        (isinstance(obj, mutagen.apev2.APEBinaryValue) or
+         isinstance(obj, mutagen.asf._attrs.ASFByteArrayAttribute) or
+         isinstance(obj, mutagen.mp4.MP4Cover) or
+         isinstance(obj, mutagen.id3.APIC) or
+         isinstance(obj, mutagen.id3.PRIV) or
+         isinstance(obj, mutagen.id3.MCDI) or
+         isinstance(obj, mutagen.id3.SYTC) or
+         isinstance(obj, mutagen.id3.GEOB) or
+         isinstance(obj, mutagen.id3.AENC) or
+         isinstance(obj, mutagen.id3.ENCR) or
+         (isinstance(mutagenFile, mutagen.flac.FLAC) and tag == 'coverart'))):
         return None
+
+    if isinstance(obj, mutagen.id3.UFID):
+        if isinstance(obj.data, bytes):
+            return obj.data.decode('utf-8').strip('\x00')
+        return obj.data
 
     if hasattr(obj, 'value'):
         return obj.value
 
     if isinstance(obj, mutagen.mp4.MP4FreeForm):
         return str(obj)
+
+    if isinstance(obj, (mutagen.id3.TCON, mutagen.id3.TPUB, mutagen.id3.TSRC,
+                        mutagen.id3.TSOC, mutagen.id3.TCOM, mutagen.id3.TEXT,
+                        mutagen.id3.TPE3, mutagen.id3.TPE4, mutagen.id3.TLAN)):
+        return obj.text
+
+    if isinstance(obj, (mutagen.id3.TMCL, mutagen.id3.TIPL)):
+        return [role + ':' + name for role, name in obj.people]
+
+    if isinstance(obj, mutagen.id3.COMM):
+        text = obj.text
+        if isinstance(text, list):
+            text = ','.join(text)
+        return text
+
+    if isinstance(obj, mutagen.id3.TXXX) and \
+            (obj.desc.lower() == 'musicbrainz album type' or
+             obj.desc.lower() == 'musicbrainz artist id' or
+             obj.desc.lower() == 'musicbrainz album artist id' or
+             obj.desc.lower() == 'musicbrainz work id' or
+             obj.desc.lower() == 'artists' or
+             obj.desc.lower() == 'writer' or
+             obj.desc.lower() == 'work' or
+             obj.desc.lower() == 'performer' or
+             obj.desc.lower() == 'catalognumber'):
+        return obj.text
+
+    if isinstance(obj, (mutagen.id3.TRCK, mutagen.id3.TPOS)):
+        text = obj.text
+        if isinstance(text, list):
+            text = text[0]
+        return text.split('/')[0]
 
     if isinstance(obj, mutagen.id3.Frame):
         return str(obj)
@@ -236,10 +299,15 @@ def normalizeTagValue(obj, mutagenFile, tag):
     return func(obj)
 
 
-def normalizeTagValues(values, mutagenFile=None, tag=None):
+def normalizeTagValues(values, mutagenFile=None, tag=None,
+                       removeBinaryData=False):
     if isinstance(values, list):
-        return [normalizeTagValue(x, mutagenFile, tag) for x in values if x]
-    return normalizeTagValue(values, mutagenFile, tag)
+        return (normalizeTagName(values, mutagenFile, tag),
+                [normalizeTagValue(x, mutagenFile, tag,
+                 removeBinaryData=removeBinaryData) for x in values if x])
+    return (normalizeTagName(values, mutagenFile, tag),
+            normalizeTagValue(values, mutagenFile, tag,
+                              removeBinaryData=removeBinaryData))
 
 
 def getTag(mutagenFile, tag, fileformat=None):
@@ -262,5 +330,6 @@ def getTag(mutagenFile, tag, fileformat=None):
         result = result[0]
     # print(tag, result, type(result))
 
-    result = normalizeTagValues(result, mutagenFile, tag)
+    tag, result = normalizeTagValues(result, mutagenFile, tag,
+                                     removeBinaryData=False)
     return result
