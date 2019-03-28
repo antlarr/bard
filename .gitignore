@@ -87,3 +87,8 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+# Local files to ignore
+
+/bard/dump
+/gui/
