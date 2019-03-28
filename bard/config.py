@@ -23,8 +23,17 @@ config = readConfiguration()
 if 'username' not in config:
     config['username'] = pwd.getpwuid(os.getuid()).pw_name
 
-if 'immutableDatabase' not in config:
-    config['immutableDatabase'] = False
+defaults = {
+    'immutableDatabase': False,
+    'matchThreshold': 0.8,
+    'storeThreshold': 0.58,
+    'shortSongStoreThreshold': 0.68,
+    'shortSongLength': 53
+}
+
+for key, value in defaults.items():
+    if key not in config:
+        config[key] = value
 
 
 def translatePath(path):
