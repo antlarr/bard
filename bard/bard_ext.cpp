@@ -50,6 +50,8 @@ boost::python::tuple greet2()
    return boost::python::make_tuple(a,2,3);
 }
 
+typedef std::vector<std::tuple<int,std::vector<int>,double> > FingerprintVector;
+
 class FingerprintManager
 {
 public:
@@ -60,23 +62,39 @@ public:
     void setExpectedSize(int expectedSize);
     int size() const;
 
-    void addSong(long songID, boost::python::list &fingerprint);
-    boost::python::list addSongAndCompare(long songID, boost::python::list &fingerprint, double cancelThreshold=0.55);
-    std::pair<int, double> compareSongs(long songID1, long songID2, double cancelThreshold=0.55);
+    void setCancelThreshold(double cancelThreshold);
+    double cancelThreshold() const;
+
+    void setShortSongCancelThreshold(double shortSongCancelThreshold);
+    double shortSongCancelThreshold() const;
+
+    void setShortSongLength(double shortSongLength);
+    double shortSongLength() const;
+
+    void addSong(long songID, boost::python::list &fingerprint, double duration);
+    boost::python::list addSongAndCompare(long songID, boost::python::list &fingerprint, double duration);
+    boost::python::list addSongAndCompareToSongList(long songID, boost::python::list &fingerprint, double duration, boost::python::list &songsToCompare);
+    std::pair<int, double> compareSongs(long songID1, long songID2);
     boost::python::list compareSongsVerbose(long songID1, long songID2);
 
     std::pair<int, double> compareChromaprintFingerprintsAndOffset(const std::vector<int> &fp1, const std::vector<int> &fp2, double cancelThreshold) const;
     boost::python::list compareChromaprintFingerprintsAndOffsetVerbose(std::vector<int> fp1, std::vector<int> fp2) const;
 
 protected:
-    std::vector<int> songFingerprint(int songID);
+    std::vector<int> songFingerprint(int songID) const;
+    double songDuration(int songID) const;
+    FingerprintVector::const_iterator songIterator(int songID) const;
 
 private:
-    int m_maxoffset;
-    std::vector<std::pair<int,std::vector<int>>> m_fingerprints;
+    int m_maxoffset = 50;
+    double m_cancelThreshold = 0.5;
+    double m_shortSongCancelThreshold = 0.6;
+    double m_shortSongLength = 30;
+
+    FingerprintVector m_fingerprints;
 };
 
-FingerprintManager::FingerprintManager(): m_maxoffset(50)
+FingerprintManager::FingerprintManager()
 {
 }
 
@@ -101,51 +119,130 @@ int FingerprintManager::size() const
     return m_fingerprints.size();
 }
 
-std::vector<int> FingerprintManager::songFingerprint(int songID)
+void FingerprintManager::setCancelThreshold(double cancelThreshold)
+{
+    m_cancelThreshold = cancelThreshold;
+}
+
+double FingerprintManager::cancelThreshold() const
+{
+    return m_cancelThreshold;
+}
+
+void FingerprintManager::setShortSongCancelThreshold(double shortSongCancelThreshold)
+{
+    m_shortSongCancelThreshold = shortSongCancelThreshold;
+}
+
+double FingerprintManager::shortSongCancelThreshold() const
+{
+    return m_shortSongCancelThreshold;
+}
+
+void FingerprintManager::setShortSongLength(double shortSongLength)
+{
+    m_shortSongLength = shortSongLength;
+}
+
+double FingerprintManager::shortSongLength() const
+{
+    return m_shortSongLength;
+}
+
+FingerprintVector::const_iterator FingerprintManager::songIterator(int songID) const
 {
     auto it = std::lower_bound( m_fingerprints.begin(), m_fingerprints.end(), songID,
             [](auto x, auto y)
-            { return x.first < y;
+            { return std::get<0>(x) < y;
             });
     if (it == m_fingerprints.end())
     {
-        std::cout << "Fingerprint not found for song ID " << songID << " . size: " << m_fingerprints.size() << " . first: " << m_fingerprints[0].first << std::endl;
+        std::cout << "Fingerprint not found for song ID " << songID << " . size: " << m_fingerprints.size() << " . first: " << std::get<0>(m_fingerprints[0]) << std::endl;
 
-        return std::vector<int>();
+        return FingerprintVector::iterator();
     }
     else
-        return it->second;
+        return it;
 }
 
-void FingerprintManager::addSong(long songID, boost::python::list &fingerprint)
+std::vector<int> FingerprintManager::songFingerprint(int songID) const
+{
+    return std::get<1>(*songIterator(songID));
+}
+
+double FingerprintManager::songDuration(int songID) const
+{
+    return std::get<2>(*songIterator(songID));
+}
+
+void FingerprintManager::addSong(long songID, boost::python::list &fingerprint, double duration)
 {
     auto v = to_std_vector<int>(fingerprint);
     v.insert(v.begin(), m_maxoffset, 0);
 //    std::cout << "song added: " << songID << std::endl;
-    m_fingerprints.emplace_back(std::make_pair(songID, std::move(v)));
+    m_fingerprints.emplace_back(std::make_tuple(songID, std::move(v), duration));
 }
 
-boost::python::list FingerprintManager::addSongAndCompare(long songID, boost::python::list &fingerprint, double cancelThreshold)
+boost::python::list FingerprintManager::addSongAndCompare(long songID, boost::python::list &fingerprint, double duration)
 {
     std::mutex result_mutex;
     boost::python::list result;
 #if __GNUC__ >= 7 || __clang_major__ >= 5
     auto v = to_std_vector<int>(fingerprint);
+    double threshold;
     v.insert(v.begin(), m_maxoffset, 0);
 
     __gnu_parallel::for_each(m_fingerprints.begin(), m_fingerprints.end(),
         [&](const auto &itSong)
         {
-            auto & [itSongID, itFingerprint] = itSong;
-            auto [offset, similarity] = compareChromaprintFingerprintsAndOffset(itFingerprint, v, cancelThreshold);
-            if (similarity > cancelThreshold)
+            auto & [itSongID, itFingerprint, itDuration] = itSong;
+            if (duration < m_shortSongLength || itDuration < m_shortSongLength)
+                threshold = m_shortSongCancelThreshold;
+            else
+                threshold = m_cancelThreshold;
+            auto [offset, similarity] = compareChromaprintFingerprintsAndOffset(itFingerprint, v, threshold);
+            if (similarity > threshold)
             {
                 result_mutex.lock();
                 result.append(boost::python::make_tuple(itSongID, offset, similarity));
                 result_mutex.unlock();
             }
         }, __gnu_parallel::parallel_balanced);
-    m_fingerprints.emplace_back(songID, std::move(v));
+    m_fingerprints.emplace_back(songID, std::move(v), duration);
+#else
+    #warning Support to compare audio signatures will not be built
+    std::cout << "The support to compare audio signatures was not built since the compiler was too old" << std::endl;
+#endif
+    return result;
+}
+
+boost::python::list FingerprintManager::addSongAndCompareToSongList(long songID, boost::python::list &fingerprint, double duration, boost::python::list &songsToCompare)
+{
+    std::mutex result_mutex;
+    boost::python::list result;
+#if __GNUC__ >= 7 || __clang_major__ >= 5
+    auto v = to_std_vector<int>(fingerprint);
+    auto songIDsToCompare = to_std_vector<long>(songsToCompare);
+    double threshold;
+    v.insert(v.begin(), m_maxoffset, 0);
+
+    __gnu_parallel::for_each(songIDsToCompare.begin(), songIDsToCompare.end(),
+        [&](const long &itSongID)
+        {
+            auto & [_ , itFingerprint, itDuration] = *songIterator(itSongID);
+            if (duration < m_shortSongLength || itDuration < m_shortSongLength)
+                threshold = m_shortSongCancelThreshold;
+            else
+                threshold = m_cancelThreshold;
+            auto [offset, similarity] = compareChromaprintFingerprintsAndOffset(itFingerprint, v, threshold);
+            if (similarity > threshold)
+            {
+                result_mutex.lock();
+                result.append(boost::python::make_tuple(itSongID, offset, similarity));
+                result_mutex.unlock();
+            }
+        }, __gnu_parallel::parallel_balanced);
+    m_fingerprints.emplace_back(songID, std::move(v), duration);
 #else
     #warning Support to compare audio signatures will not be built
     std::cout << "The support to compare audio signatures was not built since the compiler was too old" << std::endl;
@@ -272,9 +369,16 @@ boost::python::list FingerprintManager::compareChromaprintFingerprintsAndOffsetV
     return result;
 }
 
-std::pair<int, double> FingerprintManager::compareSongs(long songID1, long songID2, double cancelThreshold)
+std::pair<int, double> FingerprintManager::compareSongs(long songID1, long songID2)
 {
-    return compareChromaprintFingerprintsAndOffset(songFingerprint(songID1), songFingerprint(songID2), cancelThreshold);
+    auto & [_ , fingerprint1, duration1] = *songIterator(songID1);
+    auto & [__ , fingerprint2, duration2] = *songIterator(songID2);
+    double cancelThreshold;
+    if (duration1 < m_shortSongLength || duration2 < m_shortSongLength)
+        cancelThreshold = m_shortSongCancelThreshold;
+    else
+        cancelThreshold = m_cancelThreshold;
+    return compareChromaprintFingerprintsAndOffset(fingerprint1, fingerprint2, cancelThreshold);
 }
 
 boost::python::list FingerprintManager::compareSongsVerbose(long songID1, long songID2)
@@ -290,12 +394,19 @@ BOOST_PYTHON_MODULE(bard_ext)
     class_<FingerprintManager>("FingerprintManager")
         .def("addSong", &FingerprintManager::addSong)
         .def("addSongAndCompare", &FingerprintManager::addSongAndCompare)
+        .def("addSongAndCompareToSongList", &FingerprintManager::addSongAndCompareToSongList)
         .def("compareSongs", &FingerprintManager::compareSongs)
         .def("compareSongsVerbose", &FingerprintManager::compareSongsVerbose)
         .def("setMaxOffset", &FingerprintManager::setMaxOffset)
         .def("maxOffset", &FingerprintManager::maxOffset)
         .def("setExpectedSize", &FingerprintManager::setExpectedSize)
-        .def("size", &FingerprintManager::size);
+        .def("size", &FingerprintManager::size)
+        .def("setCancelThreshold", &FingerprintManager::setCancelThreshold)
+        .def("cancelThreshold", &FingerprintManager::cancelThreshold)
+        .def("setShortSongCancelThreshold", &FingerprintManager::setShortSongCancelThreshold)
+        .def("shortSongCancelThreshold", &FingerprintManager::shortSongCancelThreshold)
+        .def("setShortSongLength", &FingerprintManager::setShortSongLength)
+        .def("shortSongLength", &FingerprintManager::shortSongLength);
 }
 
 

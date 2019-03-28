@@ -414,6 +414,26 @@ or name {like} '%%MusicBrainz/Track Id'""")
             c.execute(text(sql), values)
 
     @classmethod
+    def updateFingerprint(cls, songID, fingerprint):
+        if config['immutableDatabase']:
+            print("Error: Can't update song fingerprint: "
+                  "The database is configured as immutable")
+            return
+        c = MusicDatabase.getCursor()
+
+        values = {'fingerprint': fingerprint,
+                  'id': songID}
+        sql = ('UPDATE fingerprints SET fingerprint=:fingerprint '
+               'WHERE song_id=:id')
+        c.execute(text(sql).bindparams(**values))
+
+    @classmethod
+    def songIDsWithoutFingerprints(cls):
+        c = MusicDatabase.getCursor()
+        result = c.execute('SELECT song_id FROM fingerprints WHERE fingerprint IS NULL')
+        return [x[0] for x in result.fetchall()]
+
+    @classmethod
     def prepareCache(cls):
         c = MusicDatabase.getCursor()
         if not cls.mtime_cache_by_path:
@@ -645,6 +665,20 @@ or name {like} '%%MusicBrainz/Track Id'""")
             result = c.execute(text(sql).bindparams(match_offset=offset,
                                similarity=similarity,
                                id1=songid1, id2=songid2))
+
+    @staticmethod
+    def removeSongsSimilarity(songid1, songid2):
+        if config['immutableDatabase']:
+            print("Error: Can't add song similarity: "
+                  "The database is configured as immutable")
+            return
+        if songid1 > songid2:
+            songid1, songid2 = songid2, songid1
+
+        c = MusicDatabase.getCursor()
+        sql = ('DELETE FROM similarities WHERE '
+               'song_id1=:id1 AND song_id2=:id2')
+        c.execute(text(sql).bindparams(id1=songid1, id2=songid2))
 
     @staticmethod
     def getSimilarSongs(condition=None):

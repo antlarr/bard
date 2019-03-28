@@ -112,8 +112,11 @@ def compare_AudioSegments(audio1, audio2, showAudioOffsets=True):
     from bard.bard_ext import FingerprintManager
     fpm = FingerprintManager()
     fpm.setMaxOffset(100)
-    fpm.addSong(1, dfpa1[0])
-    fpm.addSong(2, dfpa2[0])
+    fpm.setCancelThreshold(config['storeThreshold'])
+    fpm.setShortSongCancelThreshold(config['shortSongStoreThreshold'])
+    fpm.setShortSongLength(config['shortSongLength'])
+    fpm.addSong(1, dfpa1[0], len(audio1) / 1000)
+    fpm.addSong(2, dfpa2[0], len(audio2) / 1000)
 
     values = fpm.compareSongsVerbose(1, 2)
     if showAudioOffsets:
@@ -733,39 +736,91 @@ class Bard:
                not path.startswith('/tmp/')):
                 self.addSong(path)
 
-    def findAudioDuplicates(self, from_song_id=None):
+    def findAudioDuplicates(self, from_song_id=None, songs=[]):
         c = MusicDatabase.getCursor()
         info = {}
         print_stats = True
-        matchThreshold = 0.8
-        storeThreshold = 0.58
+        verbose = True
+        matchThreshold = config['matchThreshold']
+        storeThreshold = config['storeThreshold']
+        shortSongStoreThreshold = config['shortSongStoreThreshold']
+        shortSongLength = config['shortSongLength']
+
+        song_ids_without_fingerprints = \
+            MusicDatabase.songIDsWithoutFingerprints()
+        if song_ids_without_fingerprints:
+            for idx, song_id in enumerate(song_ids_without_fingerprints):
+                song = Bard.getSongs(songID=song_id)[0]
+                print(f'Calculating missing fingerprint for song {song_id} at '
+                      f'{song.path()}')
+                fingerprint = song.getAcoustidFingerprint()
+                MusicDatabase.updateFingerprint(song.id, fingerprint)
+                if idx % 10 == 0:
+                    MusicDatabase.commit()
+            MusicDatabase.commit()
+
+        if songs:
+            from_song_id = MusicDatabase.lastSongID() + 1
+            # print_stats = False
+            collection = set()
+            for id_or_path in songs:
+                collection.update([x.id for x in
+                                   self.getSongsFromIDorPath(id_or_path)])
+            songs = collection
         if not from_song_id:
             from_song_id = MusicDatabase.lastSongIDWithCalculatedSimilarities()
         elif from_song_id < 0:
             last = MusicDatabase.lastSongIDWithCalculatedSimilarities()
             from_song_id = last + from_song_id
 
-        if from_song_id == MusicDatabase.lastSongID():
+        if from_song_id > MusicDatabase.lastSongID() and not songs:
             print('All songs are already processed in DB')
             return
-        print('Start calculating song similarities from song id %d'
-              % from_song_id)
-        print('Preparing data structures... ', end='')
+        if songs:
+            print('Calculating song similarities for song(s):',
+                  ' '.join([str(x) for x in sorted(songs)]))
+        else:
+            print('Start calculating song similarities from song id %d'
+                  % from_song_id)
+            print('Preparing data structures... ', end='')
         percentage = ''
         from bard.bard_ext import FingerprintManager
         fpm = FingerprintManager()
         fpm.setMaxOffset(100)
+        fpm.setCancelThreshold(storeThreshold)
+        fpm.setShortSongCancelThreshold(shortSongStoreThreshold)
+        fpm.setShortSongLength(shortSongLength)
         speeds = []
         songs_processed = 0
         totalSongsCount = MusicDatabase.getSongsCount()
         fpm.setExpectedSize(totalSongsCount + 5)
         sql = ('SELECT id, fingerprint, sha256sum, audio_sha256sum, path, '
-               'completeness FROM fingerprints, songs, checksums, '
-               'properties where songs.id=fingerprints.song_id and '
+               'completeness, duration-silence_at_start-silence_at_end '
+               'FROM fingerprints, songs, checksums, properties '
+               'WHERE songs.id=fingerprints.song_id and '
                'songs.id = checksums.song_id and '
                'songs.id = properties.song_id order by id')
 
         result = c.execute(text(sql))
+        incremental_song_ids_to_compare = []
+        delete_not_found_similarities = bool(songs)
+
+        # We iterate over all songs
+        # The normal workflow is:
+        # Until we get to "from_song_id", songs are just added to fpm to build
+        # the data structures.
+        # After from_song_id, songs are added and compared to all previous
+        # songs. The list of resulting similarities (result) is then added
+        # to the database
+        #
+        # If we want to compare individual songs, then we iterate over all
+        # songs (from_song_id is the last song) adding them to fpm to build the
+        # data structures. Once we reach any of the songs in the songs list,
+        # it's compared to all previous songs and added to
+        # incremental_song_ids_to_compare. Now instead of just adding songs to
+        # fpm, we compare the song being added just to songs in
+        # incremental_song_ids_to_compare and add/remove them to/from the
+        # database.
         for (songID, fingerprint, sha256sum, audioSha256sum, path,
                 completeness, duration) in result.fetchall():
             # print('.', songID,  end='', flush=True)
@@ -775,28 +830,56 @@ class Bard:
                       (songID, path))
                 songs_processed += 1
                 continue
-            if songID < from_song_id:
-                fpm.addSong(songID, dfp[0])
+
+            if songID < from_song_id and songID not in songs:
+                if incremental_song_ids_to_compare:
+                    start_time = time.time()
+                    result = (fpm.addSongAndCompareToSongList(songID, dfp[0],
+                              duration, incremental_song_ids_to_compare))
+                else:
+                    fpm.addSong(songID, dfp[0], duration)
+                    result = []
                 tmp = '%d%%' % (songID * 100.0 / from_song_id)
                 if tmp != percentage:
                     backspaces = '\b' * len(percentage)
                     percentage = tmp
                     print(backspaces + percentage, end='', flush=True)
-                result = []
             else:
                 if songID == from_song_id:
                     print(('\b' * len(percentage)) + '100%')
                     print('Calculating song similarities...')
-                # if songID > from_song_id:
-                #     return
                 start_time = time.time()
-                result = fpm.addSongAndCompare(songID, dfp[0], storeThreshold)
-                result.sort(key=lambda x: x[0])
+                result = fpm.addSongAndCompare(songID, dfp[0], duration)
+                if songID in songs:
+                    incremental_song_ids_to_compare.append(songID)
+            result.sort(key=lambda x: x[0])
+
+            if delete_not_found_similarities:
+                similar_ids = {x[0] for x in result}
+                if songID not in songs:
+                    ids_not_found = [x
+                                     for x in incremental_song_ids_to_compare
+                                     if x not in similar_ids]
+                else:
+                    allSimilarSongs = MusicDatabase.getSimilarSongsToSongID(
+                        songID, similarityThreshold=0)
+                    allSimilarSongs = [x[0] for x in allSimilarSongs]
+                    ids_not_found = [x for x in allSimilarSongs
+                                     if x < songID and x not in similar_ids]
+
+                for x in ids_not_found:
+                    MusicDatabase.removeSongsSimilarity(x, songID)
 
             for (songID2, offset, similarity) in result:
-                match = '*******' if similarity > 0.9 else ''
-                print('%d %d %d %f %s' % (songID2, songID,
-                                          offset, similarity, match))
+                match = '*******' if (not verbose and
+                                      similarity > matchThreshold) else ''
+                if delete_not_found_similarities:
+                    print('\b' * len(percentage), end='')
+                if verbose or similarity > matchThreshold:
+                    print('%d %d %d %f %s' % (songID2, songID,
+                                              offset, similarity, match))
+                if delete_not_found_similarities:
+                    print(percentage, end='', flush=True)
                 MusicDatabase.addSongsSimilarity(songID2, songID,
                                                  offset, similarity)
 
@@ -818,8 +901,8 @@ class Bard:
                                (otherCompleteness, completeness))
                         print('Duplicate songs found: %s\n'
                               '%s\n and %s''' % (msg, otherPath, path))
-                    else:
-                        msg = 'Similarity %f' % similarity
+                    # else:
+                        # msg = 'Similarity %f' % similarity
                         # print('Duplicate songs found: %s\n     %s\n'
                         #       'and %s' % (msg, otherPath, path))
             songs_processed += 1
@@ -836,11 +919,17 @@ class Bard:
                     d = datetime.timedelta(seconds=s)
                     now = datetime.datetime.now()
 
+                    if delete_not_found_similarities:
+                        print('\b' * len(percentage), end='')
                     print('Stats: %0.3f seconds in evaluating %d/%d songs '
                           '%0.3f songs/s (avg: %0.3f, songs left: %d, '
                           'estimated end at: %s)' %
                           (delta_time, len(info), totalSongsCount, speeds[-1],
                            avg, totalSongsCount - songs_processed, now + d))
+
+        if delete_not_found_similarities:
+            print(('\b' * len(percentage)) + '100% . Done')
+            MusicDatabase.commit()
 
     def getSongsFromIDorPath(self, id_or_path, query=None):
         try:
@@ -867,29 +956,37 @@ class Bard:
             id2 = -2
             storeInDB = False
 
+        duration1 = song1.durationWithoutSilences()
+        duration2 = song2.durationWithoutSilences()
+
         print('Comparing ' +
               TerminalColors.First + str(id1) + TerminalColors.ENDC +
               ' and ' +
               TerminalColors.Second + str(id2) + TerminalColors.ENDC)
-        matchThreshold = 0.8
-        storeThreshold = 0.55
+        matchThreshold = config['matchThreshold']
+        storeThreshold = config['storeThreshold']
+        shortSongStoreThreshold = config['shortSongStoreThreshold']
+        shortSongLength = config['shortSongLength']
         from bard.bard_ext import FingerprintManager
         fpm = FingerprintManager()
         fpm.setMaxOffset(100)
+        fpm.setCancelThreshold(storeThreshold)
+        fpm.setShortSongCancelThreshold(shortSongStoreThreshold)
+        fpm.setShortSongLength(shortSongLength)
 
         dfp1 = chromaprint.decode_fingerprint(song1.getAcoustidFingerprint())
         dfp2 = chromaprint.decode_fingerprint(song2.getAcoustidFingerprint())
         if id1 < id2:
-            fpm.addSong(id1, dfp1[0])
-            fpm.addSong(id2, dfp2[0])
+            fpm.addSong(id1, dfp1[0], duration1)
+            fpm.addSong(id2, dfp2[0], duration2)
         else:
-            fpm.addSong(id2, dfp2[0])
-            fpm.addSong(id1, dfp1[0])
+            fpm.addSong(id2, dfp2[0], duration2)
+            fpm.addSong(id1, dfp1[0], duration1)
 
         values = fpm.compareSongsVerbose(id1, id2)
         if showAudioOffsets:
             for offset, similarity in values:
-                if similarity > 0.59:
+                if similarity > storeThreshold:
                     print(offset, similarity)
 
         (offset, similarity) = max(values, key=lambda x: x[1])
@@ -1085,7 +1182,7 @@ class Bard:
             dest='command', metavar='command',
             help='''The following commands are available:
 find-duplicates     find duplicate files comparing the checksums
-find-audio-duplicates
+find-audio-duplicates [--from-song-id <song_id>] [song_id ...]
                     find duplicate files comparing the audio fingerprint
 compare-songs [-i] [id_or_path] [id_or_path]
                     compares two songs given their paths or song id
@@ -1139,6 +1236,7 @@ update
         parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
                             help='Starts fixing checksums from a specific '
                                  'song_id')
+        parser.add_argument('songs', nargs='*')
         # compare-songs command
         parser = sps.add_parser('compare-songs',
                                 description='Compares two songs')
@@ -1345,7 +1443,7 @@ update
                                 ignoreMissingFiles=options.ignore_missing_files
                                 )
         elif options.command == 'find-audio-duplicates':
-            self.findAudioDuplicates(options.from_song_id)
+            self.findAudioDuplicates(options.from_song_id, options.songs)
         elif options.command == 'compare-songs':
             self.compareSongIDsOrPaths(options.song1, options.song2,
                                        options.interactive)
