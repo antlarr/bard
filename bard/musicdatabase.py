@@ -2,6 +2,7 @@
 
 from bard.config import config
 from bard.normalizetags import normalizeTagValues
+import sqlalchemy
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 import sqlite3
@@ -284,9 +285,13 @@ CREATE TABLE similarities(
                    ':coverwidth,:coverheight,:covermd5,:completeness)')
             c.execute(text(sql).bindparams(**values))
 
-#            result = c.execute('SELECT last_insert_rowid()')
-            sql = "SELECT currval(pg_get_serial_sequence('songs','id'))"
-            result = c.execute(sql)
+            try:
+                sql = "SELECT currval(pg_get_serial_sequence('songs','id'))"
+                result = c.execute(sql)
+            except sqlalchemy.exc.OperationalError:
+                # Try the sqlite way
+                sql = 'SELECT last_insert_rowid()'
+                result = c.execute(sql)
             song.id = result.fetchone()[0]
 
             values = {'sha256sum': song.fileSha256sum(),
@@ -748,9 +753,14 @@ or name {like} '%%MusicBrainz/Track Id'""")
             sql = 'INSERT INTO users(name) VALUES (:name)'
             c.execute(text(sql).bindparams(name=username))
 
-            # sql = 'SELECT last_insert_rowid()'
-            sql = "SELECT currval(pg_get_serial_sequence('users','id'))"
-            result = c.execute(sql)
+            try:
+                sql = "SELECT currval(pg_get_serial_sequence('users','id'))"
+                result = c.execute(sql)
+            except sqlalchemy.exc.OperationalError:
+                # Try the sqlite way
+                sql = 'SELECT last_insert_rowid()'
+                result = c.execute(sql)
+
             userID = result.fetchone()[0]
             MusicDatabase.commit()
             return userID
