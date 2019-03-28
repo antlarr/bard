@@ -98,6 +98,7 @@ class SongSet(MutableSet):
 
 
 def summation(m, n):
+    """Return the sum of numbers from m to n."""
     if m >= n:
         return 0
     return (n + 1 - m) * (n + m) / 2
@@ -1012,6 +1013,12 @@ class Bard:
                                        interactive=interactive)
         except DifferentLengthException as e:
             print(e)
+            if similarity and similarity >= matchThreshold:
+                msg = 'Similarity %f, offset %d' % (similarity, offset)
+                print('Similar songs found: %s' % msg)
+            else:
+                print('''Songs not similar (similarity: %f, offset: %d)''' %
+                      (similarity, offset))
         else:
             if song1.fileSha256sum() == song2.fileSha256sum():
                 msg = ('Exactly the same files (sha256 = %s)' %

@@ -435,7 +435,8 @@ or name {like} '%%MusicBrainz/Track Id'""")
     @classmethod
     def songIDsWithoutFingerprints(cls):
         c = MusicDatabase.getCursor()
-        result = c.execute('SELECT song_id FROM fingerprints WHERE fingerprint IS NULL')
+        sql = 'SELECT song_id FROM fingerprints WHERE fingerprint IS NULL'
+        result = c.execute(sql)
         return [x[0] for x in result.fetchall()]
 
     @classmethod
