@@ -9,6 +9,7 @@ import mutagen.asf
 import mutagen.flac
 import mutagen.wavpack
 import mutagen.oggvorbis
+import mutagen.oggopus
 import mutagen.musepack
 
 
@@ -125,6 +126,23 @@ tagMaps = {
         # 'date': 'originaldate',
         'title': 'title',
         'tracknumber': 'tracknumber', },
+    mutagen.oggopus.OggOpus: {
+        'album': 'album',
+        'albumartist': 'albumartist',
+        # 'albumgenre': 'album genre',
+        'artist': 'artist',
+        'composer': 'composer',
+        'discnumber': 'discnumber',
+        'genre': 'genre',
+        'label': 'label',
+        'language': 'language',
+        'musicbrainz_artistid': 'musicbrainz_artistid',
+        'musicbrainz_albumid': 'musicbrainz_albumid',
+        'musicbrainz_albumartistid': 'musicbrainz_albumartistid',
+        'musicbrainz_releasetrackid': 'musicbrainz_releasetrackid',
+        'musicbrainz_trackid': 'musicbrainz_trackid',
+        'title': 'title',
+        'tracknumber': 'tracknumber', },
     mutagen.monkeysaudio.MonkeysAudio: {
         'album': 'Album',
         'albumartist': 'Album Artist',
@@ -200,6 +218,7 @@ formatToType = {
     'asf': mutagen.asf.ASF,
     'flac': mutagen.flac.FLAC,
     'ogg': mutagen.oggvorbis.OggVorbis,
+    'opus': mutagen.oggopus.OggOpus,
     'wv': mutagen.wavpack.WavPack,
     'ape': mutagen.monkeysaudio.MonkeysAudio,
     'mpc': mutagen.musepack.Musepack}

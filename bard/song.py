@@ -199,6 +199,7 @@ class Song:
             mutagen.asf.ASF: 'asf',
             mutagen.flac.FLAC: 'flac',
             mutagen.oggvorbis.OggVorbis: 'ogg',
+            mutagen.oggopus.OggOpus: 'opus',
             mutagen.wavpack.WavPack: 'wv',
             mutagen.monkeysaudio.MonkeysAudio: 'ape',
             mutagen.musepack.Musepack: 'mpc', }
