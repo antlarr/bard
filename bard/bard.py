@@ -24,6 +24,7 @@ import argparse
 import subprocess
 from argparse import ArgumentParser
 from bard.config import config, translatePath
+from bard.user import requestNewPassword
 
 ComparisonResult = namedtuple('ComparisonResult', ['offset', 'similarity'])
 
@@ -1180,6 +1181,28 @@ class Bard:
             for line in aligned:
                 print(line)
 
+    def startWebServer(self):
+        from bard.web import init_flask_app, app
+        from werkzeug.serving import run_simple
+        use_ssl = config['use_ssl']
+        if use_ssl:
+            import ssl
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain('cert.pem', 'server.key')
+        else:
+            context = None
+
+        app.bard = self
+        init_flask_app()
+        hostname = config['hostname']
+        port = config['port']
+        return run_simple(hostname, port, app,
+                          use_reloader=True, use_debugger=True,
+                          use_evalex=True, ssl_context=context,
+                          threaded=True)
+
+    def setPassword(self, username):
+        requestNewPassword(username)
 
     def parseCommandLine(self):
         main_parser = ArgumentParser(
@@ -1231,7 +1254,15 @@ fix-tags <file_or_directory [file_or_directory ...]>
                     apply several normalization algorithms to fix tags of
                     files passed as arguments
 update
-                    Update database with new/modified/deleted files''')
+                    Update database with new/modified/deleted files
+set-rating [-p] <rating> [file | song_id ...]
+                    Set ratings for a song or songs
+stats [-v]
+                    Print database statistics
+web
+                    Start a web server
+passwd [username]
+                    Sets a user password''')
         # find-duplicates command
         sps.add_parser('find-duplicates',
                        description='Find duplicate files comparing '
@@ -1427,6 +1458,14 @@ update
                                 description='Print database statistics')
         parser.add_argument('-v', '--verbose', dest='verbose',
                             action='store_true', help='Be verbose')
+        # web command
+        parser = sps.add_parser('web',
+                                description='Start a web server')
+        # passwd command
+        parser = sps.add_parser('passwd',
+                                description='Sets a user password')
+        parser.add_argument('username', nargs='?', help='Username whose '
+                            'password will be set (current user if none)')
         options = main_parser.parse_args()
 
         if options.command == 'find-duplicates':
@@ -1502,6 +1541,10 @@ update
             self.setRating(options.paths, options.rating, options.playing)
         elif options.command == 'stats':
             self.printStats(options.verbose)
+        elif options.command == 'web':
+            self.startWebServer()
+        elif options.command == 'passwd':
+            self.setPassword(options.username)
 
 
 def main():

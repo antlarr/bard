@@ -648,12 +648,12 @@ class Song:
                 return None
 
         try:
-            (image, data) = extractFrontCover(metadata)
+            image = extractFrontCover(metadata)
         except OSError:
             print('Error extracting image from %s' % path)
             return None
 
-        return (image, data)
+        return image
 
     def __repr__(self):
         self.loadMetadataInfo()

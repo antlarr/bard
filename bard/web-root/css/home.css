@@ -1,0 +1,23 @@
+.searchForm
+{
+    margin: auto;
+}
+
+.searchView {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.searchContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+
+}
+
+#searchResult
+{
+    min-height: -webkit-min-content;
+}

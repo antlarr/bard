@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
+        <meta name="theme-color" content="#000000">
+        <link rel="shortcut icon" href="/favicon.ico">
+        <title>Bard</title>
+        <link href="/static/css/theme.css" rel="stylesheet">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    </head>
+    <body onload="initBard()">
+        <noscript>You need to enable JavaScript to run this app.</noscript>
+        <div class="Bard App">
+          <header class="header">
+              <img src="/static/images/bard.png" class="logo" alt="logo" />
+              <nav>
+                  <ul class="header">
+                      <li><a id="nav-home" href="/">Home</a></li>
+                      <li><a id="nav-artists" href="/artists">Artists</a></li>
+                      <li><a id="nav-albums" href="/albums">Albums</a></li>
+                      <li><a id="nav-genres" href="/genres">Genres</a></li>
+                      <li class="right"><a href="/logout">Logout</a></li>
+                  </ul>
+              </nav>
+          </header>
+          <div id="container" class="centralView"></div>
+          {% include "now-playing-bar.html" %}
+        </div>
+
+        <!--<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>-->
+        <script src="static/js/jquery-3.3.1.js"></script>
+<!--<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>-->
+        <script type="text/javascript" src="/static/js/root.js"></script>
+        <script type="text/javascript" src="/static/js/metadata.js"></script>
+    </body>
+</html>

@@ -35,11 +35,17 @@ setup(
         "pydub",
         "numpy",
         "dbus-python",
-        "SQLAlchemy"
+        "SQLAlchemy",
+        "Werkzeug",
+        "Flask",
+        "Flask-Cors",
+        "Flask-Login",
+        "Jinja2",
+        "bcrypt"
     ],
     data_files=[('share/doc/packages/bard/',
                  ['config/bard', 'README.md'])],
     scripts=["scripts/bard"],
-    license="GPL-3.0-only",
+    license="GPL-3.0-only AND MIT",
     ext_modules=[bard_ext]
 )

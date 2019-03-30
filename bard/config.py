@@ -18,22 +18,40 @@ def readConfiguration():
     return json.loads(data)
 
 
+def addDefaultValues(config):
+    if 'username' not in config:
+        config['username'] = pwd.getpwuid(os.getuid()).pw_name
+
+    if 'host' not in config:
+        import socket
+        config['host'] = socket.gethostname()
+
+    defaults = {
+        'immutableDatabase': False,
+        'matchThreshold': 0.8,
+        'storeThreshold': 0.58,
+        'shortSongStoreThreshold': 0.68,
+        'shortSongLength': 53,
+        'port': 5000,
+        'use_ssl': False,
+        'sslCertificateKeyFile': '~/.config/bard/certs/server.key',
+        'sslCertificateChainFile': '~/.config/bard/certs/cert.pem',
+    }
+
+    for key, value in defaults.items():
+        if key not in config:
+            config[key] = value
+
+    path_keys = ['databasePath',
+                 'sslCertificateKeyFile',
+                 'sslCertificateChainFile']
+
+    for key in path_keys:
+        config[key] = os.path.expanduser(config[key])
+
+
 config = readConfiguration()
-
-if 'username' not in config:
-    config['username'] = pwd.getpwuid(os.getuid()).pw_name
-
-defaults = {
-    'immutableDatabase': False,
-    'matchThreshold': 0.8,
-    'storeThreshold': 0.58,
-    'shortSongStoreThreshold': 0.68,
-    'shortSongLength': 53
-}
-
-for key, value in defaults.items():
-    if key not in config:
-        config[key] = value
+addDefaultValues(config)
 
 
 def translatePath(path):

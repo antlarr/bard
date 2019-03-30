@@ -57,4 +57,5 @@ let bard know that some files no longer exist.
 
 # License
 
-Bard is using the GPL v3.0 license
+Bard is distributed under the GPL v3.0 license.
+The web interface uses [jQuery](https://jquery.org/), which is licensed under a MIT license.

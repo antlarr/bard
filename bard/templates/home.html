@@ -1,0 +1,21 @@
+<div class="searchView">
+  <div class="searchForm">
+    <form id="searchForm">
+        <input id="searchBar" placeholder="Search for..." />
+        <input id="searchButton" type="button" value="&#128269;" onClick="performSearch()"/>
+        <!--<Suggestions results={this.state.results} />-->
+    </form>
+  </div>
+  <div class="searchContent">
+      <div id="searchResult"></div>
+  </div>
+
+  <script type="text/javascript">
+$( "#searchForm" ).on( "submit", function( event ) {
+    performSearch();
+    event.preventDefault();
+});
+
+
+  </script>
+  <link href="/static/css/home.css" rel="stylesheet">

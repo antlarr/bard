@@ -155,7 +155,7 @@ CREATE TABLE similarities(
  CREATE TABLE users (
                   id INTEGER PRIMARY KEY ASC AUTOINCREMENT,
                   name TEXT,
-                  password TEXT
+                  password BYTEA
                   )''')
         c.execute('''
  CREATE TABLE ratings (
@@ -765,6 +765,29 @@ or name {like} '%%MusicBrainz/Track Id'""")
             userID = result.fetchone()[0]
             MusicDatabase.commit()
             return userID
+
+        return None
+
+    @staticmethod
+    def setUserPassword(userID, hashed_password):
+        c = MusicDatabase.getCursor()
+        sql = 'UPDATE users SET password=:password WHERE id = :id'
+        result = c.execute(text(sql).bindparams(password=hashed_password,
+                                                id=userID))
+        if result.rowcount == 0:
+            return False
+        MusicDatabase.commit()
+
+        return True
+
+    @staticmethod
+    def userPassword(username):
+        c = MusicDatabase.getCursor()
+        sql = 'SELECT password FROM users WHERE name = :name'
+        result = c.execute(text(sql).bindparams(name=username))
+        hashed_password = result.fetchone()
+        if hashed_password:
+            return bytes(hashed_password[0])
 
         return None
 

@@ -1,0 +1,118 @@
+html, body {
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+body {
+  font-family: sans-serif;
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+}
+
+.logo {
+  animation: App-logo-spin infinite 20s linear;
+  height: 40px;
+  filter: invert(100%);
+}
+
+@keyframes App-logo-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+
+.header {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  align-items: center;
+  background-color: #222;
+  max-height: 4em;
+  color: white;
+  background: black;
+  order: 1;
+}
+
+.header > nav {
+    display: flex;
+    flex-grow: 1;
+}
+
+.header > nav > ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    flex-grow: 1;
+}
+.header li {
+   padding: 0 2em 0 2em;
+}
+
+.header a,
+.header a:visited
+{
+    text-decoration: none;
+    color: white;
+    outline: none;
+}
+.container > div {
+    width: 100%;
+}
+
+.current-song-view {
+    max-height: 100px;
+    height: 100px;
+    flex-shrink: 0;
+    order: 3;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.current-song-view audio {
+    flex-grow: 1;
+    min-width: 50%;
+}
+
+.centralView {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    order: 2;
+}
+
+.App {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+.right {
+    flex-grow: 1;
+    text-align: right;
+}
+
+.current-song-info {
+    display: flex;
+    flex-direction: row;
+}
+
+.current-song-cover-parent {
+    width: 100px;
+    height: 100px;
+}
+
+#current-song-cover {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.current-song-main-metadata {
+    width: 20rem;
+}

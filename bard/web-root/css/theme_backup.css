@@ -1,0 +1,107 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+}
+html, body {
+    height: 100vh;
+    margin: 0;
+}
+#root {
+    height: 100vw;
+}
+.Bard {
+  display:flex;
+  height: 100vh;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+}
+
+/*.Bard > div {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+*/
+.logo {
+  animation: App-logo-spin infinite 20s linear;
+  height: 40px;
+  filter: invert(100%);
+}
+
+.header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  background-color: #222;
+  max-height: 4em;
+  color: white;
+  background: black;
+  order: 1;
+}
+.header > nav {
+    display: flex;
+}
+
+.header > nav > ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+.header li {
+   padding: 0 2em 0 2em;
+}
+
+.header a,
+.header a:visited
+{
+    text-decoration: none;
+    color: white;
+}
+
+.centralView {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    flex-grow: 100;
+    order: 2;
+}
+
+.sidebar {
+/*    flex-grow: 20;*/
+    width: 10em;
+    background: yellow;
+}
+
+.content {
+    flex-grow: 80;
+    overflow: auto;
+}
+
+.current-song-view {
+    max-height: 5em;
+    height: 3em;
+    background: green;
+    order: 3;
+    display: flex;
+}
+
+
+.App-title {
+  font-size: 1.5em;
+}
+
+.App-intro {
+  font-size: large;
+}
+
+@keyframes App-logo-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+
