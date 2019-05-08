@@ -2,6 +2,7 @@
 
 from bard.config import config
 from bard.normalizetags import normalizeTagValues
+from bard.utils import DecodedAudioPropertiesTuple, DecodeMessageRecord
 import sqlalchemy
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
@@ -12,11 +13,142 @@ import threading
 import mutagen
 
 
+class DatabaseEnum:
+    def __init__(self, enum_name, auto_insert=True, name_is_dict=False):
+        self.enum_name = enum_name
+        self.table_name = f'enum_{enum_name}_values'
+        self.auto_insert = auto_insert
+        self.name_is_dict = name_is_dict
+
+    def add_value_dict(self, names):
+        columns = ','.join(names.keys())
+        values = ','.join(f':{k}' for k in names.keys())
+
+        sql = f'INSERT INTO {self.table_name}({columns}) VALUES ({values})'
+        c = MusicDatabase.getCursor()
+        c.execute(text(sql).bindparams(**names))
+
+        try:
+            sql = (f"SELECT currval(pg_get_serial_sequence("
+                   f"'{self.table_name}','id_value'))")
+            result = c.execute(sql)
+        except sqlalchemy.exc.OperationalError:
+            # Try the sqlite way
+            sql = 'SELECT last_insert_rowid()'
+            result = c.execute(sql)
+        return result.fetchone()[0]
+
+    def add_value(self, name):
+        sql = (f'INSERT INTO {self.table_name}(name) '
+               'VALUES (:name)')
+        c = MusicDatabase.getCursor()
+        c.execute(text(sql).bindparams(name=name))
+
+        try:
+            sql = (f"SELECT currval(pg_get_serial_sequence("
+                   f"'{self.table_name}','id_value'))")
+            result = c.execute(sql)
+        except sqlalchemy.exc.OperationalError:
+            # Try the sqlite way
+            sql = 'SELECT last_insert_rowid()'
+            result = c.execute(sql)
+        return result.fetchone()[0]
+
+    def id_value_dict(self, names):
+        where = ' AND '.join([f'{k}=:{k}' for k in names.keys()])
+        sql = f'SELECT id_value FROM {self.table_name} WHERE {where}'
+        c = MusicDatabase.getCursor()
+        result = c.execute(text(sql).bindparams(**names))
+        r = result.fetchone()
+        if not r:
+            if self.auto_insert:
+                return self.add_value_dict(names)
+            return None
+        return r[0]
+
+    def id_value(self, name):
+        if self.name_is_dict:
+            return self.id_value_dict(name)
+        sql = f'SELECT id_value FROM {self.table_name} WHERE name=:name'
+        c = MusicDatabase.getCursor()
+        result = c.execute(text(sql).bindparams(name=name))
+        r = result.fetchone()
+        if not r:
+            if self.auto_insert:
+                return self.add_value(name)
+            return None
+        return r[0]
+
+    def name(self, id_value):
+        if self.name_is_dict:
+            return self.name_dict(id_value)
+        sql = f'SELECT name FROM {self.table_name} WHERE id_value=:id_value'
+        c = MusicDatabase.getCursor()
+        result = c.execute(text(sql).bindparams(id_value=id_value))
+        r = result.fetchone()
+        if not r:
+            return None
+        return r[0]
+
+    def name_dict(self, id_value):
+        sql = f'SELECT * FROM {self.table_name} WHERE id_value=:id_value'
+        c = MusicDatabase.getCursor()
+        result = c.execute(text(sql).bindparams(id_value=id_value))
+        r = result.fetchone()
+        if not r:
+            return None
+        print(r)
+        print(r.keys())
+        raise 'a'
+        return r
+
+
+SampleFormatEnum = DatabaseEnum('sample_format', auto_insert=False)
+LibraryVersionsEnum = DatabaseEnum('library_versions', name_is_dict=True)
+FormatEnum = DatabaseEnum('format')
+CodecEnum = DatabaseEnum('codec')
+
+
 def toString(v):
     if isinstance(v, list):
         return ', '.join(v)
 
     return v
+
+
+def extractDecodeMessagesList(songID, messages):
+    tags = []
+    for idx, msg in enumerate(messages):
+        tags.append({'id': songID,
+                     'time_position': msg[0],
+                     'level': msg[1],
+                     'message': msg[2],
+                     'pos': idx})
+    return tags
+
+
+def extractTagsList(song):
+    tags = []
+    for key, values in song.metadata.items():
+        key, values = normalizeTagValues(values, song.metadata, key,
+                                         removeBinaryData=True)
+
+        if isinstance(values, list):
+            for pos, value in enumerate(values):
+                tags.append({'id': song.id,
+                             'name': key,
+                             'value': value,
+                             'pos': pos if len(values) > 1 else None
+                             })
+        else:
+            if isinstance(values, mutagen.apev2.APEBinaryValue):
+                continue
+            tags.append({'id': song.id,
+                         'name': key,
+                         'value': values,
+                         'pos': None
+                         })
+    return tags
 
 
 class MusicDatabase:
@@ -97,13 +229,16 @@ CREATE TABLE songs (
                     coverHeight INTEGER,
                     coverMD5 TEXT,
                     completeness REAL
+                    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    insert_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                    )''')
+        c.execute('CREATE INDEX songs_path_idx ON songs (path)')
         c.execute('''
 CREATE TABLE properties(
                     song_id INTEGER PRIMARY KEY,
                     format TEXT,
                     duration REAL,
-                    bitrate REAL,
+                    bitrate INTEGER,
                     bits_per_sample INTEGER,
                     sample_rate INTEGER,
                     channels INTEGER,
@@ -112,6 +247,111 @@ CREATE TABLE properties(
                     silence_at_end REAL,
                     FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
                  )''')
+        c.execute(f'''
+CREATE TABLE enum_sample_format_values(
+                    id_value {serial_primary_key},
+                    name TEXT,
+                    bits_per_sample INTEGER,
+                    is_planar BOOLEAN
+                 )''')
+        c.execute('INSERT INTO enum_sample_format_values '
+                  '(name, bits_per_sample, is_planar) '
+                  '''VALUES ('u8', 8, FALSE)''')
+        c.execute('INSERT INTO enum_sample_format_values '
+                  '(name, bits_per_sample, is_planar) '
+                  '''VALUES ('s16', 16, FALSE)''')
+        c.execute('INSERT INTO enum_sample_format_values '
+                  '(name, bits_per_sample, is_planar) '
+                  '''VALUES ('s32', 32, FALSE)''')
+        c.execute('INSERT INTO enum_sample_format_values '
+                  '(name, bits_per_sample, is_planar) '
+                  '''VALUES ('flt', 32, FALSE)''')
+        c.execute('INSERT INTO enum_sample_format_values '
+                  '(name, bits_per_sample, is_planar) '
+                  '''VALUES ('dbl', 64, FALSE)''')
+        c.execute('INSERT INTO enum_sample_format_values '
+                  '(name, bits_per_sample, is_planar) '
+                  '''VALUES ('u8p', 8, TRUE)''')
+        c.execute('INSERT INTO enum_sample_format_values '
+                  '(name, bits_per_sample, is_planar) '
+                  '''VALUES ('s16p', 16, TRUE)''')
+        c.execute('INSERT INTO enum_sample_format_values '
+                  '(name, bits_per_sample, is_planar) '
+                  '''VALUES ('s32p', 32, TRUE)''')
+        c.execute('INSERT INTO enum_sample_format_values '
+                  '(name, bits_per_sample, is_planar) '
+                  '''VALUES ('fltp', 32, TRUE)''')
+        c.execute('INSERT INTO enum_sample_format_values '
+                  '(name, bits_per_sample, is_planar) '
+                  '''VALUES ('dblp', 64, TRUE)''')
+        c.execute('INSERT INTO enum_sample_format_values '
+                  '(name, bits_per_sample, is_planar) '
+                  '''VALUES ('s64', 64, FALSE)''')
+        c.execute('INSERT INTO enum_sample_format_values '
+                  '(name, bits_per_sample, is_planar) '
+                  '''VALUES ('s64p', 64, TRUE)''')
+        c.execute(f'''
+CREATE TABLE enum_library_versions_values(
+                    id_value {serial_primary_key},
+                    bard_audiofile TEXT,
+                    libavcodec TEXT,
+                    libavformat TEXT,
+                    libavutil TEXT,
+                    libswresample TEXT
+                 )''')
+        c.execute(f'''
+CREATE TABLE enum_format_values(
+                    id_value {serial_primary_key},
+                    name TEXT,
+                 )''')
+        c.execute(f'''
+CREATE TABLE enum_codec_values(
+                    id_value {serial_primary_key},
+                    name TEXT,
+                 )''')
+        c.execute('''
+CREATE TABLE decode_properties(
+                    song_id INTEGER PRIMARY KEY,
+
+                    codec INTEGER,
+                    format INTEGER,
+                    container_duration REAL,
+                    decoded_duration REAL,
+
+                    container_bitrate INTEGER,
+                    stream_bitrate INTEGER,
+
+                    stream_sample_format INTEGER,
+                     stream_bits_per_raw_sample INTEGER,
+
+                    decoded_sample_format INTEGER,
+                    samples INTEGER,
+
+                    library_versions INTEGER,
+
+                    FOREIGN KEY(song_id)
+                      REFERENCES songs(id) ON DELETE CASCADE,
+                    FOREIGN KEY(codec)
+                      REFERENCES enum_codec_values(id_value),
+                    FOREIGN KEY(format)
+                      REFERENCES enum_format_values(id_value),
+                    FOREIGN KEY(stream_sample_format)
+                      REFERENCES enum_sample_format_values(id_value),
+                    FOREIGN KEY(decoded_sample_format)
+                      REFERENCES enum_sample_format_values(id_value),
+                    FOREIGN KEY(library_versions)
+                      REFERENCES enum_library_versions_values(id_value)
+                 )''')
+        c.execute('''
+CREATE TABLE decode_messages(
+                    song_id INTEGER,
+                    time_position REAL,
+                    level INTEGER,
+                    message TEXT,
+                    pos INTEGER,
+                    FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
+                 )''')
+        c.execute('CREATE INDEX ON decode_messages (song_id)')
         c.execute('''
 CREATE TABLE tags(
                     song_id INTEGER,
@@ -130,12 +370,15 @@ CREATE TABLE covers(
 CREATE TABLE checksums(
                   song_id INTEGER PRIMARY KEY,
                   sha256sum TEXT NOT NULL,
+                  last_check_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  insert_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                   FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
                   )''')
         c.execute('''
 CREATE TABLE fingerprints(
                   song_id INTEGER PRIMARY KEY,
                   fingerprint BYTEA NOT NULL,
+                  insert_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                   FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
                   )''')
         c.execute('''
@@ -148,8 +391,10 @@ CREATE TABLE similarities(
                   FOREIGN KEY(song_id1) REFERENCES songs(id) ON DELETE CASCADE,
                   FOREIGN KEY(song_id2) REFERENCES songs(id) ON DELETE CASCADE
                   )''')
-        c.execute('CREATE INDEX similarities_song_id1_idx ON similarities (song_id1)')
-        c.execute('CREATE INDEX similarities_song_id2_idx ON similarities (song_id2)')
+        c.execute('CREATE INDEX similarities_song_id1_idx '
+                  ' ON similarities (song_id1)')
+        c.execute('CREATE INDEX similarities_song_id2_idx '
+                  ' ON similarities (song_id2)')
 
         c.execute('''
  CREATE TABLE users (
@@ -181,7 +426,8 @@ CREATE TABLE similarities(
         result = c.execute(sql.bindparams(path=song.path()))
         songID = result.fetchone()
 
-        values = {'path': song.path(),
+        values = {'root': song.root(),
+                  'filename': song.filename(),
                   'mtime': song.mtime(),
                   'title': song['title'],
                   'artist': toString(song['artist']),
@@ -238,31 +484,60 @@ CREATE TABLE similarities(
                    'silence_at_end=:silence_at_end WHERE song_id=:id')
             c.execute(text(sql).bindparams(**values))
 
+            prop = song.decode_properties()
+            values = {'codec': CodecEnum.id_value(prop.codec),
+                      'format': FormatEnum.id_value(prop.format),
+                      'container_duration': prop.container_duration,
+                      'decoded_duration': prop.decoded_duration,
+                      'container_bitrate': prop.container_bitrate,
+                      'stream_bitrate': prop.stream_bitrate,
+                      'stream_sample_format':
+                      SampleFormatEnum.id_value(prop.stream_sample_format),
+                      'stream_bits_per_raw_sample':
+                      prop.stream_bits_per_raw_sample,
+                      'decoded_sample_format':
+                      SampleFormatEnum.id_value(prop.decoded_sample_format),
+                      'samples': prop.samples,
+                      'library_versions':
+                      LibraryVersionsEnum.id_value(prop.library_versions),
+                      'id': song.id}
+            sql = ('UPDATE decode_properties SET codec=:codec, '
+                   'format=:format, container_duration=:container_duration, '
+                   'decoded_duration=:decoded_duration, '
+                   'container_bitrate=:container_bitrate, '
+                   'stream_bitrate=:stream_bitrate, '
+                   'stream_sample_format=:stream_sample_format, '
+                   'stream_bits_per_raw_sample=:stream_bits_per_raw_sample, '
+                   'decoded_sample_format=:decoded_sample_format, '
+                   'samples=:samples, '
+                   'library_versions=:library_versions '
+                   'WHERE song_id=:id')
+            c.execute(text(sql).bindparams(**values))
+
+            values = {'id': song.id}
+            sql = 'DELETE from decode_messages where song_id = :id'
+            c.execute(text(sql).bindparams(**values))
+
+            tags = extractDecodeMessagesList(song.id, prop.messages)
+
+            if tags:
+                sql = ('INSERT INTO decode_messages(song_id, time_position, '
+                       'level, message, pos) VALUES (:id,:time_position,'
+                       ':level,:message,:pos)')
+                try:
+                    c.execute(text(sql), tags)
+                except ValueError:
+                    c.rollback()
+                    print(sql, tags)
+                    raise
+
             values = {'id': song.id}
             sql = 'DELETE from tags where song_id = :id'
             c.execute(text(sql).bindparams(**values))
 
-            tags = []
-            for key, values in song.metadata.items():
-                key, values = normalizeTagValues(values, song.metadata, key, removeBinaryData=True)
+            tags = extractTagsList(song)
 
-                if isinstance(values, list):
-                    for pos, value in enumerate(values):
-                        tags.append({'id': song.id,
-                                     'name': key,
-                                     'value': value,
-                                     'pos': pos if len(values) > 1 else None
-                                     })
-                else:
-                    if isinstance(values, mutagen.apev2.APEBinaryValue):
-                        continue
-                    tags.append({'id': song.id,
-                                 'name': key,
-                                 'value': values,
-                                 'pos': None
-                                 })
             if tags:
-                # print('1', tags)
                 sql = ('INSERT INTO tags(song_id, name, value, pos) '
                        'VALUES (:id,:name,:value,:pos)')
                 try:
@@ -272,10 +547,9 @@ CREATE TABLE similarities(
                     print(sql, tags)
                     raise
         else:
-            print('Adding new song %s' % song.path())
-            values.update({'root': song.root(),
-                           'filename': song.filename()})
-            print(values)
+            # print('Adding song to database')
+            values['path'] = song.path()
+            # print(values)
             sql = ('INSERT INTO songs(root, path, filename, mtime, '
                    'title, artist, album, albumArtist, track, date, '
                    'genre, discNumber, coverWidth, coverHeight, '
@@ -324,27 +598,48 @@ CREATE TABLE similarities(
                    ':silence_at_start,:silence_at_end)')
             c.execute(text(sql).bindparams(**values))
 
-            tags = []
-            for key, values in song.metadata.items():
-                key, values = normalizeTagValues(values, song.metadata, key, removeBinaryData=True)
+            prop = song.decode_properties()
+            values = {'codec': CodecEnum.id_value(prop.codec),
+                      'format': FormatEnum.id_value(prop.format),
+                      'container_duration': prop.container_duration,
+                      'decoded_duration': prop.decoded_duration,
+                      'container_bitrate': prop.container_bitrate,
+                      'stream_bitrate': prop.stream_bitrate,
+                      'stream_sample_format':
+                      SampleFormatEnum.id_value(prop.stream_sample_format),
+                      'stream_bits_per_raw_sample':
+                      prop.stream_bits_per_raw_sample,
+                      'decoded_sample_format':
+                      SampleFormatEnum.id_value(prop.decoded_sample_format),
+                      'samples': prop.samples,
+                      'library_versions':
+                      LibraryVersionsEnum.id_value(prop.library_versions),
+                      'id': song.id}
+            sql = ('INSERT INTO decode_properties(song_id, codec, '
+                   'format, container_duration, decoded_duration, '
+                   'container_bitrate, stream_bitrate, stream_sample_format, '
+                   'stream_bits_per_raw_sample, decoded_sample_format, '
+                   'samples, library_versions) VALUES (:id,:codec,'
+                   ':format, :container_duration, :decoded_duration, '
+                   ':container_bitrate, :stream_bitrate, '
+                   ':stream_sample_format, :stream_bits_per_raw_sample, '
+                   ':decoded_sample_format, :samples, :library_versions)')
+            c.execute(text(sql).bindparams(**values))
 
-                if isinstance(values, list):
-                    for pos, value in enumerate(values):
-                        tags.append({'id': song.id,
-                                     'name': key,
-                                     'value': value,
-                                     'pos': pos if len(values) > 1 else None
-                                     })
-                else:
-                    if isinstance(values, mutagen.apev2.APEBinaryValue):
-                        continue
-                    tags.append({'id': song.id,
-                                 'name': key,
-                                 'value': values,
-                                 'pos': None
-                                 })
+            tags = extractDecodeMessagesList(song.id, prop.messages)
             if tags:
-                # print('2', tags)
+                sql = ('INSERT INTO decode_messages(song_id, time_position, '
+                       'level, message, pos) VALUES (:id,:time_position,'
+                       ':level,:message,:pos)')
+                try:
+                    c.execute(text(sql), tags)
+                except ValueError:
+                    c.rollback()
+                    print(sql, tags)
+                    raise
+
+            tags = extractTagsList(song)
+            if tags:
                 sql = ('INSERT INTO tags(song_id, name, value, pos) '
                        'VALUES (:id,:name,:value,:pos)')
                 try:
@@ -470,7 +765,8 @@ or name {like} '%%MusicBrainz/Track Id'""")
     @staticmethod
     def getSongTags(songID):
         c = MusicDatabase.getCursor()
-        sql = text('SELECT name, value FROM tags where song_id = :id ORDER BY pos')
+        sql = text('SELECT name, value FROM tags WHERE song_id = :id '
+                   'ORDER BY pos')
         result = c.execute(sql, {'id': songID})
         tags = {}
         for name, value in result.fetchall():
@@ -562,6 +858,72 @@ or name {like} '%%MusicBrainz/Track Id'""")
         return MusicDatabase.getSongsProperties([songID])[songID]
 
     @staticmethod
+    def getDecodeProperties(songIDs):
+        if isinstance(songIDs, str):
+            ids = [int(songID) for songID in songIDs.split(',')]
+        elif isinstance(songIDs, int):
+            ids = (songIDs,)
+        elif isinstance(songIDs, (list, tuple)):
+            ids = [int(songID) for songID in songIDs]
+        ids = tuple(ids)
+        c = MusicDatabase.getCursor()
+
+        sql = ('SELECT song_id, time_position, level, message '
+               'FROM decode_messages where song_id in :ids '
+               'ORDER BY song_id, pos')
+        result = c.execute(text(sql), {'ids': ids})
+        messages = {}
+        for row in result.fetchall():
+            dm = DecodeMessageRecord(time_position=row['time_position'],
+                                     level=row['level'],
+                                     message=row['message'])
+            try:
+                messages[row['song_id']].append(dm)
+            except KeyError:
+                messages[row['song_id']] = [dm]
+
+        sql = ('SELECT song_id, codec, format, container_duration, '
+               'decoded_duration, container_bitrate, stream_bitrate, '
+               'stream_sample_format, stream_bits_per_raw_sample, '
+               'decoded_sample_format, samples, library_versions '
+               'FROM decode_properties where song_id in :ids')
+        result = c.execute(text(sql), {'ids': ids})
+
+        r = {}
+        for row in result.fetchall():
+            try:
+                songID = row['song_id']
+                sSmplFmt = SampleFormatEnum.name(row['stream_sample_format'])
+                sBitsPerRawSample = row['stream_bits_per_raw_sample']
+                dSmplFmt = SampleFormatEnum.name(row['decoded_sample_format'])
+                libraryVer = LibraryVersionsEnum.name(row['library_versions'])
+                prop = (DecodedAudioPropertiesTuple(
+                        codec=CodecEnum.name(row['codec']),
+                        format_name=FormatEnum.name(row['format']),
+                        container_duration=row['container_duration'],
+                        decoded_duration=row['decoded_duration'],
+                        container_bitrate=row['container_bitrate'],
+                        stream_bitrate=row['stream_bitrate'],
+                        stream_sample_format=sSmplFmt,
+                        stream_bits_per_raw_sample=sBitsPerRawSample,
+                        decoded_sample_format=dSmplFmt,
+                        samples=row['samples'],
+                        library_versions=libraryVer,
+                        messages=messages[songID]))
+
+                r[songID] = prop
+            except KeyError:
+                print('Error getting decode properties for song ID %d' %
+                      songID)
+                raise
+
+        return r
+
+    @staticmethod
+    def getSongDecodeProperties(songID):
+        return MusicDatabase.getDecodeProperties([songID])[songID]
+
+    @staticmethod
     def getSimilarSongsToSongID(songID, similarityThreshold=0.85):
         c = MusicDatabase.getCursor()
         sql = text('select song_id1, match_offset, similarity '
@@ -609,15 +971,31 @@ or name {like} '%%MusicBrainz/Track Id'""")
         MusicDatabase.getConnection().commit()
 
     @staticmethod
+    def updateFileSha256sumLastCheckTime(songid):
+        if config['immutableDatabase']:
+            print("Error: Can't update checksum's last check time: "
+                  "The database is configured as immutable")
+            return
+        c = MusicDatabase.getCursor()
+        sql = text('UPDATE checksums set last_check_time=CURRENT_TIMESTAMP '
+                   'WHERE song_id=:id')
+        result = c.execute(sql.bindparams(id=songid))
+        return result.rowcount == 1
+
+    @staticmethod
     def addFileSha256sum(songid, sha256sum):
         if config['immutableDatabase']:
             print("Error: Can't add file SHA256: The database is configured "
                   "as immutable")
             return
         c = MusicDatabase.getCursor()
-        sql = ('INSERT INTO checksums (song_id, sha256sum) '
-               'VALUES (:id, :sha256sum)')
-        c.execute(text(sql).bindparams(id=songid, sha256sum=sha256sum))
+        sql = text('UPDATE checksums set sha256sum=:sha256sum, '
+                   'last_check_time=CURRENT_TIMESTAMP WHERE song_id=:id')
+        result = c.execute(sql.bindparams(id=songid, sha256sum=sha256sum))
+        if result.rowcount == 0:
+            sql = text('INSERT INTO checksums (song_id, sha256sum) '
+                       'VALUES (:id, :sha256sum)')
+            c.execute(sql.bindparams(id=songid, sha256sum=sha256sum))
 
     @staticmethod
     def addAudioTrackSha256sum(songid, audioSha256sum):

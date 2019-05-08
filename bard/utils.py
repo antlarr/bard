@@ -18,13 +18,72 @@ import mutagen.wavpack
 import chromaprint
 from collections import namedtuple
 from PIL import Image
+from bard.config import config
 from bard.terminalcolors import TerminalColors
+from bard import bard_audiofile
 from pydub.utils import db_to_float
 import itertools
 import io
 # import tempfile
 
 ImageDataTuple = namedtuple('ImageDataTuple', ['image', 'data'])
+
+DecodedAudioPropertiesTuple = namedtuple('DecodedAudioPropertiesTuple',
+                                         ['codec', 'format',
+                                          'container_duration',
+                                          'decoded_duration',
+                                          'container_bitrate',
+                                          'stream_bitrate',
+                                          'stream_sample_format',
+                                          'stream_bytes_per_sample',
+                                          'stream_bits_per_raw_sample',
+                                          'decoded_sample_format',
+                                          'decoded_bytes_per_sample',
+                                          'is_planar',
+                                          'samples',
+                                          'channels',
+                                          'sample_rate',
+                                          'library_versions',
+                                          'messages'])
+
+
+class DecodeMessageRecord(namedtuple('DecodeMessageRecord',
+                                     ['time_position', 'level', 'msg'])):
+    __slots__ = ()
+
+    @staticmethod
+    def level_to_string(level):
+        mapping = {0: 'Critical',
+                   1: 'Fatal',
+                   2: 'Error',
+                   3: 'Warning',
+                   4: 'Info',
+                   5: 'Verbose',
+                   6: 'Debug',
+                   7: 'Trace'}
+        try:
+            return mapping[level]
+        except KeyError:
+            return 'Unknown level'
+
+    @staticmethod
+    def color_for_level(level):
+        if level <= 2:
+            return TerminalColors.Error
+        if level <= 4:
+            return TerminalColors.Highlight
+        return ''
+
+    def level_as_string(self):
+        return self.level_to_string(self.level)
+
+    def level_color(self):
+        return self.color_for_level(self.level)
+
+    def __str__(self):
+        return f'%.3f (%s): %s' % (self.time_position, self.level_color() +
+                                   self.level_as_string() +
+                                   TerminalColors.ENDC, self.msg)
 
 
 def detect_silence_at_beginning_and_end(audio_segment, min_silence_len=1000,
@@ -517,19 +576,52 @@ def calculateAudioTrackSHA256(path, tmpdir='/tmp'):
 def calculateAudioTrackSHA256_pydub(path):
     audio_segment = AudioSegment.from_file(path)
     audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
-    print('size:', len(audio_segment.raw_data))
+    # print('size:', len(audio_segment.raw_data))
     return audioSha256sum
 
 
-def calculateAudioTrackSHA256_audioread(path):
-    hash_sha256 = hashlib.sha256()
-    with audioread.audio_open(path) as audiofile:
-        c = 0
-        for block in audiofile:
-            c += len(block)
-            hash_sha256.update(block)
-        print('size:', c)
-    return hash_sha256.hexdigest()
+def DecodedAudioPropertiesTupleFromDict(properties):
+    messages = []
+    for time_position, level, message in properties['messages']:
+        messages.append(DecodeMessageRecord(time_position, level,
+                                            message.decode("utf-8", "ignore")))
+    return DecodedAudioPropertiesTuple(**properties)._replace(
+        messages=messages)
+
+
+def decodeAudio(filething):
+    if hasattr(filething, 'seek'):
+        filething.seek(0)
+        filecontents = filething.read()
+        data, properties = bard_audiofile.decode(data=filecontents)
+    else:
+        data, properties = bard_audiofile.decode(path=filething)
+
+    if config['enable_internal_checks']:
+        FILES_PYDUB_CANT_DECODE_RIGHT = \
+            ['/mnt/DD8/media/mp3/id13/k3/software_libre-hq.ogg']
+        if hasattr(filething, 'seek'):
+            filething.seek(0)
+        audio_segment = AudioSegment.from_file(filething)
+        if (audio_segment.raw_data != data and
+                filething not in FILES_PYDUB_CANT_DECODE_RIGHT):
+            with open('/tmp/decoded-song-pydub.raw', 'wb') as f:
+                f.write(audio_segment.raw_data)
+            with open('/tmp/decoded-song-bard_audiofile.raw', 'wb') as f:
+                f.write(data)
+            raise Exception('DECODED AUDIO IS DIFFERENT BETWEEN '
+                            'BARD_AUDIOFILE AND PYDUB')
+        print('bard_audiofile/pydub decode check ' +
+              TerminalColors.Ok + 'OK' + TerminalColors.ENDC)
+    return data, DecodedAudioPropertiesTupleFromDict(properties)
+
+
+def audioSegmentFromDataProperties(data, properties):
+    return AudioSegment(data=data,
+                        sample_width=properties.decoded_bytes_per_sample,
+                        frame_rate=properties.sample_rate,
+                        channels=properties.channels)
+
 
 
 def windowsList():

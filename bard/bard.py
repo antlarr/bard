@@ -1,9 +1,10 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 from bard.utils import fixTags, calculateFileSHA256, \
-    calculateAudioTrackSHA256_audioread, printProperties, printSongsInfo, \
+    printProperties, printSongsInfo, \
     getPropertiesAsString, fingerprint_AudioSegment, \
-    simple_find_matching_square_bracket, formatLength, alignColumns
+    simple_find_matching_square_bracket, formatLength, alignColumns, \
+    decodeAudio, calculateSHA256_data
 from bard.song import Song, DifferentLengthException, CantCompareSongsException
 from bard.musicdatabase import MusicDatabase
 from bard.terminalcolors import TerminalColors
@@ -628,53 +629,82 @@ class Bard:
     def fixChecksums(self, from_song_id=None, ignoreMissingFiles=False):
         if from_song_id:
             collection = self.getMusic("WHERE id >= :id",
-                                       {'id': int(from_song_id)})
+                                       {'id': int(from_song_id)},
+                                       order_by='id')
         else:
-            collection = self.getMusic()
+            collection = self.getMusic(order_by='id')
         count = 0
         forceRecalculate = True
         for song in collection:
-            if not os.path.exists(song.path()):
+            if not song.fileExists():
                 if ignoreMissingFiles:
                     print('Missing file at %s' % song.path())
                     continue
 
-                if os.path.lexists(song.path()):
-                    print('Broken symlink at %s' % song.path())
-                else:
-                    print('Removing song %s from DB: File not found' %
-                          song.path())
-                    self.db.removeSong(song)
+                print('Removing file: %s' % self.path())
+                self.db.removeSong(song)
                 continue
-            # sha256InDB = song.fileSha256sum()
-            # if not sha256InDB:
-            #     print('Calculating SHA256sum for %s' % song.path())
-            #     sha256InDisk = calculateFileSHA256(song.path())
-            #     MusicDatabase.addFileSha256sum(song.id, sha256InDisk)
-            #     count += 1
-            #     if count % 10:
-            #         MusicDatabase.commit()
-            # else:
-            #    print('Skipping %s' % song.path())
+
+            print('Calculating checksums for %s...' % song.path(), end='',
+                  flush=True)
+            # check the audio checksum
             audioSha256sumInDB = song.audioSha256sum()
-            if not audioSha256sumInDB or forceRecalculate:
-                print('Calculating SHA256sum for %s' % song.path())
-                calc = calculateAudioTrackSHA256_audioread
-                audioSha256sumInDisk = calc(song.path())
-                # print('Setting audio track sha256 %s to %s' %
-                #       (audioSha256sum, song.path()))
-                if audioSha256sumInDB != audioSha256sumInDisk:
-                    if audioSha256sumInDB:
-                        print('Audio SHA256sum differ in disk and DB: '
-                              '(%s != %s)' %
-                              (audioSha256sumInDisk, audioSha256sumInDB))
-                    MusicDatabase.addAudioTrackSha256sum(song.id,
-                                                         audioSha256sumInDisk)
-                    count += 1
-                    if count % 10:
-                        MusicDatabase.commit()
+
+            audiodata, properties = decodeAudio(song.path())
+            audioSha256sumInDisk = calculateSHA256_data(audiodata)
+
+            # print('from disk', end='', flush=True)
+            # audioSha256sumInDisk, audiodata, properties = \
+            #     calculateAudioTrackSHA256_pyav(song.path())
+            # audioSha256sumInDisk=calculateAudioTrackSHA256_pydub(song.path())
+            # print('Setting audio track sha256 %s to %s' %
+            #       (audioSha256sum, song.path()))
+            if audioSha256sumInDB != audioSha256sumInDisk:
+                MusicDatabase.addAudioTrackSha256sum(song.id,
+                                                     audioSha256sumInDisk)
+                changed_audiosha256 = True
             else:
-                print('Skipping %s' % song.path())
+                changed_audiosha256 = False
+
+            # check the file checksum
+            # print('. File sha from db', end='', flush=True)
+            sha256InDB = song.fileSha256sum()
+            # print('/disk', end='', flush=True)
+            sha256InDisk = calculateFileSHA256(song.path())
+            if sha256InDB != sha256InDisk:
+                MusicDatabase.addFileSha256sum(song.id, sha256InDisk)
+                changed_filesha256 = True
+            else:
+                MusicDatabase.updateFileSha256sumLastCheckTime(song.id)
+                changed_filesha256 = False
+
+            if changed_audiosha256 or changed_filesha256:
+                print(TerminalColors.Error + 'FAIL' + TerminalColors.ENDC)
+                descl = []
+                if changed_audiosha256:
+                    descl.append('audio')
+                    print('  Audio SHA256sum differ in disk and DB: '
+                          '(%s != %s)' %
+                          (audioSha256sumInDisk, audioSha256sumInDB))
+                if changed_filesha256:
+                    descl.append('file')
+                    print('  File SHA256sum differ in disk and DB: '
+                          '(%s != %s)' %
+                          (sha256InDisk, sha256InDB))
+
+                desc = 'Update %s checksum%s' % ('/'.join(descl),
+                                                 's' if len(descl) > 1 else '')
+                (MusicDatabase.createSongHistoryEntry(song.id,
+                 audio_sha256sum=audioSha256sumInDisk,
+                 sha256sum=sha256InDisk, description=desc))
+                count += 1
+                if count % 10 == 0:
+                    MusicDatabase.commit()
+            else:
+                print(TerminalColors.Ok + 'OK' + TerminalColors.ENDC)
+                count += 1
+                if count % 10 == 0:
+                    MusicDatabase.commit()
 
         MusicDatabase.commit()
         print('done')
@@ -687,17 +717,13 @@ class Bard:
             collection = self.getMusic()
         failedSongs = []
         for song in collection:
-            if not os.path.exists(song.path()):
+            if not song.fileExists():
                 if ignoreMissingFiles:
                     print('Missing file at %s' % song.path())
                     continue
 
-                if os.path.lexists(song.path()):
-                    print('Broken symlink at %s' % song.path())
-                else:
-                    print('Removing song %s from DB: File not found' %
-                          song.path())
-                    self.db.removeSong(song)
+                print('Removing file: %s' % self.path())
+                self.db.removeSong(song)
                 continue
             sha256InDB = song.fileSha256sum()
             if not sha256InDB:

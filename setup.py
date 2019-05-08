@@ -13,6 +13,27 @@ bard_ext = Extension('bard_ext',
                                          '-march=native', '-mtune=native',
                                          '-funroll-loops'])
 
+
+bard_audiofile = Extension('bard_audiofile',
+                           define_macros=[('MAJOR_VERSION', '1'),
+                                          ('MINOR_VERSION', '0'),
+                                          ('_GLIBCXX_PARALLEL', None)],
+                           include_dirs=['/usr/include/boost',
+                                         '/usr/include/ffmpeg'],
+                           libraries=['boost_python-py3', 'avcodec',
+                                      'avformat', 'avutil', 'swresample'],
+                           library_dirs=['/usr/lib'],
+                           sources=['bard/audiofile/audiofile.cpp',
+                                    'bard/audiofile/bufferaviocontext.cpp',
+                                    'bard/audiofile/bufferdecodeoutput.cpp',
+                                    'bard/audiofile/decodeoutput.cpp',
+                                    'bard/audiofile/filedecodeoutput.cpp',
+                                    'bard/audiofile/referencedata.cpp',
+                                    'bard/audiofile/pyaudiofile.cpp'],
+                           extra_compile_args=['-std=gnu++17', '-Ofast',
+                                               '-march=native',
+                                               '-mtune=native',
+                                               '-funroll-loops'])
 setup(
     name="bard",
     version="0.2.0",
@@ -47,5 +68,5 @@ setup(
                  ['config/bard', 'README.md'])],
     scripts=["scripts/bard"],
     license="GPL-3.0-only AND MIT",
-    ext_modules=[bard_ext]
+    ext_modules=[bard_ext, bard_audiofile]
 )

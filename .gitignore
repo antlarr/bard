@@ -92,3 +92,4 @@ ENV/
 
 /bard/dump
 /gui/
+/bard/audiofile/tests

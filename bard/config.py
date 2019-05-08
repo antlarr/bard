@@ -36,6 +36,7 @@ def addDefaultValues(config):
         'use_ssl': False,
         'sslCertificateKeyFile': '~/.config/bard/certs/server.key',
         'sslCertificateChainFile': '~/.config/bard/certs/cert.pem',
+        'enable_internal_checks': False,
     }
 
     for key, value in defaults.items():

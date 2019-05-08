@@ -1,21 +1,20 @@
 # -*- coding: utf-8 -*-
 
 from bard.config import config, translatePath
-from bard.utils import md5, calculateAudioTrackSHA256_audioread, \
-    extractFrontCover, md5FromData, calculateFileSHA256, manualAudioCmp, \
-    printDictsDiff, printPropertiesDiff, calculateSHA256_data, \
-    detect_silence_at_beginning_and_end
+from bard.utils import extractFrontCover, md5FromData, \
+    calculateFileSHA256, manualAudioCmp, \
+    calculateSHA256_data, \
+    detect_silence_at_beginning_and_end, \
+    audioSegmentFromDataProperties, decodeAudio
 from bard.musicdatabase import MusicDatabase
 from bard.normalizetags import getTag
 from bard.ffprobemetadata import FFProbeMetadata
+from bard.terminalcolors import TerminalColors
 from pydub import AudioSegment
 from sqlalchemy import text
 import sqlite3
 import os
 import shutil
-import random
-import subprocess
-from PIL import Image
 import acoustid
 import mutagen
 
@@ -87,6 +86,8 @@ class Song:
         """Create a Song oject."""
         self.tags = {}
         Song.ratings = None
+        self.fingerprint = None
+        self._decode_properties = None
         if type(x) == sqlite3.Row or \
            hasattr(x, 'keys'):
             self.id = x['id']
@@ -133,43 +134,6 @@ class Song:
          self._silenceAtStart, self._silenceAtEnd) = \
             MusicDatabase.getSongProperties(self.id)
 
-    def loadCoverImageData(self, path):
-        self._coverWidth, self._coverHeight = 0, 0
-        self._coverMD5 = ''
-        random_number = random.randint(0, 100000)
-        coverfilename = os.path.join(config['tmpdir'],
-                                     '/cover-%d.jpg' % random_number)
-
-        MusicDatabase.addCover(path, coverfilename)
-        # c = self.conn.cursor()
-
-        # values = [ ( path, coverfilename), ]
-        # c.executemany('''INSERT INTO covers(path, cover) VALUES (?,?)''',
-        #               values)
-        command = ['ffmpeg', '-i', path, '-map', '0:m:comment:Cover (front)',
-                   '-c', 'copy', coverfilename]
-
-        process = subprocess.run(command, stdout=subprocess.DEVNULL,
-                                 stderr=subprocess.DEVNULL)
-        if process.returncode != 0:
-            # try with any image in the file
-            process = subprocess.run(['ffmpeg', '-i', path, '-c', 'copy',
-                                      coverfilename],
-                                     stdout=subprocess.DEVNULL,
-                                     stderr=subprocess.DEVNULL)
-            if process.returncode != 0:
-                return
-
-        try:
-            image = Image.open(coverfilename)
-            self._coverWidth, self._coverHeight = image.size
-            self._coverMD5 = md5(coverfilename)
-        except IOError:
-            print('Error reading cover file from %s' % path)
-            return
-
-        os.unlink(coverfilename)
-
     def getAcoustidFingerprint(self):
         fp = acoustid.fingerprint_file(self._path)
         return fp[1]
@@ -184,7 +148,8 @@ class Song:
             # else:
             #     self.metadata = mutagen.File(path, easy=True)
         except mutagen.mp3.HeaderNotFoundError as e:
-            print("Error reading %s:" % path, e)
+            print(TerminalColors.Error + "Error" + TerminalColors.ENDC +
+                  " reading %s:" % path, e)
             raise
 
         if not self.metadata:
@@ -205,12 +170,50 @@ class Song:
             mutagen.musepack.Musepack: 'mpc', }
         self._format = formattext[type(self.metadata)]
 
+        audiodata, properties = decodeAudio(path)
+
+        self._audioSha256sum = calculateSHA256_data(audiodata)
+
+        self._decode_properties = properties
+
+        if properties.messages:
+            print('\n'.join([str(x) for x in properties.messages]))
+
+        if not getattr(self.metadata.info, 'bits_per_sample', None):
+            self.metadata.info.bits_per_sample = properties.decoded_bytes_per_sample * 8
+
+        if not getattr(self.metadata.info, 'bitrate', None):
+            self.metadata.info.bitrate = (properties.stream_bitrate or
+                                          properties.container_bitrate)
+
+        if config['enable_internal_checks']:
+            ffprobe_metadata = FFProbeMetadata(self.path())
+            try:
+                tmp_bits = int(ffprobe_metadata[
+                               'streams.stream.0.bits_per_raw_sample'])
+            except ValueError:
+                print("ffprobe doesn't provide bits per sample")
+            else:
+                if self.metadata.info.bits_per_sample != tmp_bits:
+                    msg = ('bits_per_sample different! '
+                           'ffprobe: %d != bard_audiofile: %d' %
+                           (tmp_bits, self.metadata.info.bits_per_sample))
+                    raise Exception(msg)
+            tmp_bitrate = int(ffprobe_metadata['format.bit_rate'])
+            if (properties.stream_bitrate != tmp_bitrate and
+                    properties.container_bitrate != tmp_bitrate):
+                msg = ('bit_rate different! ffprobe: %d != bard_audiofile: %d'
+                       % (tmp_bitrate or 0, properties.bitrate or 0))
+                raise Exception(msg)
+            print('ffprobe check ' +
+                  TerminalColors.Ok + 'OK' + TerminalColors.ENDC)
+
         try:
-            audio_segment = AudioSegment.from_file(path)
-        except:
-            print('Error processing:', path)
+            audio_segment = audioSegmentFromDataProperties(audiodata,
+                                                           properties)
+        except ValueError as exc:
+            print(f'Error processing {fileinfo}: {exc}')
             raise
-        self._audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
 
         thr = Song.silence_threshold
         minlen = Song.min_silence_length
@@ -222,7 +225,6 @@ class Song:
             self._silenceAtStart = (silence1[1] - silence1[0]) / 1000
             self._silenceAtEnd = (silence2[1] - silence2[0]) / 1000
 
-#        self.loadCoverImageData(path)
         try:
             image = extractFrontCover(self.metadata)
         except OSError:
@@ -230,15 +232,16 @@ class Song:
             raise
 
         if image:
-            (image, data) = image
+            (image, imagedata) = image
             self._coverWidth = image.width
             self._coverHeight = image.height
-            self._coverMD5 = md5FromData(data)
+            self._coverMD5 = md5FromData(imagedata)
 
         self._mtime = os.path.getmtime(path)
         self._fileSha256sum = calculateFileSHA256(path)
 
-        self.fingerprint = self.getAcoustidFingerprint()
+        self.fingerprint = self.getAcoustidFingerprint_data(audiodata,
+                                                            properties)
 
         self.isValid = True
 
@@ -501,6 +504,17 @@ class Song:
             self.extractMetadataWithFFProbe()
             return self.metadata.info.bitrate
 
+    def loadDecodeProperties(self):
+        if getattr(self, 'decode_properties', None) is not None:
+            return
+
+        self._decode_properties = \
+            MusicDatabase.getSongDecodeProperties(self.id)
+
+    def decode_properties(self):
+        self.loadDecodeProperties()
+        return self._decode_properties
+
     def bits_per_sample(self):
         self.loadMetadataInfo()
         try:
@@ -654,6 +668,14 @@ class Song:
             return None
 
         return image
+
+    def fileExists(self):
+        if not os.path.exists(self.path()):
+            if os.path.lexists(self.path()):
+                print('Broken symlink at %s' % self.path())
+            else:
+                return False
+        return True
 
     def __repr__(self):
         self.loadMetadataInfo()
