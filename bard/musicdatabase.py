@@ -164,6 +164,7 @@ class MusicDatabase:
             database = config['database']
         except KeyError:
             database = 'sqlite'
+        self.database = database
 
         if database == 'postgresql':
             name = config['database_name']
@@ -209,12 +210,16 @@ class MusicDatabase:
             print("Error: Can't create database: "
                   "The database is configured as immutable")
             return
+        if self.database == 'postgresql':
+            serial_primary_key = 'SERIAL PRIMARY KEY'
+        else:
+            serial_primary_key = 'INTEGER PRIMARY KEY AUTOINCREMENT'
         c = MusicDatabase.getCursor()
-        c.execute('''
+        c.execute(f'''
 CREATE TABLE songs (
-                    id INTEGER PRIMARY KEY ASC AUTOINCREMENT,
+                    id {serial_primary_key},
                     root TEXT,
-                    path TEXT,
+                    path TEXT UNIQUE,
                     filename TEXT,
                     mtime NUMERIC(20,8),
                     title TEXT,
@@ -411,6 +416,26 @@ CREATE TABLE similarities(
                   FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE,
                   FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
                   )''')
+        c.execute(f'''
+ CREATE TABLE songs_history (
+                  id {serial_primary_key},
+                  song_id INTEGER,
+                  path TEXT,
+                  mtime NUMERIC(20,8),
+                  song_insert_time TIMESTAMP,
+                  removed BOOLEAN DEFAULT FALSE,
+                  sha256sum TEXT NOT NULL,
+                  last_check_time TIMESTAMP,
+                  duration REAL,
+                  bitrate INTEGER,
+                  audio_sha256sum TEXT NOT NULL,
+                  description TEXT,
+                  insert_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                  )''')
+        c.execute('CREATE INDEX songs_history_song_id_idx '
+                  ' ON songs_history (song_id)')
+        c.execute('CREATE INDEX songs_history_path_idx '
+                  ' ON songs_history (path)')
 
     @staticmethod
     def addSong(song):
@@ -445,13 +470,19 @@ CREATE TABLE similarities(
 
         if songID:  # song is already in db, we have to update it
             song.id = songID[0]
-            print('Updating song %s' % song.path())
-            sql = ('UPDATE songs SET mtime=:mtime, title=:title, '
+            if MusicDatabase.checkChangesForSongHistoryEntry(song):
+                MusicDatabase.createSongHistoryEntry(song.id)
+
+            values['id'] = song.id
+            # print('Updating song in database')
+            sql = ('UPDATE songs SET root=:root, filename=:filename, '
+                   'mtime=:mtime, title=:title, '
                    'artist=:artist, album=:album, albumArtist=:albumartist, '
                    'track=:track, date=:date, genre=:genre, '
                    'discNumber=:discnumber, coverWidth=:coverwidth, '
                    'coverHeight=:coverheight, coverMD5=:covermd5, '
-                   'completeness=:completeness WHERE path = :path')
+                   'completeness=:completeness, update_time=CURRENT_TIMESTAMP '
+                   'WHERE id = :id')
 
             c.execute(text(sql).bindparams(**values))
 
@@ -655,12 +686,14 @@ CREATE TABLE similarities(
             print("Error: Can't remove song %d from DB: "
                   "The database is configured as immutable" % song.id)
             return
+        if song and not byID:
+            byID = song.id
+        MusicDatabase.createSongHistoryEntry(byID, removed=True)
+
         c = MusicDatabase.getCursor()
         if song:
             sql = text('DELETE FROM covers where path = :path')
             c.execute(sql.bindparams(path=song.path()))
-        if song and not byID:
-            byID = song.id
         params = {'id': byID}
         c.execute('DELETE FROM checksums where song_id=:id', params)
         c.execute('DELETE FROM fingerprints where song_id=:id', params)
@@ -1010,6 +1043,71 @@ or name {like} '%%MusicBrainz/Track Id'""")
                                        id=songid))
 
     @staticmethod
+    def addSongDecodeProperties(songid, properties):
+        if config['immutableDatabase']:
+            print("Error: Can't add decode properties: "
+                  "The database is configured as immutable")
+            return
+        c = MusicDatabase.getCursor()
+
+        values = {'codec': CodecEnum.id_value(properties.codec),
+                  'format': FormatEnum.id_value(properties.format),
+                  'container_duration': properties.container_duration,
+                  'decoded_duration': properties.decoded_duration,
+                  'container_bitrate': properties.container_bitrate,
+                  'stream_bitrate': properties.stream_bitrate,
+                  'stream_sample_format':
+                  SampleFormatEnum.id_value(properties.stream_sample_format),
+                  'stream_bits_per_raw_sample':
+                  properties.stream_bits_per_raw_sample,
+                  'decoded_sample_format':
+                  SampleFormatEnum.id_value(properties.decoded_sample_format),
+                  'samples': properties.samples,
+                  'library_versions':
+                  LibraryVersionsEnum.id_value(properties.library_versions),
+                  'id': songid}
+        sql = ('UPDATE decode_properties SET codec=:codec, '
+               'format=:format, container_duration=:container_duration, '
+               'decoded_duration=:decoded_duration, '
+               'container_bitrate=:container_bitrate, '
+               'stream_bitrate=:stream_bitrate, '
+               'stream_sample_format=:stream_sample_format, '
+               'stream_bits_per_raw_sample=:stream_bits_per_raw_sample, '
+               'decoded_sample_format=:decoded_sample_format, '
+               'samples=:samples, '
+               'library_versions=:library_versions '
+               'WHERE song_id=:id')
+        result = c.execute(text(sql).bindparams(**values))
+        if result.rowcount == 0:
+            sql = ('INSERT INTO decode_properties(song_id, codec, '
+                   'format, container_duration, decoded_duration, '
+                   'container_bitrate, stream_bitrate, stream_sample_format, '
+                   'stream_bits_per_raw_sample, decoded_sample_format, '
+                   'samples, library_versions) VALUES (:id,:codec,'
+                   ':format, :container_duration, :decoded_duration, '
+                   ':container_bitrate, :stream_bitrate, '
+                   ':stream_sample_format, :stream_bits_per_raw_sample, '
+                   ':decoded_sample_format, :samples, :library_versions)')
+            c.execute(text(sql).bindparams(**values))
+
+        values = {'id': songid}
+        sql = 'DELETE from decode_messages where song_id = :id'
+        c.execute(text(sql).bindparams(**values))
+
+        tags = extractDecodeMessagesList(songid, properties.messages)
+
+        if tags:
+            sql = ('INSERT INTO decode_messages(song_id, time_position, '
+                   'level, message, pos) VALUES (:id,:time_position,'
+                   ':level,:message,:pos)')
+            try:
+                c.execute(text(sql), tags)
+            except ValueError:
+                c.rollback()
+                print(sql, tags)
+                raise
+
+    @staticmethod
     def addAudioSilences(songid, silence_at_start, silence_at_end):
         if config['immutableDatabase']:
             print("Error: Can't set song silences: "
@@ -1195,3 +1293,54 @@ or name {like} '%%MusicBrainz/Track Id'""")
         c = MusicDatabase.getCursor()
         result = c.execute(sql)
         return [x[0] for x in result.fetchall()]
+
+    @staticmethod
+    def createSongHistoryEntry(songID, removed=False, description=None,
+                               sha256sum=None, audio_sha256sum=None):
+        values = {'id': songID,
+                  'removed': removed,
+                  'description': description}
+        if sha256sum:
+            sha256sum_ref = ':sha256sum'
+            values['sha256sum'] = sha256sum
+        else:
+            sha256sum_ref = 'checksums.sha256sum'
+
+        if audio_sha256sum:
+            audio_sha256sum_ref = ':audio_sha256sum'
+            values['audio_sha256sum'] = audio_sha256sum
+        else:
+            audio_sha256sum_ref = 'properties.audio_sha256sum'
+        sql = ('INSERT INTO songs_history (song_id, path, mtime, '
+               'song_insert_time, removed, sha256sum, '
+               'last_check_time, duration, '
+               'bitrate, audio_sha256sum, description) '
+               '(SELECT songs.id, songs.path, songs.mtime, '
+               f'songs.insert_time, :removed, {sha256sum_ref}, '
+               'checksums.last_check_time, properties.duration, '
+               f'properties.bitrate, {audio_sha256sum_ref}, :description '
+               'FROM songs, checksums, properties '
+               'WHERE songs.id = :id AND '
+               'songs.id=checksums.song_id AND songs.id=properties.song_id)')
+        c = MusicDatabase.getCursor()
+        result = c.execute(text(sql).bindparams(**values))
+        return result.rowcount == 1
+
+    @staticmethod
+    def checkChangesForSongHistoryEntry(song):
+        sql = ('SELECT songs.id, songs.path, songs.mtime, '
+               'checksums.sha256sum, '
+               'properties.duration, '
+               'properties.bitrate, properties.audio_sha256sum '
+               'FROM songs, checksums, properties '
+               'WHERE songs.id = :id AND '
+               'songs.id=checksums.song_id AND songs.id=properties.song_id')
+        c = MusicDatabase.getCursor()
+        result = c.execute(text(sql).bindparams(id=song.id))
+        x = result.fetchone()
+        return (x.path != song.path() or
+                float(x.mtime) != song.mtime() or
+                x.sha256sum != song.fileSha256sum() or
+                x.duration != song.duration() or
+                x.bitrate != song.bitrate() or
+                x.audio_sha256sum != song.audioSha256sum())
