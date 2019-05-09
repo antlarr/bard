@@ -29,7 +29,7 @@ def fixEncoding(s):
 class FFProbeMetadata(dict):
 
     def __init__(self, path):
-        print('Using ffprobe!', path)
+        # print('Using ffprobe!', path)
         try:
             # ffprobe -v error -select_streams a:0 -show_format -show_streams -of flat -i file
             output = subprocess.check_output(['ffprobe', '-v', 'error',
@@ -61,7 +61,7 @@ class FFProbeMetadata(dict):
             raise
 
     def parseFFProbeOutput(self, output):
-        print(output)
+        # print(output)
         for line in output.split(b'\n'):
             try:
                 s = line.decode('utf-8')
