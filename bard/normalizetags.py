@@ -246,6 +246,8 @@ def normalizeTagValue(obj, mutagenFile, tag, removeBinaryData=False):
     if isinstance(obj, mutagen.apev2.APETextValue):
         splitted = [x for x in str(obj).split('\x00') if x]
         if len(splitted) == 1:
+            if tag in ('tracknumber', 'discnumber'):
+                return splitted[0].split('/')[0]
             return splitted[0]
         return splitted
 
@@ -276,7 +278,8 @@ def normalizeTagValue(obj, mutagenFile, tag, removeBinaryData=False):
 
     if isinstance(obj, (mutagen.id3.TCON, mutagen.id3.TPUB, mutagen.id3.TSRC,
                         mutagen.id3.TSOC, mutagen.id3.TCOM, mutagen.id3.TEXT,
-                        mutagen.id3.TPE3, mutagen.id3.TPE4, mutagen.id3.TLAN)):
+                        mutagen.id3.TPE3, mutagen.id3.TPE4, mutagen.id3.TLAN,
+                        mutagen.id3.TMOO)):
         return obj.text
 
     if isinstance(obj, (mutagen.id3.TMCL, mutagen.id3.TIPL)):
@@ -308,6 +311,9 @@ def normalizeTagValue(obj, mutagenFile, tag, removeBinaryData=False):
 
     if isinstance(obj, mutagen.id3.Frame):
         return str(obj)
+
+    if isinstance(obj, str):
+        obj = obj.strip('\x00')
 
     try:
         func = tagFilter[type(mutagenFile)][tag]
