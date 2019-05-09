@@ -11,6 +11,7 @@ from bard.normalizetags import getTag
 from bard.ffprobemetadata import FFProbeMetadata
 from bard.terminalcolors import TerminalColors
 from pydub import AudioSegment
+from pydub.exceptions import PydubException
 from sqlalchemy import text
 import sqlite3
 import os
@@ -93,7 +94,7 @@ class Song:
     silence_threshold = -67
     min_silence_length = 10
 
-    def __init__(self, x, rootDir=None):
+    def __init__(self, x, rootDir=None, data=None):
         """Create a Song oject."""
         self.tags = {}
         Song.ratings = None
@@ -113,8 +114,12 @@ class Song:
             return
         self.isValid = False
         self._root = rootDir or ''
-        self._path = os.path.normpath(x)
-        self.loadFile(x)
+        if data:
+            self._path = None
+            self.loadFile(data)
+        else:
+            self._path = os.path.normpath(x)
+            self.loadFile(x)
 
     def hasID(self):
         try:
@@ -146,26 +151,44 @@ class Song:
             MusicDatabase.getSongProperties(self.id)
 
     def getAcoustidFingerprint(self):
+        if self.fingerprint:
+            return self.fingerprint
+        if not self._path:
+            return None
+        print(f'Calculating fingerprint of {self._path}')
         fp = acoustid.fingerprint_file(self._path)
         return fp[1]
 
-    def loadFile(self, path):
+    def getAcoustidFingerprint_data(self, audiodata, properties):
+        # print(properties)
+        # prop = properties[1]
+        # fp = acoustid.fingerprint(prop.sample_rate, prop.channels,
+        #                           (audiodata,))
+        fp = acoustid.fingerprint(properties.sample_rate, properties.channels,
+                                  (audiodata,))
+        return fp
+
+    def loadFile(self, filething):
+        fileinfo = filething if isinstance(filething, str) \
+            else 'file-like object'
+        if hasattr(filething, 'seek'):
+            filething.seek(0)
         try:
             # if path.lower().endswith('.ape') or
             #    path.lower().endswith('.wma') or
             #    path.lower().endswith('.m4a') or
             #    path.lower().endswith('.mp3'):
-            self.metadata = mutagen.File(path)
+            self.metadata = mutagen.File(filething)
             # else:
-            #     self.metadata = mutagen.File(path, easy=True)
+            #     self.metadata = mutagen.File(filething, easy=True)
         except mutagen.mp3.HeaderNotFoundError as e:
             print(TerminalColors.Error + "Error" + TerminalColors.ENDC +
-                  " reading %s:" % path, e)
+                  " reading %s:" % filething, e)
             raise
 
         if not self.metadata:
             print("No metadata found for %s : "
-                  "This will probably cause problems" % path)
+                  "This will probably cause problems" % filething)
 
         formattext = {
             mutagen.mp3.EasyMP3: 'mp3',
@@ -181,7 +204,31 @@ class Song:
             mutagen.musepack.Musepack: 'mpc', }
         self._format = formattext[type(self.metadata)]
 
-        audiodata, properties = decodeAudio(path)
+        # try:
+        #    if hasattr(filething, 'seek'):
+        #        filething.seek(0)
+        #        # Workaround for pydub closing filething
+        #        #backup = filething.close
+        #        #filething.close = lambda: None
+        #
+        #    audio_segment = AudioSegment.from_file(filething)
+        #
+        #    #if hasattr(filething, 'seek'):
+        #    #    filething.close = backup
+        # except:
+        #    print('Error processing:', fileinfo)
+        #    raise
+        # self._audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
+        # if hasattr(filething, 'seek'):
+        #     filething.seek(0)
+        # try:
+        #     self._audioSha256sum, audiodata, properties = \
+        #         calculateAudioTrackSHA256_pyav(filething)
+        # except ValueError as exc:
+        #     print(f'Error processing {fileinfo}: {exc}')
+        #     raise
+
+        audiodata, properties = decodeAudio(filething)
 
         self._audioSha256sum = calculateSHA256_data(audiodata)
 
@@ -239,7 +286,7 @@ class Song:
         try:
             image = extractFrontCover(self.metadata)
         except OSError:
-            print('Error extracting image from %s' % path)
+            print('Error extracting image from %s' % fileinfo)
             raise
 
         if image:
@@ -248,8 +295,11 @@ class Song:
             self._coverHeight = image.height
             self._coverMD5 = md5FromData(imagedata)
 
-        self._mtime = os.path.getmtime(path)
-        self._fileSha256sum = calculateFileSHA256(path)
+        try:
+            self._mtime = os.path.getmtime(filething)
+        except TypeError:
+            self._mtime = None
+        self._fileSha256sum = calculateFileSHA256(filething)
 
         self.fingerprint = self.getAcoustidFingerprint_data(audiodata,
                                                             properties)
@@ -273,6 +323,8 @@ class Song:
         return self._root
 
     def path(self):
+        if not self._path:
+            return ''
         return translatePath(self._path)
 
     def filename(self):
@@ -646,8 +698,8 @@ class Song:
     def calculateSilences(self, threshold=None, min_length=None):
         try:
             audio_segment = AudioSegment.from_file(self.path())
-        except:
-            print('Error processing:', self.path())
+        except PydubException as exc:
+            print('Error processing:', self.path(), ':', exc)
             raise
         self._audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
         thr = threshold or Song.silence_threshold
