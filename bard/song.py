@@ -39,38 +39,49 @@ class Ratings:
     def __init__(self):
         """Create a Ratings object with ALL ratings from all users/songs."""
         c = MusicDatabase.getCursor()
-        sql = 'SELECT user_id, song_id, rating FROM ratings'
+        sql = 'SELECT user_id, song_id, autorating, userrating FROM ratings'
         result = c.execute(sql)
-        self.ratings = {}
-        for user_id, song_id, rating in result.fetchall():
-            try:
-                self.ratings[user_id][song_id] = rating
-            except KeyError:
-                self.ratings[user_id] = {}
-                self.ratings[user_id][song_id] = rating
+        self.user_ratings = {}
+        self.auto_ratings = {}
+        for user_id, song_id, autorating, userrating in result.fetchall():
+            if userrating:
+                try:
+                    self.user_ratings[user_id][song_id] = userrating
+                except KeyError:
+                    self.user_ratings[user_id] = {}
+                    self.user_ratings[user_id][song_id] = userrating
+            if autorating:
+                try:
+                    self.auto_ratings[user_id][song_id] = autorating
+                except KeyError:
+                    self.auto_ratings[user_id] = {}
+                    self.auto_ratings[user_id][song_id] = autorating
 
     def getSongRatings(self, user_id, song_id):
         try:
-            return self.ratings[user_id][song_id]
+            return self.user_ratings[user_id][song_id]
         except KeyError:
-            return 5
+            try:
+                return self.auto_ratings[user_id][song_id]
+            except KeyError:
+                return 5
 
-    def setSongRating(self, user_id, song_id, rating):
+    def setSongUserRating(self, user_id, song_id, rating):
         try:
-            self.ratings[user_id][song_id] = rating
+            self.user_ratings[user_id][song_id] = rating
         except KeyError:
-            self.ratings[user_id] = {}
-            self.ratings[user_id][song_id] = rating
+            self.user_ratings[user_id] = {}
+            self.user_ratings[user_id][song_id] = rating
 
         c = MusicDatabase.getCursor()
-        sql = ('UPDATE ratings set rating = :rating '
+        sql = ('UPDATE ratings set userrating = :rating '
                'WHERE user_id = :user_id AND song_id = :song_id')
         sql = text(sql).bindparams(rating=rating, user_id=user_id,
                                    song_id=song_id)
         result = c.execute(sql)
         if result.rowcount == 0:
             sql = ('INSERT INTO ratings '
-                   '(user_id, song_id, rating) '
+                   '(user_id, song_id, userrating) '
                    'VALUES (:user_id,:song_id,:rating)')
             sql = text(sql).bindparams(rating=rating, user_id=user_id,
                                        song_id=song_id)
@@ -630,7 +641,7 @@ class Song:
     def setUserRating(self, rating, user_id=0):
         if not Song.ratings:
             Song.ratings = Ratings()
-        return Song.ratings.setSongRating(user_id, self.id, rating)
+        return Song.ratings.setSongUserRating(user_id, self.id, rating)
 
     def calculateSilences(self, threshold=None, min_length=None):
         try:

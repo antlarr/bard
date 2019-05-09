@@ -411,7 +411,8 @@ CREATE TABLE similarities(
  CREATE TABLE ratings (
                   user_id INTEGER,
                   song_id INTEGER,
-                  rating INTEGER,
+                  userrating INTEGER,
+                  autorating INTEGER,
                   UNIQUE(user_id, song_id),
                   FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE,
                   FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
