@@ -849,6 +849,7 @@ class Bard:
         result = c.execute(text(sql))
         incremental_song_ids_to_compare = []
         delete_not_found_similarities = bool(songs)
+        start_time = None
 
         # We iterate over all songs
         # The normal workflow is:
@@ -868,7 +869,7 @@ class Bard:
         # database.
         for (songID, fingerprint, sha256sum, audioSha256sum, path,
                 completeness, duration) in result.fetchall():
-            # print('.', songID,  end='', flush=True)
+            # print('.', songID, end='', flush=True)
             dfp = chromaprint.decode_fingerprint(fingerprint.tobytes())
             if not dfp[0]:
                 print("Error calculating fingerprint of song %s (%s)" %
@@ -916,8 +917,7 @@ class Bard:
                     MusicDatabase.removeSongsSimilarity(x, songID)
 
             for (songID2, offset, similarity) in result:
-                match = '*******' if (not verbose and
-                                      similarity > matchThreshold) else ''
+                match = '*******' if similarity > matchThreshold else ''
                 if delete_not_found_similarities:
                     print('\b' * len(percentage), end='')
                 if verbose or similarity > matchThreshold:
@@ -954,23 +954,26 @@ class Bard:
             info[songID] = (sha256sum, audioSha256sum, path, completeness)
             if result:
                 MusicDatabase.commit()
-                if print_stats:
-                    delta_time = time.time() - start_time
-                    speeds = (speeds[{True: 1, False: 0}[len(speeds) >= 20]:] +
-                              [len(info) / delta_time])
-                    avg = numpy.mean(speeds)
+            elif start_time:
+                print(f'No match found for song {songID}: {path}')
 
-                    s = summation(songs_processed, totalSongsCount - 1) / avg
-                    d = datetime.timedelta(seconds=s)
-                    now = datetime.datetime.now()
+            if print_stats and start_time:
+                delta_time = time.time() - start_time
+                speeds = (speeds[{True: 1, False: 0}[len(speeds) >= 20]:] +
+                          [len(info) / delta_time])
+                avg = numpy.mean(speeds)
 
-                    if delete_not_found_similarities:
-                        print('\b' * len(percentage), end='')
-                    print('Stats: %0.3f seconds in evaluating %d/%d songs '
-                          '%0.3f songs/s (avg: %0.3f, songs left: %d, '
-                          'estimated end at: %s)' %
-                          (delta_time, len(info), totalSongsCount, speeds[-1],
-                           avg, totalSongsCount - songs_processed, now + d))
+                s = summation(songs_processed, totalSongsCount - 1) / avg
+                d = datetime.timedelta(seconds=s)
+                now = datetime.datetime.now()
+
+                if delete_not_found_similarities:
+                    print('\b' * len(percentage), end='')
+                print('Stats: %0.3f seconds in evaluating %d/%d songs '
+                      '%0.3f songs/s (avg: %0.3f, songs left: %d, '
+                      'estimated end at: %s)' %
+                      (delta_time, len(info), totalSongsCount, speeds[-1],
+                       avg, totalSongsCount - songs_processed, now + d))
 
         if delete_not_found_similarities:
             print(('\b' * len(percentage)) + '100% . Done')
