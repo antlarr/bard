@@ -245,6 +245,19 @@ class Song:
 
         self.isValid = True
 
+    def moveFrom(self, prevSong):
+        """Move prevSong to the location and values of self."""
+        print(f'Moving song from %d, %s to %s' % (prevSong.id, prevSong.path(),
+                                                  self.path()))
+        if not self._path:
+            return False
+        r = MusicDatabase.moveSong(prevSong.id, self._path, self._root)
+        if r:
+            self.id = prevSong.id
+            prevSong._path = self._path
+            prevSong._root = self._root
+        return r
+
     def root(self):
         return self._root
 
@@ -307,16 +320,21 @@ class Song:
                        other.durationWithoutSilences())
         if len_diff > 30:
             raise DifferentLengthException(
-                'Songs duration is too different (%f and %f seconds / %f and %f seconds)'
-                % (self.durationWithoutSilences(), other.durationWithoutSilences(),
-                   self.metadata.info.length, other.metadata.info.length))
+                'Songs duration is too different (%f and %f seconds / '
+                '%f and %f seconds)' % (self.durationWithoutSilences(),
+                                        other.durationWithoutSilences(),
+                                        self.metadata.info.length,
+                                        other.metadata.info.length))
 
         if len_diff > 5:
-            # print(self.duration(), self.durationWithoutSilences(), self.silenceAtStart(), self.silenceAtEnd())
+            # print(self.duration(), self.durationWithoutSilences(),
+            #       self.silenceAtStart(), self.silenceAtEnd())
             raise SlightlyDifferentLengthException(
-                'Songs duration is slightly different (%f and %f seconds / %f and %f seconds)'
-                % (self.durationWithoutSilences(), other.durationWithoutSilences(),
-                   self.metadata.info.length, other.metadata.info.length))
+                'Songs duration is slightly different (%f and %f seconds / '
+                '%f and %f seconds)' % (self.durationWithoutSilences(),
+                                        other.durationWithoutSilences(),
+                                        self.metadata.info.length,
+                                        other.metadata.info.length))
 
         if not forceInteractive:
             if self.isLossless() and not other.isLossless():
@@ -354,7 +372,7 @@ class Song:
 #        if other.completeness > self.completeness:
 #            return 1
 
-            if oi.bitrate//1000 == si.bitrate//1000 \
+            if oi.bitrate // 1000 == si.bitrate // 1000 \
                and ((sbps and obps and obps == sbps) or
                     (not sbps and not obps)) \
                and oi.channels == si.channels:
@@ -525,7 +543,7 @@ class Song:
 
     def extractMetadataWithFFProbe(self):
         ffprobe_metadata = FFProbeMetadata(self.path())
-        print(ffprobe_metadata)
+        # print(ffprobe_metadata)
 
         if not getattr(self.metadata.info, 'bits_per_sample', None):
             tmp = ffprobe_metadata['streams.stream.0.bits_per_raw_sample']

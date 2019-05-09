@@ -1327,6 +1327,15 @@ or name {like} '%%MusicBrainz/Track Id'""")
         return result.rowcount == 1
 
     @staticmethod
+    def moveSong(songID, newPath, newRoot):
+        MusicDatabase.createSongHistoryEntry(songID)
+        sql = 'update songs set path=:newPath, root=:newRoot where id=:id'
+        c = MusicDatabase.getCursor()
+        result = c.execute(text(sql).bindparams(id=songID,
+                           newPath=newPath, newRoot=newRoot))
+        return result.rowcount == 1
+
+    @staticmethod
     def checkChangesForSongHistoryEntry(song):
         sql = ('SELECT songs.id, songs.path, songs.mtime, '
                'checksums.sha256sum, '

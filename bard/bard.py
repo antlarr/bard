@@ -276,19 +276,35 @@ class Bard:
         print("Couldn't find song in database:", path)
         return []
 
-    def addSong(self, path):
+    def addSong(self, path, rootDir=None, removedSongsAudioSHA256={},
+                commit=True, verbose=False):
         if config['immutableDatabase']:
             print("Error: Can't add song %s : "
                   "The database is configured as immutable" % path)
             return
-        song = Song(path)
+        if MusicDatabase.isSongInDatabase(path):
+            if verbose:
+                print('Already in db: %s' % path)
+            return
+        print(f'Adding song {path}')
+        song = Song(path, rootDir=rootDir)
         if not song.isValid:
-            print('Song %s is not valid' % path)
-            sys.exit(1)
-        MusicDatabase.addSong(song)
-        MusicDatabase.commit()
+            msg = f'Song {path} is not valid'
+            raise Exception(msg)
 
-    def addDirectoryRecursively(self, directory, verbose=False):
+        try:
+            removedSong = removedSongsAudioSHA256[song.audioSha256sum()]
+        except KeyError:
+            pass
+        else:
+            song.moveFrom(removedSong)
+        MusicDatabase.addSong(song)
+
+        if commit:
+            MusicDatabase.commit()
+
+    def addDirectoryRecursively(self, directory, verbose=False,
+                                removedSongsAudioSHA256={}):
         if config['immutableDatabase']:
             print("Error: Can't add directory %s : "
                   "The database is configured as immutable" % directory)
@@ -304,15 +320,9 @@ class Bard:
                     continue
 
                 path = os.path.join(dirpath, filename)
-                if MusicDatabase.isSongInDatabase(path):
-                    if verbose:
-                        print('Already in db: %s' % filename)
-                    continue
-                song = Song(path, rootDir=directory)
-                if not song.isValid:
-                    print('Skipping: %s' % filename)
-                    continue
-                MusicDatabase.addSong(song)
+                self.addSong(path, rootDir=directory,
+                             removedSongsAudioSHA256=removedSongsAudioSHA256,
+                             commit=False, verbose=verbose)
             MusicDatabase.commit()
 
             for excludeDir in self.excludeDirectories:
@@ -321,13 +331,33 @@ class Bard:
                 except ValueError:
                     pass
 
-    def add(self, args, verbose=False):
+    def add(self, args, verbose=False, removedSongsAudioSHA256={}):
         for arg in args:
             if os.path.isfile(arg):
-                self.addSong(os.path.normpath(arg))
+                self.addSong(os.path.normpath(arg),
+                             removedSongsAudioSHA256=removedSongsAudioSHA256)
 
             elif os.path.isdir(arg):
-                self.addDirectoryRecursively(os.path.normpath(arg), verbose)
+                self.addDirectoryRecursively(os.path.normpath(arg), verbose,
+                                             removedSongsAudioSHA256)
+
+    def update(self, paths, verbose=False):
+        removedSongs = []
+
+        def storeRemovedSongs(song):
+            removedSongs.append(song)
+
+        self.checkSongsExistenceInPaths(paths, verbose=verbose,
+                                        callback=storeRemovedSongs)
+        removedSongsAudioSHA256 = {song.audioSha256sum(): song
+                                   for song in removedSongs}
+        self.add(paths, verbose=verbose,
+                 removedSongsAudioSHA256=removedSongsAudioSHA256)
+
+        for song in removedSongs:
+            if not song.fileExists():
+                print('Removing song', song.path())
+                self.db.removeSong(song)
 
     def info(self, ids_or_paths, currentlyPlaying=False):
         songs = []
@@ -594,37 +624,24 @@ class Bard:
 #                print('%s already fixed' % song.path())
         MusicDatabase.commit()
 
-    def checkSongsExistenceInPath(self, path, verbose=False):
-        collection = self.getSongsAtPath(path)
-        count = 0
-        for song in collection:
-            if not os.path.exists(song.path()):
-                if os.path.lexists(song.path()):
-                    print('Broken symlink at %s' % song.path())
-                else:
-                    print('Removing song %s from DB: File not found' %
-                          song.path())
-                    self.db.removeSong(song)
-                continue
+    def checkSongsExistenceInPath(self, song, callback=None):
+        if not os.path.exists(song.path()):
+            if os.path.lexists(song.path()):
+                print('Broken symlink at %s' % song.path())
+            else:
+                print('File not found: %s' % song.path())
 
-            if song.mtime() == os.path.getmtime(song.path()):
-                if verbose:
-                    print('Correct in db: %s' % song.path())
-                continue
-            song = Song(song.path(), rootDir=song.root())
-            if not song.isValid:
-                print('Skipping: %s' % song.path())
-                continue
-            MusicDatabase.addSong(song)
+                if callback:
+                    callback(song)
 
-            count += 1
-            if count % 10:
-                MusicDatabase.commit()
-        MusicDatabase.commit()
-
-    def checkSongsExistence(self, paths, verbose=False):
+    def checkSongsExistenceInPaths(self, paths, verbose=False, callback=None):
         for path in paths:
-            self.checkSongsExistenceInPath(path, verbose=verbose)
+            songs = self.getSongsAtPath(path)
+            for song in songs:
+                if not song.fileExists():
+                    if verbose:
+                        print('File not found: %s' % self.path())
+                    callback(song)
 
     def fixChecksums(self, from_song_id=None, ignoreMissingFiles=False):
         if from_song_id:
@@ -1279,7 +1296,7 @@ play --shuffle [-r root] [-g genre] [file | song_id ...]
 fix-tags <file_or_directory [file_or_directory ...]>
                     apply several normalization algorithms to fix tags of
                     files passed as arguments
-update
+update [-v]
                     Update database with new/modified/deleted files
 set-rating [-p] <rating> [file | song_id ...]
                     Set ratings for a song or songs
@@ -1509,7 +1526,8 @@ passwd [username]
             paths = options.paths
             if not paths:
                 paths = config['musicPaths']
-            self.checkSongsExistence(paths, verbose=options.verbose)
+            self.checkSongsExistenceInPaths(paths, verbose=options.verbose,
+                                            callback=self.db.removeSong)
         elif options.command == 'check-checksums':
             self.checkChecksums(options.from_song_id,
                                 ignoreMissingFiles=options.ignore_missing_files
@@ -1561,8 +1579,7 @@ passwd [username]
             self.add(paths)
         elif options.command == 'update':
             paths = config['musicPaths']
-            self.add(paths, verbose=options.verbose)
-            self.checkSongsExistence(paths, verbose=options.verbose)
+            self.update(paths, verbose=options.verbose)
         elif options.command == 'set-rating':
             self.setRating(options.paths, options.rating, options.playing)
         elif options.command == 'stats':
