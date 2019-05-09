@@ -6,7 +6,7 @@ Bard Music Manager - A database to manage your music, find duplicates and fix ta
 First, some dependencies have to be installed in order to build bard:
 
 ```
-sudo zypper in libboost_python3-devel "pkgconfig(libavcodec)" "pkgconfig(libavformat)" "pkgconfig(libswresample)" pkgconfig(libavutil)" python3-pyacoustid python3-mutagen python3-Pillow python3-numpy python3-dbus-python python3-SQLAlchemy python3-pydub
+sudo zypper in libboost_python3-devel "pkgconfig(libavcodec)" "pkgconfig(libavformat)" "pkgconfig(libswresample)" "pkgconfig(libavutil)" python3-pyacoustid python3-mutagen python3-Pillow python3-numpy python3-dbus-python python3-SQLAlchemy python3-pydub
 ```
 
 If you want to use the web interface (which is still in very early stages of development, and thus not ready for real usage):
