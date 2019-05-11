@@ -1186,18 +1186,24 @@ class Bard:
             print(new_genres)
 
     def setRating(self, ids_or_paths, rating, currentlyPlaying):
+        if (ids_or_paths in ([], [''], ['%'], ['%%']) and
+                not currentlyPlaying):
+            print('No song selected to set rating to')
+            return
+
         rating = round(float(rating))
+        if rating < 0 or rating > 10:
+            print('Rating must be an integer value between 0 and 10')
+            return
+
         songs = []
+
         for id_or_path in ids_or_paths:
             songs.extend(self.getSongsFromIDorPath(id_or_path))
 
         if currentlyPlaying:
             playingSongs = self.getCurrentlyPlayingSongs()
             songs.extend(playingSongs)
-
-        if rating < 0 or rating > 10:
-            print('Rating must be an integer value between 0 and 10')
-            return
 
         userID = MusicDatabase.getUserID(config['username'])
         for song in songs:
