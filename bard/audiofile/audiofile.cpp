@@ -67,6 +67,12 @@ int AudioFile::open(const string &path)
 {
     m_filename = path;
 
+    m_formatCtx = avformat_alloc_context();
+    if (!m_formatCtx)
+        return logError("Error allocating avformat context");
+
+    m_formatCtx->flags = 0;
+
     int err;
     if ((err = avformat_open_input(&m_formatCtx, path.c_str(), NULL, 0)) != 0) {
         return logError("Error opening file", err);
@@ -80,6 +86,9 @@ int AudioFile::open(const char *data, long size, const std::string &filename)
     m_filename = filename;
     m_avioContext = new BufferAVIOContext(data, size);
     m_formatCtx = avformat_alloc_context();
+    if (!m_formatCtx)
+        return logError("Error allocating avformat context");
+
     m_formatCtx->flags = 0;
 
     m_formatCtx->pb = m_avioContext->avioContext();
