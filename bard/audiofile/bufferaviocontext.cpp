@@ -36,6 +36,20 @@ extern "C" {
 #include <vector>
 #include <algorithm>
 
+#if (__GNUC__ && __GNUC__ < 7) || (__clang_major &&  __clang_major__ < 5)
+namespace std
+{
+    template<class T1, class T2, class T3>
+    constexpr const T1 clamp( const T1& v, const T2& lo, const T3& hi )
+    {
+        if (v < lo) return lo;
+        else if (v > hi) return hi;
+        return v;
+    }
+
+};
+#endif
+
 BufferAVIOContext::BufferAVIOContext(const char *data, long size, long buffer_size)
        : m_data(reinterpret_cast<const unsigned char *>(data)), m_size(size), m_currentPtr(m_data)
 {
