@@ -42,6 +42,10 @@ AudioFile::AudioFile()
 {
     s_self = this;
     av_log_set_callback(avlog_callback);
+
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58,9,100)
+    av_register_all();
+#endif
 }
 
 AudioFile::~AudioFile()
