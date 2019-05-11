@@ -35,6 +35,13 @@ char *readFromFile(const string& filename, long *size)
 {
     long fileSize;
     FILE *f = fopen(filename.c_str(), "r");
+    if (!f)
+    {
+        int err = errno;
+        std::cerr << "Error opening file:" << strerror(err) << std::endl;
+        return nullptr;
+    }
+
     fseek(f, 0, SEEK_END); // seek to end of file
     fileSize = ftell(f); // get current file pointer
     fseek(f, 0, SEEK_SET);
@@ -67,10 +74,6 @@ void saveToFile(BufferDecodeOutput *output, const string& filename)
 }
 
 int main(int argc, char *argv[]) {
-  /*  if(argc != 2) {
-        printf("Usage: decode [--buffer] [--reference-file=\"referencefile\"] <audiofile>\n");
-        return 1;
-    }*/
     options_description desc{"Options"};
     desc.add_options()
         ("help,h", "Help screen")
@@ -87,11 +90,31 @@ int main(int argc, char *argv[]) {
 
     string filename = vm["input-file"].as<string>();
 
-    long dataSize;
-    char *data = readFromFile(filename, &dataSize);
-
+    char *data = nullptr;
+    int err = 0;
     AudioFile audiofile;
-    audiofile.open(data, dataSize, "");
+
+    if (vm["buffer"].as<bool>())
+    {
+        long dataSize;
+        data  = readFromFile(filename, &dataSize);
+        if (!data)
+        {
+            std::cerr << "Can't read file: " << filename << std::endl;
+            return 1;
+        }
+        err = audiofile.open(data, dataSize, "");
+    }
+    else
+    {
+        err = audiofile.open(filename);
+    }
+
+    if (err)
+    {
+        std::cerr << "Error opening file" << std::endl;
+        return 1;
+    }
 
     string outFilename = std::string(filename) + ".raw";
 
@@ -131,5 +154,6 @@ int main(int argc, char *argv[]) {
         saveToFile(static_cast<BufferDecodeOutput *>(output), outFilename);
 
     delete output;
+    if (data) free(data);
     return 0;
 }
