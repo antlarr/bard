@@ -245,7 +245,6 @@ boost::python::list FingerprintManager::addSongAndCompareToSongList(long songID,
         }, __gnu_parallel::parallel_balanced);
     m_fingerprints.emplace_back(songID, std::move(v), duration);
 #else
-    #warning Support to compare audio signatures will not be built
     std::cout << "The support to compare audio signatures was not built since the compiler was too old" << std::endl;
 #endif
     return result;
@@ -372,6 +371,7 @@ boost::python::list FingerprintManager::compareChromaprintFingerprintsAndOffsetV
 
 std::pair<int, double> FingerprintManager::compareSongs(long songID1, long songID2)
 {
+#if __GNUC__ >= 7 || __clang_major__ >= 5
     auto & [_ , fingerprint1, duration1] = *songIterator(songID1);
     auto & [__ , fingerprint2, duration2] = *songIterator(songID2);
     double cancelThreshold;
@@ -380,6 +380,10 @@ std::pair<int, double> FingerprintManager::compareSongs(long songID1, long songI
     else
         cancelThreshold = m_cancelThreshold;
     return compareChromaprintFingerprintsAndOffset(fingerprint1, fingerprint2, cancelThreshold);
+#else
+    std::cout << "The support to compare audio signatures was not built since the compiler was too old" << std::endl;
+    return std::make_pair(0, 0.0);
+#endif
 }
 
 boost::python::list FingerprintManager::compareSongsVerbose(long songID1, long songID2)
