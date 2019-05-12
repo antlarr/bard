@@ -237,12 +237,14 @@ class Song:
         if properties.messages:
             print('\n'.join([str(x) for x in properties.messages]))
 
-        if not getattr(self.metadata.info, 'bits_per_sample', None):
-            self.metadata.info.bits_per_sample = properties.decoded_bytes_per_sample * 8
+        if self.metadata:
+            if not getattr(self.metadata.info, 'bits_per_sample', None):
+                self.metadata.info.bits_per_sample = \
+                    properties.decoded_bytes_per_sample * 8
 
-        if not getattr(self.metadata.info, 'bitrate', None):
-            self.metadata.info.bitrate = (properties.stream_bitrate or
-                                          properties.container_bitrate)
+            if not getattr(self.metadata.info, 'bitrate', None):
+                self.metadata.info.bitrate = (properties.stream_bitrate or
+                                              properties.container_bitrate)
 
         if config['enable_internal_checks']:
             ffprobe_metadata = FFProbeMetadata(self.path())
@@ -283,17 +285,18 @@ class Song:
             self._silenceAtStart = (silence1[1] - silence1[0]) / 1000
             self._silenceAtEnd = (silence2[1] - silence2[0]) / 1000
 
-        try:
-            image = extractFrontCover(self.metadata)
-        except OSError:
-            print('Error extracting image from %s' % fileinfo)
-            raise
+        if self.metadata:
+            try:
+                image = extractFrontCover(self.metadata)
+            except OSError:
+                print('Error extracting image from %s' % fileinfo)
+                raise
 
-        if image:
-            (image, imagedata) = image
-            self._coverWidth = image.width
-            self._coverHeight = image.height
-            self._coverMD5 = md5FromData(imagedata)
+            if image:
+                (image, imagedata) = image
+                self._coverWidth = image.width
+                self._coverHeight = image.height
+                self._coverMD5 = md5FromData(imagedata)
 
         try:
             self._mtime = os.path.getmtime(filething)
