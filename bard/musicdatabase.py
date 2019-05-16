@@ -1109,6 +1109,15 @@ or name {like} '%%MusicBrainz/Track Id'""")
                 raise
 
     @staticmethod
+    def songsByAudioTrackSha256sum(audioSha256sum):
+        c = MusicDatabase.getCursor()
+        sql = ('SELECT song_id FROM properties '
+               'WHERE audio_sha256sum=:audio_sha256sum')
+        result = c.execute(text(sql).bindparams(
+                           audio_sha256sum=audioSha256sum))
+        return [x[0] for x in result.fetchall()]
+
+    @staticmethod
     def addAudioSilences(songid, silence_at_start, silence_at_end):
         if config['immutableDatabase']:
             print("Error: Can't set song silences: "

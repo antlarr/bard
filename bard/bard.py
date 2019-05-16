@@ -9,6 +9,7 @@ from bard.song import Song, DifferentLengthException, CantCompareSongsException
 from bard.musicdatabase import MusicDatabase
 from bard.terminalcolors import TerminalColors
 from bard.comparesongs import compareSongSets
+from bard.backup import backupMusic
 import chromaprint
 from collections import MutableSet, namedtuple
 from sqlalchemy import text
@@ -1256,6 +1257,9 @@ class Bard:
     def setPassword(self, username):
         requestNewPassword(username)
 
+    def backupMusic(self, target):
+        backupMusic(target)
+
     def parseCommandLine(self):
         main_parser = ArgumentParser(
             description='Manage your music collection',
@@ -1314,7 +1318,9 @@ stats [-v]
 web
                     Start a web server
 passwd [username]
-                    Sets a user password''')
+                    Sets a user password
+backup <target>
+                    Backup music to target destination''')
         # find-duplicates command
         sps.add_parser('find-duplicates',
                        description='Find duplicate files comparing '
@@ -1518,6 +1524,10 @@ passwd [username]
                                 description='Sets a user password')
         parser.add_argument('username', nargs='?', help='Username whose '
                             'password will be set (current user if none)')
+
+        parser = sps.add_parser('backup',
+                                description='Backup music to target')
+        parser.add_argument('target', nargs='?', help='Target destination')
         options = main_parser.parse_args()
 
         if options.command == 'find-duplicates':
@@ -1597,6 +1607,8 @@ passwd [username]
             self.startWebServer()
         elif options.command == 'passwd':
             self.setPassword(options.username)
+        elif options.command == 'backup':
+            self.backupMusic(options.target)
 
 
 def main():

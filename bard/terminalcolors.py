@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # See https://en.wikipedia.org/wiki/ANSI_escape_code for reference
 
+
 class TerminalColors:
     Red = '\033[91m'
     Green = '\033[92m'
@@ -16,6 +17,15 @@ class TerminalColors:
     Warning = Yellow
     Fail = Red
     Error = Red
+
+    Filename = White
+    Host = Cyan
+    Size = Yellow
+    DateTime = Blue
+
+    New = Green
+    Modified = Yellow
+    Removed = Red
 
     Worse = Red
     Better = Green
