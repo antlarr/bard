@@ -257,7 +257,8 @@ class Upload(Task):
     def compareAudioFiles(self, source, target, sftp):
         print('Comparing songs...')
 
-        src_song = getSongsAtPath(source, exact=True)[0]
+        # src_song = getSongsAtPath(source, exact=True)[0]
+        src_song = Song(source)
         tgt_song = remoteSong(target, sftp)
         basename = os.path.basename(source)
         colors = (Color.First, Color.Second)
