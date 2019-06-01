@@ -204,7 +204,6 @@ def loadImageFromASFByteArrayAttribute(obj):
     except OSError as e:
         print("Error reading image from ASFByteArrayAttribute (%s):" % obj, e)
         raise
-#        return None
     return ImageDataTuple(image, data)
 
 
@@ -283,8 +282,7 @@ def printDictsDiff(dict1, dict2, forcePrint=False):
     # Calculate changes
     removedKeys = [x for x in dict1.keys() if x not in dict2.keys()]
     changedKeys = [x for x in dict2.keys()
-                   if x in removedKeys and
-                   dict2.get(x, None) != dict1.get(x, None)]
+                   if x in dict1 and dict1.get(x, None) != dict2.get(x, None)]
     newKeys = [x for x in dict2.keys() if x not in dict1.keys()]
 
     if not forcePrint and not removedKeys and not changedKeys and not newKeys:
@@ -293,25 +291,33 @@ def printDictsDiff(dict1, dict2, forcePrint=False):
     allKeys = list(dict1.keys()) + [x for x in dict2.keys()
                                     if x not in dict1.keys()]
     allKeys.sort()
-    print(removedKeys)
-    print(changedKeys)
-    print(newKeys)
+    # print('removed:', removedKeys)
+    # print('changed:', changedKeys)
+    # print('new    :', newKeys)
 
-    print(dict1.get('COMM::eng', None))
-    print(dict2.get('COMM::eng', None))
+    # print(dict1.get('COMM::eng', None))
+    # print(dict2.get('COMM::eng', None))
+    def use_str_or_repr(x):
+        return {True: str, False: repr}[all(hasattr(z, 'text') for z in x)]
+
     for k in sorted(allKeys):
         if k in changedKeys:
-            print(str(k), ':', TerminalColors.Highlight, repr(dict1[k])[:50],
-                  TerminalColors.ENDC, ' -> ', TerminalColors.Highlight,
-                  str(dict2[k])[:50], TerminalColors.ENDC)
+            str_repr = use_str_or_repr((dict1[k], dict2[k]))
+            print(str(k), ':', TerminalColors.Highlight,
+                  str_repr(dict1[k])[:100], TerminalColors.ENDC,
+                  ' -> ', TerminalColors.Highlight,
+                  str_repr(dict2[k])[:100], TerminalColors.ENDC)
         elif k in removedKeys:
-            print(str(k), ':', TerminalColors.First, repr(dict1[k])[:100],
+            str_repr = use_str_or_repr((dict1[k],))
+            print(str(k), ':', TerminalColors.First, str_repr(dict1[k])[:200],
                   TerminalColors.ENDC)
         elif k in newKeys:
-            print(str(k), ':', TerminalColors.Second, repr(dict2[k])[:100],
+            str_repr = use_str_or_repr((dict2[k],))
+            print(str(k), ':', TerminalColors.Second, str_repr(dict2[k])[:200],
                   TerminalColors.ENDC)
         else:
-            print(str(k), ':', repr(dict1[k])[:100])
+            str_repr = use_str_or_repr((dict1[k],))
+            print(str(k), ':', str_repr(dict1[k])[:200])
 
     return True
 
