@@ -93,6 +93,11 @@ def remoteSong(path, sftp):
         return None
 
     s = Song(None, data=data)
+    try:
+        desc = '@' + sftp.remote_hostname + ':' + path
+    except AttributeError:
+        desc = '@:' + path
+    s.setDescription(desc)
     return s
 
 

@@ -116,9 +116,11 @@ class Song:
         self._root = rootDir or ''
         if data:
             self._path = None
+            self._description = '<song in memory>'
             self.loadFile(data)
         else:
             self._path = os.path.normpath(x)
+            self._description = self._path
             self.loadFile(x)
 
     def hasID(self):
@@ -126,6 +128,14 @@ class Song:
             return self.id is not None
         except AttributeError:
             return False
+
+    def description(self):
+        return self._description
+
+    def setDescription(self, text):
+        if text.startswith('/'):
+            text = '#' + text
+        self._description = text
 
     def loadMetadata(self):
         if getattr(self, 'metadata', None) is not None:

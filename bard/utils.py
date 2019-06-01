@@ -165,9 +165,9 @@ def printSongsInfo(song1, song2,
     song1.calculateCompleteness()
     song2.calculateCompleteness()
 
-    print(useColors[0] + (song1.path() or '<song in memory>') +
+    print(useColors[0] + (song1.path() or song1.description()) +
           TerminalColors.ENDC)
-    print(useColors[1] + (song2.path() or '<song in memory>') +
+    print(useColors[1] + (song2.path() or song2.description()) +
           TerminalColors.ENDC)
 
     song1.loadMetadataInfo()
