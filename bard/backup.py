@@ -788,9 +788,14 @@ class BackupMusic:
 
 def backupMusic(target):
     print(f'Backup to {target}')
-    target = config['backups'][target]
-    for path in config['musicPaths'][:1]:
-        backup = BackupMusic(path, target[''])
+    target_config = config['backups'][target]
+    for path in config['musicPaths']:
+        try:
+            target = target_config[path]
+        except KeyError:
+            target = target_config['']
+
+        backup = BackupMusic(path, target)
         if not backup.isValid():
             continue
         backup.performBackup()
