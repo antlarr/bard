@@ -16,6 +16,8 @@ import mutagen.musepack
 def extractFirstElementOfTuple(x):
     if isinstance(x, tuple):
         return x[0]
+    if isinstance(x, str):
+        return x.split('/')[0]
     return x
 
 
@@ -26,7 +28,10 @@ tagFilter = {
         'tracknumber': extractFirstElementOfTuple,
         'trkn': extractFirstElementOfTuple,
         'discnumber': extractFirstElementOfTuple,
-        'disk': extractFirstElementOfTuple, }}
+        'disk': extractFirstElementOfTuple, },
+    mutagen.flac.FLAC: {
+        'tracknumber': extractFirstElementOfTuple,
+        'discnumber': extractFirstElementOfTuple, }}
 
 tagMaps = {
     mutagen.mp3.MP3: {
