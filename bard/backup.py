@@ -483,6 +483,7 @@ class BackupMusic:
             return
 
         self.sftp = self.ssh.open_sftp()
+        self.sftp.remote_hostname = self.server
 
     def isValid(self):
         return hasattr(self, 'sftp')
