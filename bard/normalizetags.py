@@ -340,6 +340,16 @@ def normalizeTagValues(values, mutagenFile=None, tag=None,
                               removeBinaryData=removeBinaryData))
 
 
+def normalizeMetadataDictionary(metadata, mutagenFile=None,
+                                removeBinaryData=False):
+    r = {}
+    for k, v in metadata.items():
+        key, values = normalizeTagValues(v, mutagenFile, k, removeBinaryData)
+        r[key] = values
+
+    return r
+
+
 def getTag(mutagenFile, tag, fileformat=None):
     if not mutagenFile:
         return None
