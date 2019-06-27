@@ -9,6 +9,10 @@ First, some dependencies have to be installed in order to build bard:
 sudo zypper in libboost_python3-devel "pkgconfig(libavcodec)" "pkgconfig(libavformat)" "pkgconfig(libswresample)" "pkgconfig(libavutil)" python3-pyacoustid python3-mutagen python3-Pillow python3-numpy python3-dbus-python python3-SQLAlchemy python3-pydub
 ```
 
+```
+sudo apt-get install libavcodec-dev libavformat-dev libswresample-dev libavutil-dev python3-acoustid python3-mutagen python3-pillow python3-numpy python3-sqlalchemy
+```
+
 If you want to use the web interface (which is still in very early stages of development, and thus not ready for real usage):
 
 ```
@@ -19,6 +23,10 @@ If you intend to build the internal bard tests (only recommended if you plan to 
 
 ```
 sudo zypper in libboost_program_options-devel
+```
+
+```
+sudo apt-get install libboost-program-options-dev
 ```
 
 And now we're ready to build and install bard:
