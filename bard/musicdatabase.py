@@ -197,7 +197,11 @@ class MusicDatabase:
                 MusicDatabase.uri = 'sqlite:///' + databasepath
                 if ro:
                     MusicDatabase.uri += '?mode=ro'
+
         MusicDatabase.engine = create_engine(MusicDatabase.uri)
+        if not MusicDatabase.engine.has_table('songs'):
+            print('Tables missing. Creating database schema and tables.')
+            self.createDatabase()
         MusicDatabase.getConnection()
         MusicDatabase._meta = sqlalchemy.MetaData()
 
