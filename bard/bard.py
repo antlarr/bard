@@ -1202,11 +1202,15 @@ class Bard:
     def startWebServer(self):
         from bard.web import init_flask_app, app
         from werkzeug.serving import run_simple
+
         use_ssl = config['use_ssl']
         if use_ssl:
             import ssl
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-            context.load_cert_chain('cert.pem', 'server.key')
+            certpemfile = config['sslCertificateChainFile']
+            serverkeyfile = config['sslCertificateKeyFile']
+
+            context.load_cert_chain(certpemfile, serverkeyfile)
         else:
             context = None
 
