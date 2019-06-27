@@ -2,13 +2,14 @@
 
 
 class Percentage:
-    def __init__(self):
+    def __init__(self, precision=0):
         """Create a Percentage object."""
         self.max_value = 100
         self.min_value = 0
         self.value = 0
         self.last_text = ''
         self.printed = False
+        self.format = '%%.%df' % precision
 
     def set_value(self, value, print_=True):
         self.value = value
@@ -23,8 +24,8 @@ class Percentage:
         self.printed = False
 
     def print_percentage(self):
-        tmp = '%d%%' % ((self.value - self.min_value) * 100.0 /
-                        (self.max_value - self.min_value))
+        tmp = self.format % ((self.value - self.min_value) * 100.0 /
+                        (self.max_value - self.min_value)) + '%'
         if tmp != self.last_text:
             self.remove_print()
             print(tmp, end='', flush=True)
