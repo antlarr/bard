@@ -130,13 +130,17 @@ def extractDecodeMessagesList(songID, messages):
 
 def extractTagsList(song):
     tags = []
+    try:
+        songID = song.id
+    except AttributeError:
+        songID = None
     for key, values in song.metadata.items():
         key, values = normalizeTagValues(values, song.metadata, key,
                                          removeBinaryData=True)
 
         if isinstance(values, list):
             for pos, value in enumerate(values):
-                tags.append({'id': song.id,
+                tags.append({'id': songID,
                              'name': key,
                              'value': value,
                              'pos': pos if len(values) > 1 else None
@@ -144,7 +148,7 @@ def extractTagsList(song):
         else:
             if isinstance(values, mutagen.apev2.APEBinaryValue):
                 continue
-            tags.append({'id': song.id,
+            tags.append({'id': songID,
                          'name': key,
                          'value': values,
                          'pos': None
