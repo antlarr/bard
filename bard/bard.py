@@ -766,9 +766,10 @@ class Bard:
                                    getSongsFromIDorPath(id_or_path)])
             songs = collection
         if not from_song_id:
-            from_song_id = MusicDatabase.lastSongIDWithCalculatedSimilarities()
+            from_song_id = MusicDatabase \
+                .lastSongIDWithCalculatedSimilarities() + 1
         elif from_song_id < 0:
-            last = MusicDatabase.lastSongIDWithCalculatedSimilarities()
+            last = MusicDatabase.lastSongIDWithCalculatedSimilarities() + 1
             from_song_id = last + from_song_id
 
         if from_song_id > MusicDatabase.lastSongID() and not songs:
