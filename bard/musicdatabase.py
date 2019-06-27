@@ -1432,5 +1432,30 @@ or name {like} '%%MusicBrainz/Track Id'""")
     def execute(executable):
         return MusicDatabase.engine.execute(executable)
 
+    @staticmethod
+    def insert_or_update(table, recorddict, wherestatement=None):
+        if type(table) == str:
+            table = MusicDatabase.table(table)
+
+        if wherestatement is None:
+            wherestatement = (table.c.id == recorddict['id'])
+
+        dbRecord = table.select(wherestatement)
+        dbRecord = MusicDatabase.execute(dbRecord).fetchone()
+        if dbRecord:
+            if any(dbRecord[k] != recorddict[k]
+                   for k in [c.name for c in table.columns]):
+                print(f'update {table.name} db data for {recorddict}')
+                u = table.update() \
+                         .where(wherestatement) \
+                         .values(**recorddict)
+                MusicDatabase.execute(u)
+            else:
+                print(f'no changes in {table.name} db data for {recorddict}')
+        else:
+            print(f'insert {table.name} db data for {recorddict}')
+            i = table.insert().values(**recorddict)
+            MusicDatabase.execute(i)
+
 
 table = MusicDatabase.table
