@@ -647,6 +647,10 @@ class Bard:
                 MusicDatabase.updateFileSha256sumLastCheckTime(song.id)
                 changed_filesha256 = False
 
+            # This should probably have its own command, but it shouldn't be
+            # common to use it, so for now we'll just keep it here:
+            MusicDatabase.addSongDecodeProperties(song.id, properties)
+
             if changed_audiosha256 or changed_filesha256:
                 print(TerminalColors.Error + 'FAIL' + TerminalColors.ENDC)
                 descl = []
