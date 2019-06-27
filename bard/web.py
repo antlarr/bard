@@ -6,6 +6,7 @@ from flask_login import LoginManager, login_required, login_user, logout_user
 from bard.user import User
 from bard.web_utils import get_redirect_target
 from PIL import Image
+from bard.musicdatabase_songs import getSongs
 
 import mimetypes
 import base64
@@ -128,7 +129,7 @@ def api_v1_search():
     print(request.args)
     print(request.args['query'])
     result = []
-    for song in app.bard.getSongs(request.args['query'], metadata=True):
+    for song in getSongs(request.args['query'], metadata=True):
         result.append(structFromSong(song))
     return jsonify(result)
 
@@ -136,14 +137,14 @@ def api_v1_search():
 @app.route('/api/v1/metadata/song/<songID>')
 def api_v1_metadata_song(songID):
     result = []
-    for song in app.bard.getSongs(songID=songID, metadata=True):
+    for song in getSongs(songID=songID, metadata=True):
         result.append(structFromSong(song))
     return jsonify(result)
 
 
 @app.route('/api/v1/audio/song/<songID>')
 def api_v1_audio_song(songID):
-    songs = app.bard.getSongs(songID=songID)
+    songs = getSongs(songID=songID)
     if not songs:
         abort(404)
     song = songs[0]
@@ -159,7 +160,7 @@ def api_v1_audio_song(songID):
 
 @app.route('/api/v1/coverart/song/<songID>')
 def api_v1_coverart_song(songID):
-    songs = app.bard.getSongs(songID=songID)
+    songs = getSongs(songID=songID)
     if not songs:
         abort(404)
     song = songs[0]
