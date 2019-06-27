@@ -7,6 +7,8 @@ from bard.utils import fixTags, calculateFileSHA256, \
     decodeAudio, calculateSHA256_data
 from bard.song import Song, DifferentLengthException, CantCompareSongsException
 from bard.musicdatabase import MusicDatabase
+from bard.musicdatabase_songs import getMusic, getSongs, getSongsAtPath, \
+    getSongsFromIDorPath
 from bard.terminalcolors import TerminalColors
 from bard.comparesongs import compareSongSets
 from bard.backup import backupMusic
@@ -179,75 +181,6 @@ class Bard:
 
         self.excludeDirectories = ['covers', 'info']
 
-    @staticmethod
-    def getMusic(where_clause='', where_values=None, tables=[],
-                 order_by=None, limit=None, metadata=False):
-        # print(where_clause)
-        c = MusicDatabase.getCursor()
-
-        if 'songs' not in tables:
-            tables.insert(0, 'songs')
-        statement = ('SELECT id, root, path, mtime, title, artist, album, '
-                     'albumArtist, track, date, genre, discNumber, '
-                     'coverWidth, coverHeight, coverMD5 FROM %s %s' %
-                     (','.join(tables), where_clause))
-        if order_by:
-            statement += ' ORDER BY %s' % order_by
-        if limit:
-            statement += ' LIMIT %d' % limit
-
-        # print(statement, where_values)
-        if where_values:
-            result = c.execute(text(statement).bindparams(**where_values))
-        else:
-            result = c.execute(text(statement))
-        r = [Song(x) for x in result.fetchall()]
-        if metadata:
-            MusicDatabase.updateSongsTags(r)
-        return r
-
-    @staticmethod
-    def getSongs(path=None, songID=None, query=None, metadata=False):
-        where = ''
-        values = None
-        like = MusicDatabase.like
-        if songID:
-            where = ['id = :id']
-            values = {'id': songID}
-        elif (not path.startswith('/') or path.endswith('/') or
-              os.path.isdir(path)):
-            where = [f"path {like} :path"]
-            values = {'path': '%' + path + '%'}
-        else:
-            where = ["path = :path"]
-            values = {'path': path}
-        tables = []
-        if query:
-            if query.root:
-                where.append('root = :root')
-                values['query'] = query.root
-            if query.genre:
-                tables = ['tags']
-                where.append(f'''id = tags.song_id
-                            AND (lower(tags.name) = 'genre'
-                                 OR tags.name='TCON')
-                            AND tags.value {like} :tag''')
-                values['tag'] = query.genre
-
-        where = 'WHERE ' + ' AND '.join(where)
-        return Bard.getMusic(where_clause=where, where_values=values,
-                             tables=tables, metadata=metadata, order_by='path')
-
-    def getSongsAtPath(self, path, exact=False):
-        if exact:
-            where = "WHERE path = :path"
-            values = {'path': path}
-        else:
-            like = MusicDatabase.like
-            where = f"WHERE path {like} :path"
-            values = {'path': path + '%'}
-        return self.getMusic(where_clause=where, where_values=values)
-
     def getCurrentlyPlayingSongs(self):
         bus = dbus.SessionBus()
         names = [x for x in bus.list_names()
@@ -267,9 +200,9 @@ class Bard:
                                       'Metadata')
             path = metadata['xesam:url']
             if playbackStatus == 'Playing':
-                songs.extend(self.getSongsAtPath(path, exact=True))
+                songs.extend(getSongsAtPath(path, exact=True))
             else:
-                pausedSongs.extend(self.getSongsAtPath(path, exact=True))
+                pausedSongs.extend(getSongsAtPath(path, exact=True))
 
         if songs:
             return songs
@@ -382,7 +315,7 @@ class Bard:
     def info(self, ids_or_paths, currentlyPlaying=False):
         songs = []
         for id_or_path in ids_or_paths:
-            songs.extend(self.getSongsFromIDorPath(id_or_path))
+            songs.extend(getSongsFromIDorPath(id_or_path))
 
         if currentlyPlaying:
             playingSongs = self.getCurrentlyPlayingSongs()
@@ -439,7 +372,7 @@ class Bard:
 
             similarSongs = []
             for otherID, offset, similarity in similar_pairs:
-                otherSong = Bard.getSongs(songID=otherID)[0]
+                otherSong = getSongs(songID=otherID)[0]
                 try:
                     audioComparison = song.audioCmp(otherSong,
                                                     interactive=False)
@@ -474,9 +407,9 @@ class Bard:
         except ValueError:
             songID = None
         if songID:
-            songs = Bard.getSongs(songID=songID, query=query)
+            songs = getSongs(songID=songID, query=query)
         else:
-            songs = Bard.getSongs(path=path, query=query)
+            songs = getSongs(path=path, query=query)
         if group_by_directory:
             dirs = {os.path.dirname(song.path()) for song in songs}
             for directory in sorted(dirs):
@@ -504,8 +437,8 @@ class Bard:
             condition = ' '.join(condition)
         similar_pairs = MusicDatabase.getSimilarSongs(condition)
         for songID1, songID2, offset, similarity in similar_pairs:
-            song1 = Bard.getSongs(songID=songID1)[0]
-            song2 = Bard.getSongs(songID=songID2)[0]
+            song1 = getSongs(songID=songID1)[0]
+            song2 = getSongs(songID=songID2)[0]
             print('------  (%d %d) offset: %d   similarity %f' %
                   (songID1, songID2, offset, similarity))
             for song in (song1, song2):
@@ -520,7 +453,7 @@ class Bard:
         if not ids_or_paths and query:
             ids_or_paths = ['']
         for id_or_path in ids_or_paths:
-            songs = self.getSongsFromIDorPath(id_or_path, query=query)
+            songs = getSongsFromIDorPath(id_or_path, query=query)
             for song in songs:
                 paths.append(song.path())
 
@@ -528,7 +461,7 @@ class Bard:
             random.shuffle(paths)
         elif shuffle:
             total_songs = 30
-            songs = self.getMusic('')
+            songs = getMusic('')
             probabilities = []
             userID = MusicDatabase.getUserID(config['username'])
             for song in songs:
@@ -552,7 +485,7 @@ class Bard:
         process = subprocess.run(command)
 
     def findDuplicates(self):
-        collection = self.getMusic()
+        collection = getMusic()
         hashes = {}
         for song in collection:
             if song.audioSha256sum() not in hashes:
@@ -569,7 +502,7 @@ class Bard:
                     print(song._path)
 
     def fixMtime(self):
-        collection = self.getMusic()
+        collection = getMusic()
         count = 0
         for song in collection:
             if not song.mtime():
@@ -598,10 +531,10 @@ class Bard:
         collection = []
         if ids_or_paths:
             for id_or_path in ids_or_paths:
-                collection.extend(self.getSongsFromIDorPath(id_or_path))
+                collection.extend(getSongsFromIDorPath(id_or_path))
         else:
-            # collection = self.getMusic()
-            collection = self.getMusic(', properties WHERE id == song_id'
+            # collection = getMusic()
+            collection = getMusic(', properties WHERE id == song_id'
                                        ' AND silence_at_start==-1')
 
         count = 0
@@ -656,7 +589,7 @@ class Bard:
 
     def checkSongsExistenceInPaths(self, paths, verbose=False, callback=None):
         for path in paths:
-            songs = self.getSongsAtPath(path)
+            songs = getSongsAtPath(path)
             for song in songs:
                 if not song.fileExists():
                     if verbose:
@@ -665,11 +598,11 @@ class Bard:
 
     def fixChecksums(self, from_song_id=None, ignoreMissingFiles=False):
         if from_song_id:
-            collection = self.getMusic("WHERE id >= :id",
+            collection = getMusic("WHERE id >= :id",
                                        {'id': int(from_song_id)},
                                        order_by='id')
         else:
-            collection = self.getMusic(order_by='id')
+            collection = getMusic(order_by='id')
         count = 0
         forceRecalculate = True
         for song in collection:
@@ -748,10 +681,10 @@ class Bard:
 
     def checkChecksums(self, from_song_id=None, ignoreMissingFiles=False):
         if from_song_id:
-            collection = self.getMusic("WHERE id >= :id",
+            collection = getMusic("WHERE id >= :id",
                                        {'id': int(from_song_id)})
         else:
-            collection = self.getMusic()
+            collection = getMusic()
         failedSongs = []
         for song in collection:
             if not song.fileExists():
@@ -815,7 +748,7 @@ class Bard:
             MusicDatabase.songIDsWithoutFingerprints()
         if song_ids_without_fingerprints:
             for idx, song_id in enumerate(song_ids_without_fingerprints):
-                song = Bard.getSongs(songID=song_id)[0]
+                song = getSongs(songID=song_id)[0]
                 print(f'Calculating missing fingerprint for song {song_id} at '
                       f'{song.path()}')
                 fingerprint = song.getAcoustidFingerprint()
@@ -830,7 +763,7 @@ class Bard:
             collection = set()
             for id_or_path in songs:
                 collection.update([x.id for x in
-                                   self.getSongsFromIDorPath(id_or_path)])
+                                   getSongsFromIDorPath(id_or_path)])
             songs = collection
         if not from_song_id:
             from_song_id = MusicDatabase.lastSongIDWithCalculatedSimilarities()
@@ -999,17 +932,6 @@ class Bard:
             print(('\b' * len(percentage)) + '100% . Done')
             MusicDatabase.commit()
 
-    def getSongsFromIDorPath(self, id_or_path, query=None):
-        try:
-            songID = int(id_or_path)
-        except ValueError:
-            songID = None
-
-        if songID:
-            return Bard.getSongs(songID=songID, query=query)
-
-        return Bard.getSongs(path=id_or_path, query=query)
-
     def compareSongs(self, song1, song2, verbose=False,
                      showAudioOffsets=False, storeInDB=False,
                      interactive=False):
@@ -1110,10 +1032,10 @@ class Bard:
     #            print(e)
 
     def compareDirectories(self, path1, paths, subset=False, verbose=False):
-        songs1 = self.getSongsAtPath(path1)
+        songs1 = getSongsAtPath(path1)
         songs2 = set()
         for path in paths:
-            songs2.update(self.getSongsAtPath(path))
+            songs2.update(getSongsAtPath(path))
         if len(paths) == 1:
             path2 = paths[0]
         else:
@@ -1156,12 +1078,12 @@ class Bard:
             print(path2)
 
     def compareSongIDsOrPaths(self, songid1, songid2, interactive=False):
-        songs1 = self.getSongsFromIDorPath(songid1)
+        songs1 = getSongsFromIDorPath(songid1)
         if len(songs1) != 1:
             print('No match or more than one match for ', songid1)
             return
         song1 = songs1[0]
-        songs2 = self.getSongsFromIDorPath(songid2)
+        songs2 = getSongsFromIDorPath(songid2)
         if len(songs2) != 1:
             print('No match or more than one match for ', songid2)
             return
@@ -1189,7 +1111,7 @@ class Bard:
     def fixGenres(self, ids_or_paths=None):
         songs = []
         for id_or_path in ids_or_paths:
-            songs.extend(self.getSongsFromIDorPath(id_or_path))
+            songs.extend(getSongsFromIDorPath(id_or_path))
         for song in songs:
             song.loadMetadata()
             new_genres = []
@@ -1219,7 +1141,7 @@ class Bard:
         songs = []
 
         for id_or_path in ids_or_paths:
-            songs.extend(self.getSongsFromIDorPath(id_or_path))
+            songs.extend(getSongsFromIDorPath(id_or_path))
 
         if currentlyPlaying:
             playingSongs = self.getCurrentlyPlayingSongs()

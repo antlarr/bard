@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from bard.config import config
-# from bard.musicdatabase_songs import MusicDatabase
 from bard.musicdatabase import MusicDatabase
 from bard.musicdatabase_songs import getSongsFromIDorPath, getSongsAtPath
 from bard.utils import calculateSHA256_data, printSongsInfo, alignColumns
