@@ -596,7 +596,7 @@ class Bard:
                         print('File not found: %s' % song.path())
                     callback(song)
 
-    def fixChecksums(self, from_song_id=None, ignoreMissingFiles=False):
+    def fixChecksums(self, from_song_id=None, removeMissingFiles=False):
         if from_song_id:
             collection = getMusic("WHERE id >= :id",
                                        {'id': int(from_song_id)},
@@ -604,15 +604,14 @@ class Bard:
         else:
             collection = getMusic(order_by='id')
         count = 0
-        forceRecalculate = True
         for song in collection:
             if not song.fileExists():
-                if ignoreMissingFiles:
+                if removeMissingFiles:
+                    print('Removing file: %s' % song.path())
+                    self.db.removeSong(song)
+                else:
                     print('Missing file at %s' % song.path())
-                    continue
 
-                print('Removing file: %s' % self.path())
-                self.db.removeSong(song)
                 continue
 
             print('Calculating checksums for %s...' % song.path(), end='',
@@ -679,7 +678,7 @@ class Bard:
         MusicDatabase.commit()
         print('done')
 
-    def checkChecksums(self, from_song_id=None, ignoreMissingFiles=False):
+    def checkChecksums(self, from_song_id=None, removeMissingFiles=False):
         if from_song_id:
             collection = getMusic("WHERE id >= :id",
                                        {'id': int(from_song_id)})
@@ -688,12 +687,12 @@ class Bard:
         failedSongs = []
         for song in collection:
             if not song.fileExists():
-                if ignoreMissingFiles:
+                if removeMissingFiles:
+                    print('Removing file: %s' % song.path())
+                    self.db.removeSong(song)
+                else:
                     print('Missing file at %s' % song.path())
-                    continue
 
-                print('Removing file: %s' % self.path())
-                self.db.removeSong(song)
                 continue
             sha256InDB = song.fileSha256sum()
             if not sha256InDB:
@@ -1359,9 +1358,9 @@ update-musicbrainz-ids [-v]
         parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
                             help='Starts fixing checksums from a specific '
                                  'song_id')
-        parser.add_argument('--ignore-missing-files',
-                            dest='ignore_missing_files', action='store_true',
-                            help='Ignore missing files')
+        parser.add_argument('--remove-missing-files',
+                            dest='remove_missing_files', action='store_true',
+                            help='Remove missing files')
         # check-songs-existence command
         parser = sps.add_parser('check-songs-existence',
                                 description='Check for removed files to '
@@ -1377,9 +1376,9 @@ update-musicbrainz-ids [-v]
         parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
                             help='Starts fixing checksums '
                                  'from a specific song_id')
-        parser.add_argument('--ignore-missing-files',
-                            dest='ignore_missing_files', action='store_true',
-                            help='Ignore missing files')
+        parser.add_argument('--remove-missing-files',
+                            dest='remove_missing_files', action='store_true',
+                            help='Remove missing files')
         # import command
         parser = sps.add_parser('import',
                                 description='Import new (or update) music. '
@@ -1516,7 +1515,7 @@ update-musicbrainz-ids [-v]
             self.fixMtime()
         elif options.command == 'fix-checksums':
             self.fixChecksums(options.from_song_id,
-                              ignoreMissingFiles=options.ignore_missing_files)
+                              removeMissingFiles=options.remove_missing_files)
         elif options.command == 'add-silences':
             self.addSilences(options.paths, options.threshold,
                              options.min_length, options.silence_at_start,
@@ -1525,11 +1524,11 @@ update-musicbrainz-ids [-v]
             paths = options.paths
             if not paths:
                 paths = config['musicPaths']
-            self.checkSongsExistenceInPaths(paths, verbose=options.verbose,
+            self.checkSongsExistenceInPaths(paths, verbose=True,
                                             callback=self.db.removeSong)
         elif options.command == 'check-checksums':
             self.checkChecksums(options.from_song_id,
-                                ignoreMissingFiles=options.ignore_missing_files
+                                removeMissingFiles=options.remove_missing_files
                                 )
         elif options.command == 'find-audio-duplicates':
             self.findAudioDuplicates(options.from_song_id, options.songs)
