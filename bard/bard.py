@@ -1097,7 +1097,7 @@ class Bard:
         self.compareSongs(song1, song2, storeInDB=False,
                           interactive=interactive)
 
-    def listGenres(self, id_or_paths=None, root=None):
+    def listGenres(self, id_or_paths=None, root=None, quoted_output=False):
         ids = []
         paths = []
         for id_or_path in id_or_paths:
@@ -1106,8 +1106,24 @@ class Bard:
             except ValueError:
                 paths.append(id_or_path)
         genres = MusicDatabase.getGenres(ids=ids, paths=paths, root=root)
+        import shlex
         for genre, count in genres:
-            print('%s :\t%s' % (genre, count))
+            if quoted_output:
+                if len(genre) == 1:
+                    print(shlex.quote(genre[0]))
+                else:
+                    print(shlex.quote('@@@'.join(genre)))
+            else:
+                print('%s :\t%s' % (genre, count))
+
+    def listRoots(self, quoted_output=False):
+        roots = MusicDatabase.getRoots()
+        import shlex
+        for root, count in roots:
+            if quoted_output:
+                print(shlex.quote(root))
+            else:
+                print('%s :\t%s' % (root, count))
 
     def fixGenres(self, ids_or_paths=None):
         songs = []
@@ -1168,15 +1184,15 @@ class Bard:
         if verbose:
             roots = MusicDatabase.getRoots()
             table = []
-            for root in roots:
+            for root, count in roots:
                 root = translatePath(root)
                 try:
                     size = int(subprocess.check_output(['du', '-sm', root]
                                                        ).split()[0])
                 except subprocess.CalledProcessError:
                     size = -1
-                table.append((str(size) + 'M', root))
-            aligned = alignColumns(table, (False, True))
+                table.append((str(size) + 'M', root, count))
+            aligned = alignColumns(table, (False, True, False))
             for line in aligned:
                 print(line)
 
@@ -1246,8 +1262,10 @@ list|ls [-l] [-d] [-i|--id] [-r root] [-g genre] [file | song_id ...]
 list-similars [-l] [condition]
                     lists files marked as similar in the database
                     (with find-audio-duplicates)
-list-genres [-r root] [file | song id]
+list-genres [-r root] [-q] [file | song id]
                     lists genres of songs selected by its name or song id
+list-roots [-q]
+                    lists roots for songs
 fix-genres [file | song id]
                     fix genres of songs selected by its name or song id
 play --shuffle [-r root] [-g genre] [file | song_id ...]
@@ -1414,7 +1432,16 @@ update-musicbrainz-ids [-v]
                                             'in the database')
         parser.add_argument('-r', dest='root',
                             help='Only list genres of songs in a given root')
+        parser.add_argument('-q', '--quoted', dest='quoted_output',
+                            action='store_true',
+                            help='Shows simplified, quoted output')
         parser.add_argument('id_or_paths', nargs='*')
+        # list-genres command
+        parser = sps.add_parser('list-roots',
+                                description='Lists roots for songs')
+        parser.add_argument('-q', '--quoted', dest='quoted_output',
+                            action='store_true',
+                            help='Shows simplified, quoted output')
         # fix-genres command
         parser = sps.add_parser('fix-genres',
                                 description='Fix genres of songs '
@@ -1534,7 +1561,9 @@ update-musicbrainz-ids [-v]
                           show_id=options.show_id, query=query,
                           group_by_directory=options.group_by_directory)
         elif options.command == 'list-genres':
-            self.listGenres(id_or_paths=options.id_or_paths, root=options.root)
+            self.listGenres(id_or_paths=options.id_or_paths, root=options.root, quoted_output=options.quoted_output)
+        elif options.command == 'list-roots':
+            self.listRoots(quoted_output=options.quoted_output)
         elif options.command == 'fix-genres':
             self.fixGenres(ids_or_paths=options.id_or_paths)
         elif options.command == 'list-similars':

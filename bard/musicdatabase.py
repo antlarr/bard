@@ -1278,7 +1278,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
                         %s
                   group by value
                   order by 2''' % (tables, condition)
-        print(sql, variables)
+        #print(sql, variables)
         c = MusicDatabase.getCursor()
         result = c.execute(text(sql).bindparams(**variables))
         pairs = []
@@ -1359,10 +1359,10 @@ or name {like} '%%MusicBrainz/Track Id'""")
 
     @staticmethod
     def getRoots():
-        sql = 'select distinct(root) from songs'
+        sql = 'select root, count(*) from songs group by root order by root'
         c = MusicDatabase.getCursor()
         result = c.execute(sql)
-        return [x[0] for x in result.fetchall()]
+        return [(x[0],x[1]) for x in result.fetchall()]
 
     @staticmethod
     def createSongHistoryEntry(songID, removed=False, description=None,

@@ -1,0 +1,115 @@
+_bard() {
+        local cmd cur prev opts
+        COMPREPLY=()
+        cur="${COMP_WORDS[COMP_CWORD]}"
+        prev="${COMP_WORDS[COMP_CWORD-1]}"
+        prev2="${COMP_WORDS[COMP_CWORD-2]}"
+	cmd="${COMP_WORDS[1]}"
+
+        case "${prev}" in
+                "bard")
+                        opts="find-duplicates find-audio-duplicates compare-dirs compare-files compare-songs fix-mtime fix-checksums add-silences check-songs-existence check-checksums import info ls list list-genres list-similars fix-genres play fix-tags update set-rating stats web passwd backup update-musicbrainz-ids"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "find-audio-duplicates")
+                        opts="\--from-song-id"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "compare-songs"|"compare-files")
+                        opts="-i"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "compare-dirs")
+                        opts="-s"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "add-silences")
+                        opts="-t -l -s -e"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "check-songs-existence")
+                        opts="-v"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "info")
+                        opts="-p"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "ls"|"list")
+                        opts="-l -d -i \--id -r -g"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "list-similars")
+                        opts="-l"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "list-genres")
+                        opts="-r -q"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "list-roots")
+                        opts="-q"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "play")
+                        opts="\--shuffle \--sh -r -g"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "update")
+                        opts="-v"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "set-rating")
+                        opts="-p"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "stats")
+                        opts="-v"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "update-musicbrainz-ids")
+                        opts="-v"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "-g"|"\--genre")
+                        if ( [[ "$cmd" == "ls" ]] || [[ "$cmd" == "list" ]] || [[ "$cmd" == "play" ]]); then
+				mapfile -t opts_genres < <(bard list-genres -q | sed -e "s/\r//g")
+				mapfile -t candidates < <(compgen -W "${opts_genres[*]}" -- "${cur}")
+			        local comp
+                                COMPREPLY=()
+                                for comp in "${candidates[@]}"; do
+                                    COMPREPLY+=("$(printf "%q" "$comp")")
+                                done
+                        else
+                                return 1
+                        fi
+                ;;
+                "-r"|"\--root")
+                        if ( [[ "$cmd" == "ls" ]] || [[ "$cmd" == "list" ]] || [[ "$cmd" == "play" ]] || [[ "$cmd" == "list-genres" ]]); then
+				mapfile -t opts_roots < <(bard list-roots -q)
+				mapfile -t candidates < <(compgen -W "${opts_roots[*]}" -- "${cur}")
+			        local comp
+                                COMPREPLY=()
+                                for comp in "${candidates[@]}"; do
+                                    COMPREPLY+=("$(printf "%q" "$comp")")
+                                done
+                        else
+                                return 1
+                        fi
+                ;;
+#                "--test")
+#                        if ( [[ "$cmd" == "test" ]] ); then
+#                                opts="0 1 2 3 4"
+#                                COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+#                        else
+#                                return 1
+#                        fi
+#                ;;
+                *)
+                return 1
+                ;;
+        esac
+        return 0
+}
+complete -F _bard bard
+
