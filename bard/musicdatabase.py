@@ -15,6 +15,7 @@ import mutagen
 
 class DatabaseEnum:
     def __init__(self, enum_name, auto_insert=True, name_is_dict=False):
+        """Create a DatabaseEnum object."""
         self.enum_name = enum_name
         self.table_name = f'enum_{enum_name}_values'
         self.auto_insert = auto_insert
@@ -190,6 +191,7 @@ class MusicDatabase:
                     MusicDatabase.uri += '?mode=ro'
         MusicDatabase.engine = create_engine(MusicDatabase.uri)
         MusicDatabase.getConnection()
+        MusicDatabase._meta = sqlalchemy.MetaData()
 
     @staticmethod
     def getConnection():
@@ -204,6 +206,16 @@ class MusicDatabase:
     @staticmethod
     def getCursor():
         return MusicDatabase.getConnection()
+
+    @staticmethod
+    def table(tablename):
+        if not MusicDatabase._meta.tables:
+            MusicDatabase._meta.reflect(bind=MusicDatabase.engine)
+            MusicDatabase._meta.schema = 'musicbrainz'
+            MusicDatabase._meta.reflect(bind=MusicDatabase.engine)
+            MusicDatabase._meta.schema = None
+
+        return MusicDatabase._meta.tables[tablename]
 
     def createDatabase(self):
         if config['immutableDatabase']:
@@ -437,6 +449,50 @@ CREATE TABLE similarities(
                   ' ON songs_history (song_id)')
         c.execute('CREATE INDEX songs_history_path_idx '
                   ' ON songs_history (path)')
+
+        c.execute(f'''
+ CREATE TABLE songs_mb_artistids (
+                  song_id INTEGER,
+                  artistid TEXT,
+                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
+                  )''')
+        c.execute('CREATE INDEX songs_mb_artistids_song_id_idx '
+                  ' ON songs_mb_artistids (song_id)')
+        c.execute('CREATE INDEX songs_mb_artistids_artistid_idx '
+                  ' ON songs_mb_artistids (artistid)')
+
+        c.execute(f'''
+ CREATE TABLE songs_mb_albumartistids (
+                  song_id INTEGER,
+                  albumartistid TEXT,
+                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
+                  )''')
+        c.execute('CREATE INDEX songs_mb_albumartistids_song_id_idx '
+                  ' ON songs_mb_albumartistids (song_id)')
+        c.execute('CREATE INDEX songs_mb_albumartistids_albumartistid_idx '
+                  ' ON songs_mb_albumartistids (albumartistid)')
+
+        c.execute(f'''
+ CREATE TABLE songs_mb_workids (
+                  song_id INTEGER,
+                  workid TEXT,
+                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
+                  )''')
+        c.execute('CREATE INDEX songs_mb_workids_song_id_idx '
+                  ' ON songs_mb_workids (song_id)')
+        c.execute('CREATE INDEX songs_mb_workids_workid_idx '
+                  ' ON songs_mb_workids (workid)')
+
+        c.execute(f'''
+ CREATE TABLE songs_mb (
+                  song_id INTEGER PRIMARY KEY,
+                  releasegroupid TEXT,
+                  releaseid TEXT,
+                  releasetrackid TEXT,
+                  recordingid TEXT,
+                  confirmed BOOLEAN,
+                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
+                  )''')
 
     @staticmethod
     def addSong(song):
@@ -1363,3 +1419,10 @@ or name {like} '%%MusicBrainz/Track Id'""")
                 x.duration != song.duration() or
                 x.bitrate != song.bitrate() or
                 x.audio_sha256sum != song.audioSha256sum())
+
+    @staticmethod
+    def execute(executable):
+        return MusicDatabase.engine.execute(executable)
+
+
+table = MusicDatabase.table

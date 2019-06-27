@@ -27,6 +27,8 @@ import subprocess
 from argparse import ArgumentParser
 from bard.config import config, translatePath
 from bard.user import requestNewPassword
+from bard.musicbrainz_database import MusicBrainzDatabase
+
 
 ComparisonResult = namedtuple('ComparisonResult', ['offset', 'similarity'])
 
@@ -282,11 +284,11 @@ class Bard:
         if config['immutableDatabase']:
             print("Error: Can't add song %s : "
                   "The database is configured as immutable" % path)
-            return
+            return None
         if MusicDatabase.isSongInDatabase(path):
             if verbose:
                 print('Already in db: %s' % path)
-            return
+            return None
         print(f'Adding song {path}')
         song = Song(path, rootDir=rootDir)
         if not song.isValid:
@@ -304,12 +306,15 @@ class Bard:
         if commit:
             MusicDatabase.commit()
 
+        return song.id
+
     def addDirectoryRecursively(self, directory, verbose=False,
-                                removedSongsAudioSHA256={}):
+                                removedSongsSHA256={}):
         if config['immutableDatabase']:
             print("Error: Can't add directory %s : "
                   "The database is configured as immutable" % directory)
-            return
+            return None
+        songsIDs = []
         for dirpath, dirnames, filenames in os.walk(directory, topdown=True):
             if verbose:
                 print('New dir: %s' % dirpath)
@@ -321,9 +326,11 @@ class Bard:
                     continue
 
                 path = os.path.join(dirpath, filename)
-                self.addSong(path, rootDir=directory,
-                             removedSongsAudioSHA256=removedSongsAudioSHA256,
-                             commit=False, verbose=verbose)
+                id_ = self.addSong(path, rootDir=directory,
+                                   removedSongsAudioSHA256=removedSongsSHA256,
+                                   commit=False, verbose=verbose)
+                if id_:
+                    songsIDs.append(id_)
             MusicDatabase.commit()
 
             for excludeDir in self.excludeDirectories:
@@ -331,16 +338,24 @@ class Bard:
                     dirnames.remove(excludeDir)
                 except ValueError:
                     pass
+        return songsIDs
 
     def add(self, args, verbose=False, removedSongsAudioSHA256={}):
+        songsIDs = []
         for arg in args:
             if os.path.isfile(arg):
-                self.addSong(os.path.normpath(arg),
-                             removedSongsAudioSHA256=removedSongsAudioSHA256)
+                id_ = (self.addSong(os.path.normpath(arg),
+                       removedSongsAudioSHA256=removedSongsAudioSHA256))
+                if id_:
+                    songsIDs.append(id_)
 
             elif os.path.isdir(arg):
-                self.addDirectoryRecursively(os.path.normpath(arg), verbose,
-                                             removedSongsAudioSHA256)
+                r = self.addDirectoryRecursively(os.path.normpath(arg),
+                                                 verbose,
+                                                 removedSongsAudioSHA256)
+                if r:
+                    songsIDs.extend(r)
+        return songsIDs
 
     def update(self, paths, verbose=False):
         removedSongs = []
@@ -352,13 +367,17 @@ class Bard:
                                         callback=storeRemovedSongs)
         removedSongsAudioSHA256 = {song.audioSha256sum(): song
                                    for song in removedSongs}
-        self.add(paths, verbose=verbose,
-                 removedSongsAudioSHA256=removedSongsAudioSHA256)
+        ids = self.add(paths, verbose=verbose,
+                       removedSongsAudioSHA256=removedSongsAudioSHA256)
 
         for song in removedSongs:
             if not song.fileExists():
                 print('Removing song', song.path())
                 self.db.removeSong(song)
+
+        print('update musicbrainz ids')
+        # do things for new songs
+        MusicBrainzDatabase.updateMusicBrainzIDs(ids)
 
     def info(self, ids_or_paths, currentlyPlaying=False):
         songs = []
@@ -641,7 +660,7 @@ class Bard:
             for song in songs:
                 if not song.fileExists():
                     if verbose:
-                        print('File not found: %s' % self.path())
+                        print('File not found: %s' % song.path())
                     callback(song)
 
     def fixChecksums(self, from_song_id=None, ignoreMissingFiles=False):
@@ -1211,6 +1230,10 @@ class Bard:
             print('Setting rating of %s to %d' % (song.path(), rating))
             song.setUserRating(rating, userID)
 
+    def updateMusicBrainzIDs(self, verbose=False):
+        songIDs = MusicBrainzDatabase.songsWithoutMBData()
+        MusicBrainzDatabase.updateMusicBrainzIDs(songIDs)
+
     def printStats(self, verbose=False):
         totalSongsCount = MusicDatabase.getSongsCount()
         totalSongsWithMusicBrainzTags = \
@@ -1320,7 +1343,9 @@ web
 passwd [username]
                     Sets a user password
 backup <target>
-                    Backup music to target destination''')
+                    Backup music to target destination
+update-musicbrainz-ids [-v]
+                    Update the database musicbrainz IDs from songs''')
         # find-duplicates command
         sps.add_parser('find-duplicates',
                        description='Find duplicate files comparing '
@@ -1516,6 +1541,11 @@ backup <target>
                                 description='Print database statistics')
         parser.add_argument('-v', '--verbose', dest='verbose',
                             action='store_true', help='Be verbose')
+        # update-musicbrainz-ids command
+        parser = sps.add_parser('update-musicbrainz-ids', description='Update '
+                                'the database musicbrainz IDs from songs')
+        parser.add_argument('-v', '--verbose', dest='verbose',
+                            action='store_true', help='Be verbose')
         # web command
         parser = sps.add_parser('web',
                                 description='Start a web server')
@@ -1609,6 +1639,8 @@ backup <target>
             self.setPassword(options.username)
         elif options.command == 'backup':
             self.backupMusic(options.target)
+        elif options.command == 'update-musicbrainz-ids':
+            self.updateMusicBrainzIDs(verbose=options.verbose)
 
 
 def main():
