@@ -1351,7 +1351,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
         c = MusicDatabase.getCursor()
         result = c.execute(sql)
         x = result.fetchone()
-        if x:
+        if x != (None,):
             return x[0]
         return 0
 
