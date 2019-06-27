@@ -1,0 +1,2 @@
+curl -O https://raw.githubusercontent.com/metabrainz/musicbrainz-server/master/admin/sql/CreateTables.sql
+python3 read_mb_db.py
