@@ -14,10 +14,14 @@ import mutagen
 
 
 class DatabaseEnum:
-    def __init__(self, enum_name, auto_insert=True, name_is_dict=False):
+    def __init__(self, enum_name, auto_insert=True, name_is_dict=False, schema=None):
         """Create a DatabaseEnum object."""
         self.enum_name = enum_name
-        self.table_name = f'enum_{enum_name}_values'
+        self.schema = schema
+        if schema:
+            self.table_name = f'{schema}.enum_{enum_name}_values'
+        else:
+            self.table_name = f'enum_{enum_name}_values'
         self.auto_insert = auto_insert
         self.name_is_dict = name_is_dict
 
