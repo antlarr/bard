@@ -253,9 +253,9 @@ CREATE TABLE songs (
                     coverWidth INTEGER,
                     coverHeight INTEGER,
                     coverMD5 TEXT,
-                    completeness REAL
+                    completeness REAL,
                     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    insert_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    insert_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                    )''')
         c.execute('CREATE INDEX songs_path_idx ON songs (path)')
         c.execute('''
@@ -327,12 +327,12 @@ CREATE TABLE enum_library_versions_values(
         c.execute(f'''
 CREATE TABLE enum_format_values(
                     id_value {serial_primary_key},
-                    name TEXT,
+                    name TEXT
                  )''')
         c.execute(f'''
 CREATE TABLE enum_codec_values(
                     id_value {serial_primary_key},
-                    name TEXT,
+                    name TEXT
                  )''')
         c.execute('''
 CREATE TABLE decode_properties(
@@ -421,9 +421,9 @@ CREATE TABLE similarities(
         c.execute('CREATE INDEX similarities_song_id2_idx '
                   ' ON similarities (song_id2)')
 
-        c.execute('''
+        c.execute(f'''
  CREATE TABLE users (
-                  id INTEGER PRIMARY KEY ASC AUTOINCREMENT,
+                  id {serial_primary_key},
                   name TEXT,
                   password BYTEA
                   )''')
