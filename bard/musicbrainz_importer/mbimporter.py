@@ -11,8 +11,9 @@ import copy
 from functools import partial
 from bard.percentage import Percentage
 from bard.musicdatabase import MusicDatabase, table
-from mbtable import MBTable
-from mbtableindisk import MBTableInDisk
+from mbtableinmemory import MBTableInMemory
+from mbtablecached import MBTableCached
+from mbtablefromdisk import MBTableFromDisk
 from mbenums import musicbrainz_enums
 from mboptions import MBOptions
 from sqlalchemy import and_, select
@@ -291,16 +292,30 @@ class MusicBrainzImporter:
         filename = os.path.join(self.directory, 'mbdump', tablename)
         columns = self.names[tablename]
         print(columns)
-        if tablename in ['track', 'recording', 'url', 'l_artist_recording',
-                         'recording_meta', 'release', 'l_recording_work',
-                         'artist', 'release_group', 'l_artist_url',
-                         'l_release_url', 'medium', 'annotation',
-                         'l_artist_work', 'work', 'artist_credit',
-                         'release_label', 'artist_credit_name',
-                         'release_country', 'l_artist_release']:
-            table = MBTableInDisk(tablename, columns)
-        else:
-            table = MBTable(tablename, columns)
+        tableClasses = {'track': MBTableFromDisk,
+                        'recording': MBTableFromDisk,
+                        'url': MBTableFromDisk,
+                        'l_artist_recording': MBTableCached,
+                        'recording_meta': MBTableFromDisk,
+                        'release': MBTableCached,
+                        'l_recording_work': MBTableCached,
+                        'artist': MBTableFromDisk,
+                        'release_group': MBTableCached,
+                        'l_artist_url': MBTableCached}
+        try:
+            MBTableClass = tableClasses[tablename]
+        except KeyError:
+            MBTableClass = MBTableInMemory
+        # if tablename in ['track', 'recording', 'url', 'l_artist_recording',
+        #                  'recording_meta', 'release', 'l_recording_work',
+        #                  'artist', 'release_group', 'l_artist_url',
+        #                  'l_release_url', 'medium', 'annotation',
+        #                  'l_artist_work', 'work', 'artist_credit',
+        #                  'release_label', 'artist_credit_name',
+        #                  'release_country', 'l_artist_release']:
+        #     table = MBTableInDisk(tablename, columns)
+        # else:
+        table = MBTableClass(tablename, columns)
 
         table.loadFromFile(filename)
 

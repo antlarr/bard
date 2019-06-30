@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from mbtable import MBTable
+import mbtable
 
 
 def tobytes(value):
@@ -10,7 +10,7 @@ def tobytes(value):
     return str(value).encode('utf-8')
 
 
-class MBTableInDisk(MBTable):
+class MBTableCached:
     def __init__(self, name, columns):
         """Create a MBTable object."""
         self.name = name
@@ -35,18 +35,18 @@ class MBTableInDisk(MBTable):
             strid = tobytes(_id) + b'\t'
             for line in self.lines:
                 if line.startswith(strid):
-                    return MBTable.processLine(line.decode('utf-8'),
+                    return mbtable.processLine(line.decode('utf-8'),
                                                self.columns)
-            raise KeyError('Error getting MBTableInDisk(%s)[%s]' %
+            raise KeyError('Error getting MBTableCached(%s)[%s]' %
                            (self.name, str(_id)))
 
         strid = tobytes(_id)
         for line in self.lines:
             values = line.split(b'\t')
             if values[self.id_position] == strid:
-                return MBTable.processLine(line.decode('utf-8'), self.columns)
+                return mbtable.processLine(line.decode('utf-8'), self.columns)
 
-        raise KeyError('Error getting MBTableInDisk(%s)[%s]' %
+        raise KeyError('Error getting MBTableCached(%s)[%s]' %
                        (self.name, str(_id)))
 
     def getbygid(self, gid):
@@ -61,13 +61,13 @@ class MBTableInDisk(MBTable):
         for line in self.lines:
             cols = line.split(b'\t')
             if cols[position] == value:
-                return MBTable.processLine(line.decode('utf-8'), self.columns)
+                return mbtable.processLine(line.decode('utf-8'), self.columns)
 
-        raise KeyError('Error getting MBTable(%s)[%s][%s]' %
+        raise KeyError('Error getting MBTableCached(%s)[%s][%s]' %
                        (self.name, column, value))
 
     def getbycolumns(self, column_values):
-        raise RuntimeError('Undefined MBTableInDisk.getbycolumns')
+        raise RuntimeError('Undefined MBTableCached.getbycolumns')
 
     def contains(self, column, value):
         position = self.column_position[column]
@@ -86,6 +86,6 @@ class MBTableInDisk(MBTable):
         for line in self.lines:
             cols = line.split(b'\t')
             if cols[position] == value:
-                r.append(MBTable.processLine(line.decode('utf-8'), self.columns))
+                r.append(mbtable.processLine(line.decode('utf-8'), self.columns))
 
         return r

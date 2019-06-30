@@ -1,46 +1,21 @@
 # -*- coding: utf-8 -*-
 
-import re
-from datetime import datetime
+import mbtable
 
 
-class MBTable:
+class MBTableInMemory:
     def __init__(self, name, columns):
-        """Create a MBTable object."""
+        """Create a MBTableInMemory object."""
         self.name = name
         self.data = {}
         self.converters = {}
         self.columns = columns
         self.serial = 0
 
-    @staticmethod
-    def processLine(line, columns):
-        values = line.strip('\n').split('\t')
-        r = {}
-        for (name, type), value in zip(columns, values):
-            # print(name, type, value)
-            if value == '\\N':
-                r[name] = None
-            elif type == 'int':
-                r[name] = int(value)
-            elif type == 'bool':
-                r[name] = {'t': True, 'f': False}[value]
-            elif type == 'datetime':
-                value = re.sub(r'\+[0-9][0-9]$', '', value)
-                try:
-                    r[name] = datetime.strptime(value,
-                                                '%Y-%m-%d %H:%M:%S.%f')
-                except ValueError:
-                    r[name] = datetime.strptime(value,
-                                                '%Y-%m-%d %H:%M:%S')
-            else:
-                r[name] = value
-        return r
-
     def loadFromFile(self, filename):
         with open(filename, 'r') as f:
             for line in f.readlines():
-                self.add(MBTable.processLine(line, self.columns))
+                self.add(mbtable.processLine(line, self.columns))
 
     def add(self, v):
         fast_access_keys = v.keys()
@@ -67,7 +42,7 @@ class MBTable:
         try:
             return self.data[_id]
         except KeyError:
-            print('Error getting MBTable(%s)[%s]' % (self.name, str(_id)))
+            print('Error getting MBTableInMemory(%s)[%s]' % (self.name, str(_id)))
             raise
 
     def getbygid(self, gid):
@@ -80,7 +55,7 @@ class MBTable:
         try:
             _id = self.converters[column][value]
         except KeyError:
-            print('Error getting MBTable(%s)[%s][%s]' % (self.name, column,
+            print('Error getting MBTableInMemory(%s)[%s][%s]' % (self.name, column,
                                                          value))
             raise
         return self.data[_id]
