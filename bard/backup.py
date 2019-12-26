@@ -651,8 +651,15 @@ class BackupMusic:
             dirnames.sort()
             target_dirpath = self.targetPath(dirpath)
 
-            remoteDirCache = {os.path.join(target_dirpath, x.filename): x
-                              for x in self.sftp.listdir_attr(target_dirpath)}
+            try:
+                remoteDirCache = {os.path.join(target_dirpath, x.filename): x
+                                  for x in self.sftp.listdir_attr(target_dirpath)}
+            except FileNotFoundError:
+                src_attr = os.stat(self.source)
+                mkdir = CreateRemoteDir(self.source, target_dirpath, src_attr)
+                mkdir.run(self.sftp)
+                remoteDirCache = {}
+
             pending_changes = []
             for filename in filenames:
                 path = os.path.join(dirpath, filename)
