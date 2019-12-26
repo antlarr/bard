@@ -500,7 +500,7 @@ class Bard:
             paths = paths[:2048]
 
         command = ['mpv'] + paths
-        process = subprocess.run(command)
+        subprocess.run(command)
 
     def findDuplicates(self):
         collection = getMusic()
@@ -553,7 +553,7 @@ class Bard:
         else:
             # collection = getMusic()
             collection = getMusic(', properties WHERE id == song_id'
-                                       ' AND silence_at_start==-1')
+                                  ' AND silence_at_start==-1')
 
         count = 0
         for song in collection:
@@ -617,8 +617,8 @@ class Bard:
     def fixChecksums(self, from_song_id=None, removeMissingFiles=False):
         if from_song_id:
             collection = getMusic("WHERE id >= :id",
-                                       {'id': int(from_song_id)},
-                                       order_by='id')
+                                  {'id': int(from_song_id)},
+                                  order_by='id')
         else:
             collection = getMusic(order_by='id')
         count = 0
@@ -703,7 +703,7 @@ class Bard:
     def checkChecksums(self, from_song_id=None, removeMissingFiles=False):
         if from_song_id:
             collection = getMusic("WHERE id >= :id",
-                                       {'id': int(from_song_id)})
+                                  {'id': int(from_song_id)})
         else:
             collection = getMusic()
         failedSongs = []
@@ -1586,7 +1586,8 @@ update-musicbrainz-ids [-v]
                           show_id=options.show_id, query=query,
                           group_by_directory=options.group_by_directory)
         elif options.command == 'list-genres':
-            self.listGenres(id_or_paths=options.id_or_paths, root=options.root, quoted_output=options.quoted_output)
+            self.listGenres(id_or_paths=options.id_or_paths, root=options.root,
+                            quoted_output=options.quoted_output)
         elif options.command == 'list-roots':
             self.listRoots(quoted_output=options.quoted_output)
         elif options.command == 'fix-genres':
