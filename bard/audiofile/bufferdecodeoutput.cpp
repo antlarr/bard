@@ -52,6 +52,13 @@ BufferDecodeOutput::~BufferDecodeOutput()
 
 void BufferDecodeOutput::init(int channels, enum AVSampleFormat sampleFmt, int64_t estimatedSamples, int sampleRate)
 {
+#ifdef DEBUG
+    std::cout << "BufferDecodeOutput::init. estimated samples: " << estimatedSamples << std::endl;
+#endif
+    // If we don't have an estimated number of samples, reserve space for 30 seconds
+    if (estimatedSamples < 1)
+        estimatedSamples = 30 * sampleRate * channels;
+
     m_samplesCount = 0;
     m_bytesWritten = 0;
     m_samplesReserved = estimatedSamples;
@@ -68,17 +75,18 @@ void BufferDecodeOutput::init(int channels, enum AVSampleFormat sampleFmt, int64
 void BufferDecodeOutput::prepare(int samples)
 {
 #ifdef DEBUG
-//    std::cout << "samplesCount: " << m_samplesCount << " . prepare: " << samples << std::endl;
+//    std::cout << "samplesCount: " << m_samplesCount << " . prepare: " << samples << " . samples reserved: " << m_samplesReserved << std::endl;
 #endif
 
     if (m_samplesCount + samples > m_samplesReserved)
     {
 #ifdef DEBUG
-        std::cout << "increasing buffer decode output size" << std::endl;
+//        std::cout << "increasing buffer decode output size, samples:" << samples << std::endl;
 #endif
         uint8_t **newData = nullptr;
         int newLineSize = 0;
-        int64_t newSamplesReserved = m_samplesReserved + samples * 3;
+        // Always reserve space for at least 5 more seconds
+        int64_t newSamplesReserved = m_samplesReserved + std::max(samples * 3, 5 * m_channelCount * m_sampleRate);
 
         int ret = av_samples_alloc_array_and_samples(&newData, &newLineSize, m_channelCount,
                                                      newSamplesReserved, m_sampleFmt, 0);
