@@ -272,7 +272,11 @@ def normalizeTagValue(obj, mutagenFile, tag, removeBinaryData=False):
 
     if isinstance(obj, mutagen.id3.UFID):
         if isinstance(obj.data, bytes):
-            return obj.data.decode('utf-8').strip('\x00')
+            try:
+                return obj.data.decode('utf-8').strip('\x00')
+            except UnicodeDecodeError:
+                print('Binary data found in UFID tag', obj.data)
+                return 'Binary data'
         return obj.data
 
     if hasattr(obj, 'value'):
@@ -305,7 +309,9 @@ def normalizeTagValue(obj, mutagenFile, tag, removeBinaryData=False):
              obj.desc.lower() == 'writer' or
              obj.desc.lower() == 'work' or
              obj.desc.lower() == 'performer' or
-             obj.desc.lower() == 'catalognumber'):
+             obj.desc.lower() == 'license' or
+             obj.desc.lower() == 'catalognumber' or
+             obj.desc.lower() == 'comment'):
         return obj.text
 
     if isinstance(obj, (mutagen.id3.TRCK, mutagen.id3.TPOS)):
