@@ -1022,7 +1022,7 @@ class Bard:
             cmpResult = song1.audioCmp(song2, forceSimilar=sameSong,
                                        useColors=colors,
                                        interactive=interactive)
-        except DifferentLengthException as e:
+        except (DifferentLengthException, CantCompareSongsException) as e:
             print(e)
             if similarity and similarity >= matchThreshold:
                 msg = 'Similarity %f, offset %d' % (similarity, offset)
@@ -1202,6 +1202,10 @@ class Bard:
         print('Songs with Musicbrainz tags: %d (%.05g%%)' %
               (totalSongsWithMusicBrainzTags,
                totalSongsWithMusicBrainzTags * 100.0 / totalSongsCount))
+        print('Songs without Musicbrainz tags: %d (%.05g%%)' %
+              (totalSongsCount - totalSongsWithMusicBrainzTags,
+               (totalSongsCount -
+                totalSongsWithMusicBrainzTags) * 100.0 / totalSongsCount))
         if verbose:
             roots = MusicDatabase.getRoots()
             table = []
@@ -1228,6 +1232,8 @@ class Bard:
             certpemfile = config['sslCertificateChainFile']
             serverkeyfile = config['sslCertificateKeyFile']
 
+            print(certpemfile)
+            print(serverkeyfile)
             context.load_cert_chain(certpemfile, serverkeyfile)
         else:
             context = None
