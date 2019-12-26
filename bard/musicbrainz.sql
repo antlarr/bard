@@ -18,6 +18,11 @@ CREATE TABLE musicbrainz.enum_artist_alias_type_values (
        name TEXT
 );
 
+CREATE TABLE musicbrainz.enum_event_type_values (
+       id_value SERIAL PRIMARY KEY,
+       name TEXT
+);
+
 CREATE TABLE musicbrainz.enum_release_group_type_values (
        id_value SERIAL PRIMARY KEY,
        name TEXT
@@ -82,14 +87,23 @@ CREATE TABLE musicbrainz.area (
 
 CREATE INDEX ON musicbrainz.area (mbid);
 
-CREATE TABLE musicbrainz.event (
+CREATE OR REPLACE TABLE musicbrainz.event (
        id SERIAL PRIMARY KEY,
        mbid TEXT UNIQUE,
 
        name TEXT,
-       disambiguation TEXT,
-       begin_date DATE,
-       end_date DATE
+       event_type INTEGER,
+       begin_date_year INTEGER,
+       begin_date_month INTEGER,
+       begin_date_day INTEGER,
+       end_date_year INTEGER,
+       end_date_month INTEGER,
+       end_date_day INTEGER,
+       setlist TEXT,
+       comment TEXT
+
+       FOREIGN KEY(event_type)
+         REFERENCES enum_event_type_values(id_value)
 );
 
 CREATE TABLE musicbrainz.place (
@@ -123,7 +137,7 @@ CREATE TABLE musicbrainz.label (
        end_date_day        SMALLINT,
 
        FOREIGN KEY(label_type)
-         REFERENCES enum_label_type_values(id_value)
+         REFERENCES enum_label_type_values(id_value),
        FOREIGN KEY(area_id)
          REFERENCES area(id)
 );
@@ -142,7 +156,7 @@ CREATE TABLE musicbrainz.artist (
        FOREIGN KEY(artist_type)
          REFERENCES enum_artist_type_values(id_value),
        FOREIGN KEY(gender)
-         REFERENCES enum_gender_values(id_value)
+         REFERENCES enum_gender_values(id_value),
        FOREIGN KEY(area_id)
          REFERENCES musicbrainz.area(id)
 );
@@ -399,15 +413,15 @@ CREATE TABLE musicbrainz.link_attribute (
 );
 
 CREATE TABLE musicbrainz.link_attribute_credit (
-  link INT NOT NULL,
-  attribute_type INT NOT NULL,
+  link_id INT NOT NULL,
+  link_attribute_type_id INT NOT NULL,
   credited_as TEXT NOT NULL,
 
-  PRIMARY KEY(link, attribute_type),
-  FOREIGN KEY(link)
+  PRIMARY KEY(link_id, link_attribute_type_id),
+  FOREIGN KEY(link_id)
     REFERENCES link(id),
-  FOREIGN KEY(attribute_type)
-    REFERENCES link_attribute_Type(id)
+  FOREIGN KEY(link_attribute_type_id)
+    REFERENCES link_attribute_type(id)
 );
 
 
@@ -421,11 +435,12 @@ CREATE TABLE musicbrainz.artist_alias (
        sort_name TEXT,
        locale TEXT,
        artist_alias_type INTEGER,
+       primary_for_locale BOOLEAN NOT NULL DEFAULT false,
 
        FOREIGN KEY(artist_id)
          REFERENCES artist(id),
        FOREIGN KEY(artist_alias_type)
-         REFERENCES enum_artist_alias_type_values(id),
+         REFERENCES enum_artist_alias_type_values(id_value)
 );
 
 CREATE INDEX ON musicbrainz.artist_alias(artist_id);
@@ -1553,5 +1568,22 @@ CREATE TABLE musicbrainz.l_work_work (
          REFERENCES work(id),
        FOREIGN KEY(entity1)
          REFERENCES work(id)
+);
+
+
+-- This table doesn't come from MB. To fill it with data,
+-- run "bard cache-mb-data"
+CREATE TABLE artists_mb (
+       id INTEGER PRIMARY KEY,
+
+       locale_name TEXT,
+       locale_sort_name TEXT,
+       locale TEXT,
+       artist_alias_type INTEGER,
+
+       image_path TEXT,
+
+       FOREIGN KEY(id)
+          REFERENCES musicbrainz.artist(id)
 );
 

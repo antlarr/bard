@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 import sys
 import os
 import os.path
@@ -7,16 +6,48 @@ import json
 import urllib.request
 import subprocess
 import copy
+# from datetime import datetime
 # import inspect
 from functools import partial
 from bard.percentage import Percentage
 from bard.musicdatabase import MusicDatabase, table
+from bard.musicbrainz_database import MusicBrainzDatabase
 from mbtableinmemory import MBTableInMemory
+from mbtableiter import MBTableIter
 from mbtablecached import MBTableCached
 from mbtablefromdisk import MBTableFromDisk
 from mbenums import musicbrainz_enums
 from mboptions import MBOptions
-from sqlalchemy import and_, select
+from sqlalchemy import text, and_, select
+import concurrent.futures
+from multiprocessing import Lock
+
+from types import ModuleType, FunctionType
+from gc import get_referents
+
+# Custom objects know their class.
+# Function objects seem to know way too much, including modules.
+# Exclude modules as well.
+BLACKLIST = type, ModuleType, FunctionType
+
+
+def getsize(obj):
+    """Sum size of object & members."""
+    if isinstance(obj, BLACKLIST):
+        raise TypeError('getsize() does not take argument of type: ' +
+                        str(type(obj)))
+    seen_ids = set()
+    size = 0
+    objects = [obj]
+    while objects:
+        need_referents = []
+        for obj in objects:
+            if not isinstance(obj, BLACKLIST) and id(obj) not in seen_ids:
+                seen_ids.add(id(obj))
+                size += sys.getsizeof(obj)
+                need_referents.append(obj)
+        objects = get_referents(*need_referents)
+    return size
 
 
 columns_translations = {
@@ -28,6 +59,8 @@ columns_translations = {
              'area_type': 'type'},
     'artist_alias': {'artist_id': 'artist',
                      'artist_alias_type': 'type'},
+    'event': {'mbid': 'gid',
+              'event_type': 'type'},
     'release_group': {'mbid': 'gid',
                       'artist_credit_id': 'artist_credit',
                       'disambiguation': 'comment',
@@ -43,6 +76,8 @@ columns_translations = {
     'link_attribute_type': {'mbid': 'gid'},
     'link_attribute': {'link_id': 'link',
                        'link_attribute_type_id': 'attribute_type'},
+    'link_attribute_credit': {'link_id': 'link',
+                              'link_attribute_type_id': 'attribute_type'},
     'recording': {'mbid': 'gid',
                   'disambiguation': 'comment',
                   'artist_credit_id': 'artist_credit'},
@@ -59,12 +94,120 @@ columns_translations = {
               'disambiguation': 'comment',
               'label_type': 'type',
               'area_id': 'area'},
+    'series': {'mbid': 'gid',
+               'disambiguation': 'comment',
+               'series_type': 'type'},
     'medium': {'release_id': 'release'},
     'track': {'mbid': 'gid',
               'recording_id': 'recording',
               'medium_id': 'medium',
               'artist_credit_id': 'artist_credit',
               'number_text': 'number'}}
+
+tables = ['area',
+          'artist',
+          'artist_alias',
+          'artist_credit',
+          'artist_credit_name',
+          'enum_area_type_values',
+          'enum_artist_alias_type_values',
+          'enum_artist_type_values',
+          'enum_country_values',
+          'enum_event_type_values',
+          'enum_gender_values',
+          'enum_instrument_type_values',
+          'enum_label_type_values',
+          'enum_language_values',
+          'enum_medium_format_values',
+          'enum_place_type_values',
+          'enum_release_group_type_values',
+          'enum_release_status_values',
+          'enum_series_type_values',
+          'enum_work_type_values',
+          'event',
+          'instrument',
+          'l_area_area',
+          'l_area_artist',
+          'l_area_event',
+          'l_area_instrument',
+          'l_area_label',
+          'l_area_place',
+          'l_area_recording',
+          'l_area_release',
+          'l_area_release_group',
+          'l_area_series',
+          'l_area_work',
+          'l_artist_artist',
+          'l_artist_event',
+          'l_artist_instrument',
+          'l_artist_label',
+          'l_artist_place',
+          'l_artist_recording',
+          'l_artist_release',
+          'l_artist_release_group',
+          'l_artist_series',
+          'l_artist_work',
+          'l_event_event',
+          'l_event_instrument',
+          'l_event_label',
+          'l_event_place',
+          'l_event_recording',
+          'l_event_release',
+          'l_event_release_group',
+          'l_event_series',
+          'l_event_work',
+          'l_instrument_instrument',
+          'l_instrument_label',
+          'l_instrument_place',
+          'l_instrument_recording',
+          'l_instrument_release',
+          'l_instrument_release_group',
+          'l_instrument_series',
+          'l_instrument_work',
+          'l_label_label',
+          'l_label_place',
+          'l_label_recording',
+          'l_label_release',
+          'l_label_release_group',
+          'l_label_series',
+          'l_label_work',
+          'l_place_place',
+          'l_place_recording',
+          'l_place_release',
+          'l_place_release_group',
+          'l_place_series',
+          'l_place_work',
+          'l_recording_recording',
+          'l_recording_release',
+          'l_recording_release_group',
+          'l_recording_series',
+          'l_recording_work',
+          'l_release_group_release_group',
+          'l_release_group_series',
+          'l_release_group_work',
+          'l_release_release',
+          'l_release_release_group',
+          'l_release_series',
+          'l_release_work',
+          'l_series_series',
+          'l_series_work',
+          'l_work_work',
+          'label',
+          'link',
+          'link_attribute',
+          'link_attribute_credit',
+          'link_attribute_type',
+          'link_type',
+          'medium',
+          'place',
+          'recording',
+          'release',
+          'release_country',
+          'release_group',
+          'release_label',
+          'series',
+          'track',
+          'work']
 
 
 def add_link_id_column_transform(tablename, entity0, entity1):
@@ -87,8 +230,9 @@ iterate_over_l_tables(add_link_id_column_transform)
 
 table_translations = {
     'enum_area_type_values': 'area_type',
-    'enum_artist_type_values': 'artist_type',
     'enum_artist_alias_type_values': 'artist_alias_type',
+    'enum_artist_type_values': 'artist_type',
+    'enum_event_type_values': 'event_type',
     'enum_release_group_type_values': 'release_group_primary_type',
     'enum_release_status_values': 'release_status',
     'enum_language_values': 'language',
@@ -103,29 +247,54 @@ table_translations = {
 # a list of tuples of 3 strings. The first is the new table to import,
 # the second, the column in the table that is the key (in the original mb name)
 # that has to be matched to the item property specified by the third parameter.
-extra_imports = {
-    'artist': [('artist_alias', 'artist', 'id'),
-               ('l_artist_artist', 'entity0', 'id'),
-               ('l_artist_artist', 'entity1', 'id')],
-    'artist_credit': [('artist_credit_name', 'artist_credit', 'id')],
-    'work': [('l_artist_work', 'entity1', 'id'),
-             ('l_work_work', 'entity0', 'id'),
-             ('l_work_work', 'entity1', 'id')],
-    'recording': [('l_artist_recording', 'entity1', 'id'),
-                  ('l_recording_recording', 'entity0', 'id'),
-                  ('l_recording_recording', 'entity1', 'id'),
-                  ('l_recording_work', 'entity0', 'id')],
-    'link': [('link_attribute', 'link', 'id')],
-    'release': [('l_artist_release', 'entity1', 'id'),
-                ('release_country', 'release', 'id'),
-                ('release_label', 'release', 'id'),
-                ('medium', 'release', 'id')],
-    'label': [('l_artist_label', 'entity1', 'id'),
-              # We don't want to follow subsidiaries
-              # ('l_label_label', 'entity0', 'id'),
-              # We want to have parent labels
-              ('l_label_label', 'entity1', 'id')],
-    'medium': [('track', 'medium', 'id')]}
+# extra_imports = {
+#    'artist': [('artist_alias', 'artist', 'id'),
+#               ('l_artist_artist', 'entity0', 'id'),
+#               ('l_artist_artist', 'entity1', 'id')],
+#    'artist_credit': [('artist_credit_name', 'artist_credit', 'id')],
+#    'work': [('l_artist_work', 'entity1', 'id'),
+#             ('l_work_work', 'entity0', 'id'),
+#             ('l_work_work', 'entity1', 'id')],
+#    'recording': [('l_artist_recording', 'entity1', 'id'),
+#                  ('l_recording_recording', 'entity0', 'id'),
+#                  ('l_recording_recording', 'entity1', 'id'),
+#                  ('l_recording_work', 'entity0', 'id')],
+#    'link': [('link_attribute', 'link', 'id')],
+#    'release': [('l_artist_release', 'entity1', 'id'),
+#                ('release_country', 'release', 'id'),
+#                ('release_label', 'release', 'id'),
+#                ('medium', 'release', 'id')],
+#    'label': [('l_artist_label', 'entity1', 'id'),
+#              # We don't want to follow subsidiaries
+#              # ('l_label_label', 'entity0', 'id'),
+#              # We want to have parent labels
+#              ('l_label_label', 'entity1', 'id')],
+#    'medium': [('track', 'medium', 'id')]}
+#
+
+
+related_entities_to_import = {
+    'event': [('recording', 0, False),
+              ('release', 0, False),
+              ('release_group', 0, False),
+              ('work', 0, False)],
+    'artist': [('event', 0, False),
+               ('artist', 0, True),
+               ('artist', 1, True),
+               ('recording', 0, False),
+               ('release', 0, False),
+               ('release_group', 0, False),
+               ('work', 0, False)],
+    'work': [('work', 0, True),
+             ('work', 1, True),
+             ('recording', 1, False)],
+    'series': [('artist', 1, False),
+               ('event', 1, False),
+               ('recording', 1, False),
+               ('release', 1, False),
+               ('release_group', 1, False),
+               ('work', 0, False)]}
+
 
 indexed_columns = {'artist_alias': ['artist'],
                    'l_artist_artist': ['entity0', 'entity1'],
@@ -142,7 +311,6 @@ indexed_columns = {'artist_alias': ['artist'],
                    'l_artist_label': ['entity1'],
                    'l_label_label': ['entity1'],
                    'track': ['medium']}
-
 
 
 l_tables = {}
@@ -194,34 +362,6 @@ def add_filter_missing_entities(tablename, entity0, entity1):
     extra_filters[tablename] = filter_missing_entities
 
 
-from types import ModuleType, FunctionType
-from gc import get_referents
-
-# Custom objects know their class.
-# Function objects seem to know way too much, including modules.
-# Exclude modules as well.
-BLACKLIST = type, ModuleType, FunctionType
-
-
-def getsize(obj):
-    """Sum size of object & members."""
-    if isinstance(obj, BLACKLIST):
-        raise TypeError('getsize() does not take argument of type: ' +
-                        str(type(obj)))
-    seen_ids = set()
-    size = 0
-    objects = [obj]
-    while objects:
-        need_referents = []
-        for obj in objects:
-            if not isinstance(obj, BLACKLIST) and id(obj) not in seen_ids:
-                seen_ids.add(id(obj))
-                size += sys.getsizeof(obj)
-                need_referents.append(obj)
-        objects = get_referents(*need_referents)
-    return size
-
-
 class MusicBrainzImporter:
     def __init__(self):
         """Create a MusicBrainzImporter object."""
@@ -229,6 +369,11 @@ class MusicBrainzImporter:
         self.names = None
         self.entities = {}
         self.initialize_l_table_filters()
+        self.uuids = {}
+        self.uuids_not_found = {}
+        self.ids = {}
+        self.parent_ids = {}
+        self.uuids_not_found_mutex = Lock()
 
     def initialize_l_table_filters(self):
         # By default, only add links to existing entities
@@ -408,72 +553,81 @@ class MusicBrainzImporter:
         except KeyError:
             translations = {}
         record = {}
-        for col in dbtable.columns:
-            mbcolname = translations.get(col.name, col.name)
+        if entity.startswith('enum_'):
+            record['id_value'] = item['id']
+            record['name'] = item['name']
+        else:
+            for col in dbtable.columns:
+                mbcolname = translations.get(col.name, col.name)
 
-            try:
-                record[col.name] = item[mbcolname]
-            except KeyError:
-                print(f'Cannot get {entity} item[{mbcolname}]: {item}')
-                raise
+                try:
+                    record[col.name] = item[mbcolname]
+                except KeyError:
+                    print(f'Cannot get {entity} item[{mbcolname}]: {item}')
+                    raise
 
-        for fk in dbtable.foreign_keys:
-            if (fk.column.table.name.startswith('enum_') and
-                    fk.column.table.name.endswith('_values')):
-                col_keys = fk.constraint.column_keys
-                if len(col_keys) != 1:
-                    msg = ('Invalid constraint column_keys: %s for fk: %s'
-                           % (col_keys, fk))
-                    raise ValueError(msg)
-                dbenum = musicbrainz_enums[fk.column.table.name]
-                column = col_keys[0]
-                if type(record[column]) == str:
-                    record[column] = dbenum.id_value(record[column])
-                else:
-                    enumtable = table_translations[fk.column.table.name]
-
-                    self.read_entity_table(enumtable)
-                    try:
-                        value = self.entities[enumtable][record[column]]
-                    except KeyError:
-                        print(f'Error obtaining self.entities[{enumtable}]'
-                              f'[record[{column}] == {record[column]}]')
-                        raise
-                    if value:
-                        record[column] = dbenum.id_value(value['name'])
-                        print(f'record column {column} set to {record[column]}'
-                              ' as value for %s' % value['name'])
-                    else:
-                        record[column] = None
-                        print(f'record column {column} set to None')
-
-            else:
-                col_keys = fk.constraint.column_keys
-                if len(col_keys) != 1:
-                    msg = ('Invalid constraint column_keys: %s for fk: %s'
-                           % (col_keys, fk))
-                    raise ValueError(msg)
-
-                value = record[col_keys[0]]
-                if value:
-                    dbRecord = fk.column.table.select(fk.column == value)
-                    dbRecord = MusicDatabase.execute(dbRecord).fetchone()
-                    # This should maybe use a stack of objects being modified
-                    if not dbRecord:
-                        print('Adding fk', fk.column.table.name,
-                              fk.column.name, value)
-                        tablename = fk.column.table.name
-                        opts = copy.deepcopy(options)
-                        opts.set_inmediate_flag()
-                        self.import_entity(tablename, fk.column.name, value,
-                                           opts)
-
-        MusicDatabase.commit()
+#        for fk in dbtable.foreign_keys:
+#            if (fk.column.table.name.startswith('enum_') and
+#                    fk.column.table.name.endswith('_values')):
+#                col_keys = fk.constraint.column_keys
+#                if len(col_keys) != 1:
+#                    msg = ('Invalid constraint column_keys: %s for fk: %s'
+#                           % (col_keys, fk))
+#                    raise ValueError(msg)
+#                dbenum = musicbrainz_enums[fk.column.table.name]
+#                column = col_keys[0]
+#                if type(record[column]) == str:
+#                    record[column] = dbenum.id_value(record[column])
+#                else:
+#                    enumtable = table_translations[fk.column.table.name]
+#
+#                    self.read_entity_table(enumtable)
+#                    try:
+#                        value = self.entities[enumtable][record[column]]
+#                    except KeyError:
+#                        print(f'Error obtaining self.entities[{enumtable}]'
+#                              f'[record[{column}] == {record[column]}]')
+#                        raise
+#                    if value:
+#                        record[column] = dbenum.id_value(value['name'])
+#                        print(f'record column {column} set to '
+#                              f'{record[column]}'
+#                              ' as value for %s' % value['name'])
+#                    else:
+#                        record[column] = None
+#                        print(f'record column {column} set to None')
+#
+#            else:
+#                col_keys = fk.constraint.column_keys
+#                if len(col_keys) != 1:
+#                    msg = ('Invalid constraint column_keys: %s for fk: %s'
+#                           % (col_keys, fk))
+#                    raise ValueError(msg)
+#
+#                value = record[col_keys[0]]
+#                if value:
+#                    dbRecord = fk.column.table.select(fk.column == value)
+#                    dbRecord = MusicDatabase.execute(dbRecord).fetchone()
+#                    # This should maybe use a stack of objects being modified
+#                    if not dbRecord:
+#                        print('Adding fk', fk.column.table.name,
+#                              fk.column.name, value)
+#                        tablename = fk.column.table.name
+#                        opts = copy.deepcopy(options)
+#                        opts.set_inmediate_flag()
+#                        self.import_entity(tablename, fk.column.name, value,
+#                                           opts)
+#
+#        MusicDatabase.commit()
         if entity == 'artist_credit_name':
             MusicDatabase.insert_or_update(dbtable, record,
                     and_(dbtable.c.artist_credit_id == record['artist_credit_id'],  # noqa
                          dbtable.c.position == record['position']))
         elif entity == 'link_attribute':
+            MusicDatabase.insert_or_update(dbtable, record,
+                and_(dbtable.c.link_id == record['link_id'],  # noqa
+                     dbtable.c.link_attribute_type_id == record['link_attribute_type_id']))  # noqa
+        elif entity == 'link_attribute_credit':
             MusicDatabase.insert_or_update(dbtable, record,
                 and_(dbtable.c.link_id == record['link_id'],  # noqa
                      dbtable.c.link_attribute_type_id == record['link_attribute_type_id']))  # noqa
@@ -484,14 +638,14 @@ class MusicBrainzImporter:
         else:
             MusicDatabase.insert_or_update(dbtable, record)
 
-        extra_import = extra_imports.get(entity, [])
+        # extra_import = extra_imports.get(entity, [])
 
-        for extra_table, extra_column, src_prop in extra_import:
-            if options.should_follow_table(extra_table):
-                print('')
-                print(extra_table, 'options:', str(options))
-                self.import_extra_data(extra_table, extra_column, src_prop,
-                                       entity, item, options)
+        # for extra_table, extra_column, src_prop in extra_import:
+        #    if options.should_follow_table(extra_table):
+        #        print('')
+        #        print(extra_table, 'options:', str(options))
+        #        self.import_extra_data(extra_table, extra_column, src_prop,
+        #                               entity, item, options)
 
     def import_entity_item(self, entity, item, options):
         # if len(inspect.stack()) > 25:
@@ -541,3 +695,382 @@ class MusicBrainzImporter:
     def import_entity_uuid(self, entity, uuid, options=MBOptions()):
         self.cleanup_import()
         return self.import_entity(entity, 'gid', uuid, options)
+
+    def get_mbdump_tableiter(self, tablename):
+        filename = os.path.join(self.directory, 'mbdump', tablename)
+        columns = self.names[tablename]
+        table = MBTableIter(tablename, columns)
+        table.loadFromFile(filename)
+        return table
+
+    def import_enum_table(self, tablename):
+        dbenum = musicbrainz_enums[tablename]
+        enumtable = table_translations[tablename]
+        filename = os.path.join(self.directory, 'mbdump', enumtable)
+        columns = self.names[enumtable]
+        print(columns)
+        table = MBTableIter(tablename, columns)
+
+        table.loadFromFile(filename)
+
+        for item in table.getlines():
+            dbenum.import_value(item['id'], item['name'])
+        MusicDatabase.commit()
+
+    def import_elements_from_table_old(self, tablename, *, uuids=[], ids=[],
+                                       linkids=[], artistids=[]):
+        """Import entities from tablename that match uuids or ids.
+
+        (only one can be set).
+        """
+        self.load_musicbrainz_schema_importer_names()
+        if (tablename.startswith('enum_') and
+                tablename.endswith('_values')):
+            return self.import_enum_table(tablename)
+
+        table = self.get_mbdump_tableiter(tablename)
+        print(f'Importing elements from table {tablename}...')
+
+        if ids:
+            for item in table.getlines_matching_values('id', ids):
+                self.save_entity_item(tablename, item, MBOptions())
+        elif uuids:
+            for item in table.getlines_matching_values('gid', uuids):
+                self.save_entity_item(tablename, item, MBOptions())
+        elif linkids:
+            for item in table.getlines_matching_values('link', linkids):
+                self.save_entity_item(tablename, item, MBOptions())
+        elif artistids:
+            for item in table.getlines_matching_values('artist', artistids):
+                self.save_entity_item(tablename, item, MBOptions())
+        else:
+            for item in table.getlines():
+                self.save_entity_item(tablename, item, MBOptions())
+        MusicDatabase.commit()
+
+    def import_elements_from_table(self, tablename, *, column=None, ids=[]):
+        """Import all entities from tablename or only those that match ids.
+
+        If column is set, then ids is not compared to the 'id' column, but
+        to the one specified by column. Note that the column name should be
+        a reference to the original musicbrainz table column name.
+        """
+        self.load_musicbrainz_schema_importer_names()
+        if (tablename.startswith('enum_') and
+                tablename.endswith('_values')):
+            return self.import_enum_table(tablename)
+
+        table = self.get_mbdump_tableiter(tablename)
+        print(f'Importing elements from table {tablename}...')
+
+        if ids:
+            if not column:
+                column = 'id'
+            for item in table.getlines_matching_values(column, ids):
+                self.save_entity_item(tablename, item, MBOptions())
+        else:
+            for item in table.getlines():
+                self.save_entity_item(tablename, item, MBOptions())
+        MusicDatabase.commit()
+
+    def convert_uuids_to_ids(self, entity, uuids):
+        print(f'Convert {len(uuids)} {entity} uuids to ids...')
+        table = self.get_mbdump_tableiter(entity)
+
+        r = set()
+        found = set()
+
+        for item in table.getlines_matching_values('gid', uuids):
+            found.add(item['gid'])
+            r.add(item['id'])
+
+        with self.uuids_not_found_mutex:
+            self.uuids_not_found[entity] = uuids.difference(found)
+            print(len(self.uuids_not_found[entity]), entity, 'uuids not found')
+
+        print(f'...converted {len(r)} {entity} uuids to ids')
+        return (entity, r)
+
+    def get_entity_ids_from_relationship_table(self, entity, r_entity, pos,
+                                               both_checked=False):
+        if pos == 0:
+            relation = f'l_{entity}_{r_entity}'
+        elif pos == 1:
+            relation = f'l_{r_entity}_{entity}'
+
+        table = self.get_mbdump_tableiter(relation)
+
+        colname = f'entity{pos}'
+        r_colname = f'entity{1-pos}'
+        result = set()
+        link_ids = set()
+        ids = set()
+        if both_checked:
+            for item in table.getlines():
+                if (item[colname] in self.ids[entity] and
+                        item[r_colname] in self.ids[r_entity]):
+                    result.add(item[colname])
+                    link_ids.add(item['link'])
+                    ids.add(item['id'])
+        else:
+            for item in table.getlines():
+                if item[r_colname] in self.ids[r_entity]:
+                    result.add(item[colname])
+                    link_ids.add(item['link'])
+                    ids.add(item['id'])
+                    # if item['link'] == 1099:
+                    #    import pdb
+                    #    pdb.set_trace()
+        return result, link_ids, relation, ids
+
+    def import_relationship_table(self, entity, r_entity, pos):
+        if pos == 0:
+            tablename = f'l_{entity}_{r_entity}'
+        elif pos == 1:
+            tablename = f'l_{r_entity}_{entity}'
+        print(f'Importing {tablename}')
+
+        self.import_elements_from_table(tablename, ids=self.ids[tablename])
+
+    def get_artist_credit_ids_for_entity(self, entity):
+        table = self.get_mbdump_tableiter(entity)
+
+        return (entity, set(x['artist_credit']
+                for x in table.getlines_matching_values('id',
+                                                        self.ids[entity])))
+        # if x['id'] in self.ids[entity]))
+
+    def get_artists_from_artist_credit_ids(self):
+        table = self.get_mbdump_tableiter('artist_credit_name')
+
+        return set(x['artist'] for x in table.getlines_matching_values(
+                   'artist_credit', self.ids['artist_credit']))
+        # if x['artist_credit'] in self.ids['artist_credit'])
+
+    def get_link_attribute_types_from_link_attributes(self):
+        table = self.get_mbdump_tableiter('link_attribute')
+
+        return set(x['attribute_type'] for x in table.getlines_matching_values(
+                   'link', self.ids['link']))
+
+    def get_parent_link_attribute_types(self, ids):
+        table = self.get_mbdump_tableiter('link_attribute_type')
+
+        return set(x['parent'] for x in table.getlines_matching_values(
+                   'id', ids))
+
+    def get_mediums_from_release_ids(self):
+        table = self.get_mbdump_tableiter('medium')
+
+        return set(x['id'] for x in table.getlines()
+                   if x['release'] in self.ids['release'])
+
+    def get_release_groups_from_release_ids(self):
+        table = self.get_mbdump_tableiter('release')
+
+        return set(x['release_group']
+                   for x in table.getlines_matching_values(
+                   'id', self.ids['release']))
+
+    def get_files_to_check_manually_for_missing_uuids(self):
+        tab_cols = {'artist': [('songs_mb_artistids', 'artistid'),
+                               ('songs_mb_albumartistids', 'albumartistid')],
+                    'recording': [('songs_mb', 'recordingid')],
+                    'release': [('songs_mb', 'releaseid')],
+                    'release_group': [('songs_mb', 'releasegroupid')],
+                    'track': [('songs_mb', 'releasetrackid')],
+                    'work': [('songs_mb_workids', 'workid')]}
+
+        c = MusicDatabase.getCursor()
+        paths = set()
+        for entity, uuids in self.uuids_not_found.items():
+            if not uuids:
+                continue
+            for tablename, column in tab_cols[entity]:
+                sql = text(f'SELECT path, {column} FROM songs, {tablename} '
+                           f'where id = song_id and {column} in :uuids '
+                           'ORDER BY path')
+                result = c.execute(sql, {'uuids': tuple(uuids)})
+                paths.update((x[0], entity, x[1]) for x in result.fetchall())
+        return paths
+
+    def get_files_to_check_manually_for_missing_ids(self):
+        table = self.get_mbdump_tableiter('track')
+
+        c = MusicDatabase.getCursor()
+        paths = set()
+        # Check tracks which reference recordings that
+        # haven't been referenced before.
+        for x in table.getlines_matching_values('id', self.ids['track']):
+            if x['recording'] not in self.ids['recording']:
+                sql = text(f'SELECT path FROM songs, songs_mb '
+                           f'where id = song_id and releasetrackid = :uuid ')
+                result = c.execute(sql, {'uuid': x['gid']})
+                paths.update(x[0] for x in result.fetchall())
+        return paths
+
+    def get_files_to_check_manually_for_missing_works(self):
+        table = self.get_mbdump_tableiter('l_recording_work')
+        recordings = self.get_mbdump_tableiter('recording')
+
+        print('Preloading recordings...')
+        recordings_uuid = {rec['id']: rec['gid']
+                           for rec in recordings.getlines()}
+        print('Iterating on l_recording_work ...')
+
+        c = MusicDatabase.getCursor()
+        paths = set()
+        sql = text('SELECT path FROM songs, songs_mb '
+                   'where id = song_id and recordingid = :uuid ')
+        # Check recordings which reference works that haven't been
+        # referenced before.
+        for x in table.getlines_matching_values('entity0',
+                                                self.ids['recording']):
+            if x['entity1'] not in self.ids['work']:
+                result = c.execute(sql, {'uuid':
+                                         recordings_uuid[x['entity0']]})
+                r = result.fetchone()
+                paths.add(r[0])
+        return paths
+
+    def load_data_to_import(self, artist_credits=True, mediums=True,
+                            linked_entities=True):
+        mbdb = MusicBrainzDatabase()
+        self.uuids = {}
+        self.uuids['artist'] = mbdb.get_all_artists()
+        self.uuids['recording'] = mbdb.get_all_recordings()
+        self.uuids['release_group'] = mbdb.get_all_releasegroups()
+        self.uuids['release'] = mbdb.get_all_releases()
+        self.uuids['track'] = mbdb.get_all_tracks()
+        self.uuids['work'] = mbdb.get_all_works()
+
+        self.uuids_not_found = {}
+        self.ids = {}
+        self.ids['event'] = set()
+        self.ids['artist_credit'] = set()
+        self.ids['series'] = set()
+        self.ids['link'] = set()
+        for entity, uuids in self.uuids.items():
+            _, self.ids[entity] = self.convert_uuids_to_ids(entity, uuids)
+            print(entity, len(self.ids[entity]), 'ids')
+
+        # futures = []
+        # with concurrent.futures.ThreadPoolExecutor() as executor:
+        #     futures = {executor.submit(
+        #                self.convert_uuids_to_ids, ent, uuids)
+        #                for ent, uuids in self.uuids.items()}
+        #     print('Waiting for threads to finish...')
+        #     for future in concurrent.futures.as_completed(futures):
+        #         entity, ids = future.result()
+        #         self.ids[entity] = ids
+        #         print(f'entity {entity} finished: {len(ids)} ids')
+
+        ids = self.get_release_groups_from_release_ids()
+        self.ids['release_group'].update(ids)
+
+        if artist_credits:
+            futures = []
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                # for ent in ['recording','release','release_group','track']:
+                #    print(f'Running thread for artist_credit_ids for {ent}')
+                #    future = executor.submit(
+                #        self.get_artist_credit_ids_for_entity, ent)
+                #    futures.append((ent, future))
+
+                entities = ['recording', 'release', 'release_group', 'track']
+                futures = {executor.submit(
+                    self.get_artist_credit_ids_for_entity, ent)
+                    for ent in entities}
+
+                print('Waiting for threads to finish...')
+                for future in concurrent.futures.as_completed(futures):
+                    entity, ids = future.result()
+                    self.ids['artist_credit'].update(ids)
+                    print(f'entity {entity} finished')
+                    print('artist_credit ids', len(self.ids['artist_credit']))
+
+            print('artist ids', len(self.ids['artist']))
+            ids = self.get_artists_from_artist_credit_ids()
+            self.ids['artist'].update(ids)
+            print('artist ids', len(self.ids['artist']))
+
+        if mediums:
+            self.ids['medium'] = self.get_mediums_from_release_ids()
+
+        if linked_entities:
+            for entity, relations in related_entities_to_import.items():
+                for rel, event_pos, both_checked in relations:
+                    entity_ids, link_ids, tablename, table_ids = (
+                        self.get_entity_ids_from_relationship_table(
+                            entity, rel, event_pos, both_checked))
+                    self.ids[entity].update(entity_ids)
+                    self.ids['link'].update(link_ids)
+                    try:
+                        self.ids[tablename].update(table_ids)
+                    except KeyError:
+                        self.ids[tablename] = table_ids
+
+                    print(entity, rel, len(self.ids[entity]), ' + ids')
+
+            self.ids['link_attribute_type'] = \
+                self.get_link_attribute_types_from_link_attributes()
+            parent_link_attribute_types = \
+                self.get_parent_link_attribute_types(
+                    self.ids['link_attribute_type'])
+            self.parent_ids['link_attribute_type'] = \
+                parent_link_attribute_types
+
+        print(sorted(self.ids.keys()))
+
+    def import_table(self, tablename):
+        if tablename not in self.ids:
+            raise ValueError(f'Table {tablename} not found')
+
+        self.import_elements_from_table(tablename, ids=self.ids[tablename])
+
+    def import_everything(self):
+        self.import_enum_table('enum_area_type_values')
+        self.import_enum_table('enum_artist_alias_type_values')
+        self.import_enum_table('enum_artist_type_values')
+        self.import_enum_table('enum_event_type_values')
+        self.import_enum_table('enum_release_group_type_values')
+        self.import_enum_table('enum_release_status_values')
+        self.import_enum_table('enum_language_values')
+        self.import_enum_table('enum_gender_values')
+        self.import_enum_table('enum_medium_format_values')
+        self.import_enum_table('enum_work_type_values')
+        self.import_enum_table('enum_place_type_values')
+        self.import_enum_table('enum_series_type_values')
+        self.import_enum_table('enum_label_type_values')
+
+        # self.import_elements_from_table('area')
+        # self.import_table('artist')
+        # self.import_table('artist_credit')
+        # self.import_elements_from_table('artist_credit_name',
+        #                                 column='artist_credit',
+        #                                 ids=self.ids['artist_credit'])
+        # self.import_elements_from_table('artist_alias',
+        #                                 column='artist',
+        #                                 ids=self.ids['artist'])
+        # self.import_table('release_group')
+        # self.import_table('release')
+        # self.import_table('medium')
+        # self.import_table('recording')
+        # self.import_table('track')
+        # self.import_table('work')
+        # self.import_table('event')
+        # self.import_table('series')
+        self.import_elements_from_table('link_type')
+        if 'link_attribute_type' in self.parent_ids:
+            (self.import_elements_from_table('link_attribute_type',
+             column='id', ids=self.parent_ids['link_attribute_type']))
+
+        self.import_table('link_attribute_type')
+        self.import_table('link')
+        self.import_elements_from_table('link_attribute_credit',
+                                        column='link', ids=self.ids['link'])
+        self.import_elements_from_table('link_attribute',
+                                        column='link', ids=self.ids['link'])
+        for entity, relations in related_entities_to_import.items():
+            for rel, event_pos, both_checked in relations:
+                self.import_relationship_table(entity, rel, event_pos)

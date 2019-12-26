@@ -14,7 +14,8 @@ import mutagen
 
 
 class DatabaseEnum:
-    def __init__(self, enum_name, auto_insert=True, name_is_dict=False, schema=None):
+    def __init__(self, enum_name, auto_insert=True, name_is_dict=False,
+                 schema=None):
         """Create a DatabaseEnum object."""
         self.enum_name = enum_name
         self.schema = schema
@@ -42,6 +43,16 @@ class DatabaseEnum:
             sql = 'SELECT last_insert_rowid()'
             result = c.execute(sql)
         return result.fetchone()[0]
+
+    def import_value(self, _id, name):
+        c = MusicDatabase.getCursor()
+        sql = (f'UPDATE {self.table_name} SET name=:name '
+               'WHERE id_value=:id')
+        result = c.execute(text(sql).bindparams(id=_id, name=name))
+        if result.rowcount == 0:
+            sql = (f'INSERT INTO {self.table_name}(id_value, name) '
+                   'VALUES (:id, :name)')
+            c.execute(text(sql).bindparams(id=_id, name=name))
 
     def add_value(self, name):
         sql = (f'INSERT INTO {self.table_name}(name) '
@@ -1353,7 +1364,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
         sql = 'SELECT password FROM users WHERE name = :name'
         result = c.execute(text(sql).bindparams(name=username))
         hashed_password = result.fetchone()
-        if hashed_password:
+        if hashed_password and hashed_password[0]:
             return bytes(hashed_password[0])
 
         return None

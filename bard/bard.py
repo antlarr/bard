@@ -1194,6 +1194,12 @@ class Bard:
         songIDs = MusicBrainzDatabase.songsWithoutMBData()
         MusicBrainzDatabase.updateMusicBrainzIDs(songIDs)
 
+    def checkMusicBrainzTags(self, verbose=False):
+        MusicBrainzDatabase.checkMusicBrainzTags()
+
+    def cacheMusicBrainzDB(self, verbose=False):
+        MusicBrainzDatabase.cacheMusicBrainzDB()
+
     def printStats(self, verbose=False):
         totalSongsCount = MusicDatabase.getSongsCount()
         totalSongsWithMusicBrainzTags = \
@@ -1317,7 +1323,14 @@ passwd [username]
 backup <target>
                     Backup music to target destination
 update-musicbrainz-ids [-v]
-                    Update the database musicbrainz IDs from songs''')
+                    Update the database musicbrainz IDs from songs
+check-musicbrainz-tags [-v]
+                    Check if there are songs which should have correct
+                    musicbrainz tags but don't
+cache-musicbrainz-db [-v]
+                    Cache musicbrainz tables by copying data into
+                    new tables for fastest access
+''')
         # find-duplicates command
         sps.add_parser('find-duplicates',
                        description='Find duplicate files comparing '
@@ -1527,6 +1540,18 @@ update-musicbrainz-ids [-v]
                                 'the database musicbrainz IDs from songs')
         parser.add_argument('-v', '--verbose', dest='verbose',
                             action='store_true', help='Be verbose')
+        # check-musicbrainz-tags command
+        parser = sps.add_parser('check-musicbrainz-tags', description='Check '
+                                'if there are songs which should have correct '
+                                'musicbrainz tags but don\'t')
+        parser.add_argument('-v', '--verbose', dest='verbose',
+                            action='store_true', help='Be verbose')
+        # cache-musicbrainz-db command
+        parser = sps.add_parser('cache-musicbrainz-db', description='Cache '
+                                'musicbrainz tables by copying data into '
+                                'new tables for fastest access')
+        parser.add_argument('-v', '--verbose', dest='verbose',
+                            action='store_true', help='Be verbose')
         # web command
         parser = sps.add_parser('web',
                                 description='Start a web server')
@@ -1625,6 +1650,10 @@ update-musicbrainz-ids [-v]
             self.backupMusic(options.target)
         elif options.command == 'update-musicbrainz-ids':
             self.updateMusicBrainzIDs(verbose=options.verbose)
+        elif options.command == 'check-musicbrainz-tags':
+            self.checkMusicBrainzTags(verbose=options.verbose)
+        elif options.command == 'cache-musicbrainz-db':
+            self.cacheMusicBrainzDB(verbose=options.verbose)
 
 
 def main():
