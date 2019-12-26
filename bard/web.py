@@ -392,6 +392,7 @@ def release_group_releases():
     print('aaa', result)
     return jsonify(result)
 
+
 @app.route('/api/v1/release/image')
 def release_get_image():
     release_mbid = request.args.get('mbid', type=str)

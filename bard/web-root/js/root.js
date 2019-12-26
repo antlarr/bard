@@ -1,14 +1,15 @@
 var current_song_id = 0;
 
-function openComponent(page)
+function openComponent(page, data=null, push_to_history=true, callback=null)
 {
+    if (push_to_history)
+        window.history.pushState({page: 'openComponent', component: page, data:data}, "", "/");
     $.ajax({
         url: "/component/" + page,
-        data: {
-            zipcode: 97201
-        },
+        data: data,
         success: function( result ) {
             $( "#container" ).html( result );
+            if (callback) callback();
         },
         error: function( jqXHR, textStatus, errorThrown) {
             alert(textStatus + "\n" + errorThrown);
@@ -17,14 +18,43 @@ function openComponent(page)
     // $( "#container" ).html("<p>Login!</p>");
 }
 
-function openAbout()
+function openAbout(push_to_history=true)
 {
+    if (push_to_history)
+        window.history.pushState({page: 'openAbout'}, "", "/");
     $( "#container" ).html("<p>About Bard</p>");
 }
 
-function performSearch()
+function dateTupleToString(tuple)
+{
+    var r = tuple[0] || null;
+    if (r && tuple[1])
+    {
+        r += "-" + tuple[1];
+        if (tuple[2])
+            r += "-" + tuple[2];
+    };
+    return r;
+}
+
+function dateTuplesRangeToString(begin, end)
+{
+    begin_date = dateTupleToString(begin);
+    end_date = dateTupleToString(end);
+    if (begin_date && end_date)
+        return begin_date + " – " + end_date;
+    if (begin_date)
+        return begin_date + " –";
+    if (end_date)
+        return "– " + end_date;
+    return null;
+}
+
+function performSearch(push_to_history=true)
 {
     searchText=$("#searchBar").val();
+    if (push_to_history)
+        window.history.pushState({page: 'performSearch', query: searchText}, "", "/");
     $.ajax({
       url: "/api/v1/search",
       data: {
@@ -104,3 +134,22 @@ $( "#nav-genres" ).on( "click", function( event ) {
     openComponent('genres');
     event.preventDefault();
 });
+
+window.onpopstate = function( event ) {
+    switch (event.state['page'])
+    {
+       case 'openComponent':
+            openComponent(event.state['component'], event.state['data'], false, null);
+            break;
+       case 'openAbout':
+            openAbout(false);
+            break;
+       case 'performSearch':
+            openComponent('home', null, push_to_history=false, callback= function() {
+               $("#searchBar").val(event.state['query']);
+               performSearch(false);
+             });
+            break;
+    }
+}
+
