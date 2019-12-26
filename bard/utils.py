@@ -281,9 +281,26 @@ def fixBrokenImages(mutagenFile):
 def printDictsDiff(dict1, dict2, forcePrint=False):
     # Calculate changes
     removedKeys = [x for x in dict1.keys() if x not in dict2.keys()]
-    changedKeys = [x for x in dict2.keys()
-                   if x in dict1 and dict1.get(x, None) != dict2.get(x, None)]
-    newKeys = [x for x in dict2.keys() if x not in dict1.keys()]
+
+    def is_changed(x):
+        try:
+            return (x in dict1 and dict1.get(x, None) != dict2.get(x, None))
+        except ValueError:
+            return True
+
+    def is_in_dict1(x):
+        try:
+            return x in dict1.keys()
+        except ValueError:
+            return False
+
+    changedKeys = [x for x in dict2.keys() if is_changed(x)]
+
+    newKeys = [x for x in dict2.keys() if not is_in_dict1(x)]
+
+#    changedKeys = [x for x in dict2.keys()
+#                   if x in dict1 and dict1.get(x, None) != dict2.get(x, None)]
+#    newKeys = [x for x in dict2.keys() if x not in dict1.keys()]
 
     if not forcePrint and not removedKeys and not changedKeys and not newKeys:
         return False
@@ -302,11 +319,16 @@ def printDictsDiff(dict1, dict2, forcePrint=False):
 
     for k in sorted(allKeys):
         if k in changedKeys:
-            str_repr = use_str_or_repr((dict1[k], dict2[k]))
-            print(str(k), ':', TerminalColors.Highlight,
-                  str_repr(dict1[k])[:100], TerminalColors.ENDC,
-                  ' -> ', TerminalColors.Highlight,
-                  str_repr(dict2[k])[:100], TerminalColors.ENDC)
+            try:
+                str_repr = use_str_or_repr((dict1[k], dict2[k]))
+            except ValueError:
+                print(f'Error getting value for {k}')
+                str_repr = '~~~'
+            else:
+                print(str(k), ':', TerminalColors.Highlight,
+                      str_repr(dict1[k])[:100], TerminalColors.ENDC,
+                      ' -> ', TerminalColors.Highlight,
+                      str_repr(dict2[k])[:100], TerminalColors.ENDC)
         elif k in removedKeys:
             str_repr = use_str_or_repr((dict1[k],))
             print(str(k), ':', TerminalColors.First, str_repr(dict1[k])[:200],
@@ -880,7 +902,11 @@ def simple_find_matching_square_bracket(txt, initial):
 def printableLen(text):
     """Return length of printable characters in string."""
     strip_ANSI_pat = re.compile(r"""\x1b\[[;\d]*[A-Za-z]""", re.VERBOSE)
-    return len(strip_ANSI_pat.sub("", text))
+    try:
+        return len(strip_ANSI_pat.sub("", text))
+    except TypeError:
+        print(text, type(text))
+        raise
 
 
 def alignColumns(lines, col_alignments=None):
