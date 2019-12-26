@@ -1,3 +1,9 @@
+_bard_compfile()
+{
+        local IFS=$'\t\n'
+	COMPREPLY=( "${COMPREPLY[@]}" $( compgen -f -- "$cur" ) )
+}
+
 _bard() {
         local cmd cur prev opts
         COMPREPLY=()
@@ -6,62 +12,73 @@ _bard() {
         prev2="${COMP_WORDS[COMP_CWORD-2]}"
 	cmd="${COMP_WORDS[1]}"
 
-        case "${prev}" in
-                "bard")
-                        opts="find-duplicates find-audio-duplicates compare-dirs compare-files compare-songs fix-mtime fix-checksums add-silences check-songs-existence check-checksums import info ls list list-genres list-similars fix-genres play fix-tags update set-rating stats web passwd backup update-musicbrainz-ids"
-                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
-                ;;
+	if [ "$COMP_CWORD" == "1" ]; then
+            opts="find-duplicates find-audio-duplicates compare-dirs compare-files compare-songs fix-mtime fix-checksums add-silences check-songs-existence check-checksums import info ls list list-genres list-similars fix-genres play fix-tags update set-rating stats web passwd backup update-musicbrainz-ids"
+            COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+            return 0
+	fi
+	if [ "$COMP_CWORD" -lt "1" ]; then
+	    return 1
+	fi
+
+        case "${cmd}" in
                 "find-audio-duplicates")
                         opts="\--from-song-id"
                         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
                 ;;
                 "compare-songs"|"compare-files")
+			_bard_compfile
                         opts="-i"
-                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+			COMPREPLY=( "${COMPREPLY[@]}" $(compgen -W "${opts}" -- ${cur})  )
                 ;;
                 "compare-dirs")
+			_bard_compfile
                         opts="-s"
-                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+			COMPREPLY=( "${COMPREPLY[@]}" $(compgen -W "${opts}" -- ${cur})  )
                 ;;
                 "add-silences")
+			_bard_compfile
                         opts="-t -l -s -e"
-                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+			COMPREPLY=( "${COMPREPLY[@]}" $(compgen -W "${opts}" -- ${cur})  )
                 ;;
                 "check-songs-existence")
+			_bard_compfile
                         opts="-v"
-                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+			COMPREPLY=( "${COMPREPLY[@]}" $(compgen -W "${opts}" -- ${cur})  )
                 ;;
                 "info")
+			_bard_compfile
                         opts="-p"
-                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+			COMPREPLY=( "${COMPREPLY[@]}" $(compgen -W "${opts}" -- ${cur})  )
                 ;;
                 "ls"|"list")
+			_bard_compfile
                         opts="-l -d -i \--id -r -g"
-                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+			COMPREPLY=( "${COMPREPLY[@]}" $(compgen -W "${opts}" -- ${cur})  )
                 ;;
                 "list-similars")
                         opts="-l"
                         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
                 ;;
                 "list-genres")
-                        opts="-r -q"
-                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
-                ;;
-                "list-roots")
-                        opts="-q"
-                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+			_bard_compfile
+                        opts="-r"
+			COMPREPLY=( "${COMPREPLY[@]}" $(compgen -W "${opts}" -- ${cur})  )
                 ;;
                 "play")
+			_bard_compfile
                         opts="\--shuffle \--sh -r -g"
-                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+			COMPREPLY=( "${COMPREPLY[@]}" $(compgen -W "${opts}" -- ${cur})  )
                 ;;
                 "update")
+			_bard_compfile
                         opts="-v"
-                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+			COMPREPLY=( "${COMPREPLY[@]}" $(compgen -W "${opts}" -- ${cur})  )
                 ;;
                 "set-rating")
+			_bard_compfile
                         opts="-p"
-                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+			COMPREPLY=( "${COMPREPLY[@]}" $(compgen -W "${opts}" -- ${cur})  )
                 ;;
                 "stats")
                         opts="-v"
@@ -71,6 +88,11 @@ _bard() {
                         opts="-v"
                         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
                 ;;
+                *)
+                return 1
+                ;;
+        esac
+        case "${prev}" in
                 "-g"|"\--genre")
                         if ( [[ "$cmd" == "ls" ]] || [[ "$cmd" == "list" ]] || [[ "$cmd" == "play" ]]); then
 				mapfile -t opts_genres < <(bard list-genres -q | sed -e "s/\r//g")
@@ -86,6 +108,9 @@ _bard() {
                 ;;
                 "-r"|"\--root")
                         if ( [[ "$cmd" == "ls" ]] || [[ "$cmd" == "list" ]] || [[ "$cmd" == "play" ]] || [[ "$cmd" == "list-genres" ]]); then
+				# The opts_roots look like directory names, but we don't want to handle them as directories since we want
+				# to automatically add a space at the end of the selected completion, so we disable the filenames opt
+			        compopt +o filenames
 				mapfile -t opts_roots < <(bard list-roots -q)
 				mapfile -t candidates < <(compgen -W "${opts_roots[*]}" -- "${cur}")
 			        local comp
@@ -105,11 +130,11 @@ _bard() {
 #                                return 1
 #                        fi
 #                ;;
-                *)
-                return 1
-                ;;
+#                *)
+#                return 1
+#                ;;
         esac
         return 0
 }
-complete -F _bard bard
+complete -F _bard -o filenames bard
 
