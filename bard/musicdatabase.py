@@ -864,6 +864,19 @@ or name {like} '%%MusicBrainz/Track Id'""")
             return True
         return False
 
+    @classmethod
+    def songExistsInDatabase(cls, path=None, songID=None):
+        c = MusicDatabase.getCursor()
+        if path:
+            sql = text('SELECT id FROM songs WHERE path = :arg ')
+            arg = path
+        else:
+            sql = text('SELECT id FROM songs WHERE id = :arg ')
+            arg = songID
+        result = c.execute(sql, {'arg': arg})
+
+        return bool(result.rowcount)
+
     @staticmethod
     def getSongTags(songID):
         c = MusicDatabase.getCursor()
@@ -1409,8 +1422,17 @@ or name {like} '%%MusicBrainz/Track Id'""")
         MusicDatabase.createSongHistoryEntry(songID)
         sql = 'update songs set path=:newPath, root=:newRoot where id=:id'
         c = MusicDatabase.getCursor()
-        result = c.execute(text(sql).bindparams(id=songID,
-                           newPath=newPath, newRoot=newRoot))
+        try:
+            result = c.execute(text(sql).bindparams(id=songID,
+                               newPath=newPath, newRoot=newRoot))
+        except sqlalchemy.exc.IntegrityError as e:
+            import psycopg2.errors
+            if (isinstance(e.orig, psycopg2.errors.UniqueViolation) or
+                    MusicDatabase.database != 'postgresql'):
+                print('ERROR: duplicate path')
+            print(e)
+            raise
+
         return result.rowcount == 1
 
     @staticmethod
@@ -1448,14 +1470,23 @@ or name {like} '%%MusicBrainz/Track Id'""")
         dbRecord = MusicDatabase.execute(dbRecord).fetchone()
         if dbRecord:
             if any(dbRecord[k] != recorddict[k]
-                   for k in [c.name for c in table.columns]):
+                   for k in [c.name for c in table.columns]
+                   if k in recorddict):
                 print(f'update {table.name} db data for {recorddict}')
                 u = table.update() \
                          .where(wherestatement) \
                          .values(**recorddict)
                 MusicDatabase.execute(u)
-            else:
-                print(f'no changes in {table.name} db data for {recorddict}')
+#            else:
+#                print(f'no changes in {table.name} db data for {recorddict}')
+            for k in [c.name for c in table.columns]:
+                if k not in recorddict:
+                    print(f"WARNING! Should remove value for {k} from "
+                          f"{table.name} where id == {recorddict['id']}")
+                    raise KeyError(f'Missing code to remove value for {k} in '
+                                   f'{table.name} where '
+                                   f"id == {recorddict['id']}")
+
         else:
             print(f'insert {table.name} db data for {recorddict}')
             i = table.insert().values(**recorddict)

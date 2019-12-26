@@ -10,6 +10,7 @@ from bard.musicdatabase import MusicDatabase
 from bard.musicdatabase_songs import getMusic, getSongs, getSongsAtPath, \
     getSongsFromIDorPath
 from bard.terminalcolors import TerminalColors
+from bard.terminalkeyboard import ask_user_to_choose_one_option
 from bard.comparesongs import compareSongSets
 from bard.backup import backupMusic
 import chromaprint
@@ -229,11 +230,26 @@ class Bard:
             raise Exception(msg)
 
         try:
-            removedSong = removedSongsAudioSHA256[song.audioSha256sum()]
+            removedSongs = removedSongsAudioSHA256[song.audioSha256sum()]
         except KeyError:
             pass
         else:
-            song.moveFrom(removedSong)
+            if not MusicDatabase.songExistsInDatabase(path=song.path()):
+                if len(removedSongs) > 1:
+                    msg = f'Choose the removed song that was moved to {path}:'
+                    options = [song.path() for song in removedSongs]
+                    selected = ask_user_to_choose_one_option(options, msg)
+                    removedSong = removedSongs[selected]
+                else:
+                    removedSong = removedSongs[0]
+
+                song.moveFrom(removedSong)
+            else:
+                removedPaths = '\n'.join([x.path() for x in removedSongs])
+                print(f'{removedPaths} was/were removed and {song.path()} is '
+                      'being updated but was already in database, so the '
+                      'removed song(s) won\'t be moved to it.')
+                removedSong = None
         MusicDatabase.addSong(song)
 
         if commit:
@@ -298,8 +314,10 @@ class Bard:
 
         self.checkSongsExistenceInPaths(paths, verbose=verbose,
                                         callback=storeRemovedSongs)
-        removedSongsAudioSHA256 = {song.audioSha256sum(): song
-                                   for song in removedSongs}
+        removedSongsAudioSHA256 = {}
+        for song in removedSongs:
+            removedSongsAudioSHA256.setdefault(song.audioSha256sum(),
+                                               []).append(song)
         ids = self.add(paths, verbose=verbose,
                        removedSongsAudioSHA256=removedSongsAudioSHA256)
 
