@@ -1,0 +1,34 @@
+
+.releaseGroupView {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.releaseGroupContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+
+}
+
+#releasesList {
+  list-style-type:none;
+  min-height: -webkit-min-content;
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: flex-start;
+  align-items: flex-start;
+  align-content: flex-start;
+}
+#releasesList li {
+  width: 10em;
+/*  height: 12em;*/
+  text-align: center;
+  margin:0 1em;
+}
+#releasesList img {
+  width: 10em;
+  height: 10em;
+}

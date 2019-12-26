@@ -1,0 +1,52 @@
+
+.artistsView {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.artistsContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+
+}
+
+#artistsList {
+  list-style-type:none;
+  min-height: -webkit-min-content;
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: flex-start;
+  align-items: flex-start;
+  align-content: flex-start;
+}
+#artistsList li {
+  width: 10em;
+/*  height: 12em;*/
+  text-align: center;
+  margin:0 1em;
+}
+#artistsList img {
+  width: 10em;
+  height: 10em;
+}
+
+.alphabetIndex {
+    display: flex;
+    margin: 0 10vw;
+}
+#alphabetIndex ul {
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: center;
+  align-items: flex-start;
+  align-content: flex-start;
+}
+
+#alphabetIndex li {
+ display: inline-block;
+ width: 3em;
+
+}

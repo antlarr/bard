@@ -1,0 +1,34 @@
+
+.artistView {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.artistContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+
+}
+
+#artistReleaseGroupsList {
+  list-style-type:none;
+  min-height: -webkit-min-content;
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: flex-start;
+  align-items: flex-start;
+  align-content: flex-start;
+}
+#artistReleaseGroupsList li {
+  width: 10em;
+/*  height: 12em;*/
+  text-align: center;
+  margin:0 1em;
+}
+#artistReleaseGroupsList img {
+  width: 10em;
+  height: 10em;
+}

@@ -1,0 +1,25 @@
+<div class="artistsView" id="artistsView">
+  <div class="artistsContent" id="artistsContent">
+      <div class="alphabetIndex">
+        <ul id="alphabetIndex">
+        </ul>
+      </div>
+      <ul id="artistsList">
+      </ul>
+  </div>
+
+  <script type="text/javascript" src="/static/js/artists.js"></script>
+  <script type="text/javascript">
+      fillIndex();
+      startAtLetter='{{letter}}';
+      goToLetter(startAtLetter, false);
+    
+      $('#artistsContent').on('scroll', function() {
+        if($(this).scrollTop() + $(this).innerHeight() >= $(this)[0].scrollHeight) {
+            requestArtists(artistsOffset, page_size);
+        }
+    });
+  </script>
+  <link href="/static/css/home.css" rel="stylesheet">
+  <link href="/static/css/artists.css" rel="stylesheet">
+</div>

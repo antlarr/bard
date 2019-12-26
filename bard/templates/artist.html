@@ -1,0 +1,31 @@
+<div class="artistView" id="artistView">
+  <div class="artistContent" id="artistContent">
+      <div id="artistInfo">
+      </div>
+      <div id="artistAliases">
+      </div>
+      <div id="artistMemberRelations">
+      </div>
+
+      <ul id="artistBestSongsList">
+      </ul>
+      <ul id="artistReleaseGroupsList">
+      </ul>
+      <ul id="artistNonReleaseTracksList">
+      </ul>
+  </div>
+
+  <script type="text/javascript" src="/static/js/artist.js"></script>
+  <script type="text/javascript">
+      fillArtistPage({{_id}});
+    
+/**$( "#searchForm" ).on( "load", function( event ) {
+    performSearch();
+    event.preventDefault();
+});
+*/
+
+  </script>
+  <link href="/static/css/home.css" rel="stylesheet">
+  <link href="/static/css/artist.css" rel="stylesheet">
+</div>
