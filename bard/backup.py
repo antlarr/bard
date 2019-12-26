@@ -61,11 +61,13 @@ def uploadFile(srcpath, tgtpath, sftp):
         percentage.set_value(x)
 
     print(' ... ', end='')
-    tmptgtpath = tgtpath + '.partial'
+    (tgtdirname, tgtbasename) = os.path.split(tgtpath)
+
+    tmptgtpath = os.path.join(tgtdirname, tgtbasename[:246] + '.partial')
     try:
         suffix = 1
         while sftp.stat(tmptgtpath):
-            tmptgtpath = tgtpath + f'.partial~{suffix}'
+            tmptgtpath = os.path.join(tgtdirname, tgtbasename[:246] + f'.part~{suffix}')
             suffix += 1
     except FileNotFoundError:
         pass
