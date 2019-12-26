@@ -2,6 +2,7 @@
 
 from mbimporter import MusicBrainzImporter
 from bard.musicdatabase import MusicDatabase
+from datetime import datetime
 
 db = MusicDatabase()
 
@@ -9,7 +10,10 @@ db = MusicDatabase()
 importer = MusicBrainzImporter()
 #importer.retrieve_musicbrainz_dumps()
 #importer.read_mbdump_table('artist')
-#x=importer.read_mbdump_table('artist_alias')
+time1 = datetime.now()
+
+#x=importer.read_mbdump_table('l_artist_release')
+
 #print(x.getallbycolumn('artist',9555))
 #importer.import_entity_uuid('artist', '6416a02b-eda2-4c43-bca8-396ee30b5c74')  # David Lanz
 
@@ -28,3 +32,11 @@ importer = MusicBrainzImporter()
 #importer.import_entity_uuid('label', '48e05d59-41a2-435c-9f74-7df9bc1181cc')  # Private Music
 
 importer.import_entity_uuid('release', 'bc687229-7b3f-449b-93bf-9ba002b1fe60')  # A Kind of Magic
+
+time2 = datetime.now()
+print(str(time2 - time1))
+
+importer.import_entity_uuid('release', '9ace7c8c-55b4-4c5d-9aa8-e573a5dde9ad')  # The Works
+
+time3 = datetime.now()
+print(str(time3 - time2))

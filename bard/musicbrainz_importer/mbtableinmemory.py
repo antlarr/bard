@@ -17,6 +17,9 @@ class MBTableInMemory:
             for line in f.readlines():
                 self.add(mbtable.processLine(line, self.columns))
 
+    def __len__(self):
+        return len(self.data)
+
     def add(self, v):
         fast_access_keys = v.keys()
         try:

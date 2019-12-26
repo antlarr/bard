@@ -24,6 +24,9 @@ class MBTableCached:
 
         self.serial = 0
 
+    def __len__(self):
+        return len(self.lines)
+
     def loadFromFile(self, filename):
         with open(filename, 'rb') as f:
             self.lines = [x.rstrip(b'\n') for x in f.readlines()]

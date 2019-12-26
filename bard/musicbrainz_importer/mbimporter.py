@@ -113,7 +113,8 @@ extra_imports = {
              ('l_work_work', 'entity1', 'id')],
     'recording': [('l_artist_recording', 'entity1', 'id'),
                   ('l_recording_recording', 'entity0', 'id'),
-                  ('l_recording_recording', 'entity1', 'id')],
+                  ('l_recording_recording', 'entity1', 'id'),
+                  ('l_recording_work', 'entity0', 'id')],
     'link': [('link_attribute', 'link', 'id')],
     'release': [('l_artist_release', 'entity1', 'id'),
                 ('release_country', 'release', 'id'),
@@ -125,6 +126,24 @@ extra_imports = {
               # We want to have parent labels
               ('l_label_label', 'entity1', 'id')],
     'medium': [('track', 'medium', 'id')]}
+
+indexed_columns = {'artist_alias': ['artist'],
+                   'l_artist_artist': ['entity0', 'entity1'],
+                   'artist_credit_name': ['artist_credit'],
+                   'l_artist_work': ['entity1'],
+                   'l_work_work': ['entity0', 'entity1'],
+                   'l_artist_recording': ['entity1'],
+                   'l_recording_recording': ['entity0', 'entity1'],
+                   'link_attribute': ['link'],
+                   'l_artist_release': ['entity1'],
+                   'release_country': ['release'],
+                   'release_label': ['release'],
+                   'medium': ['release'],
+                   'l_artist_label': ['entity1'],
+                   'l_label_label': ['entity1'],
+                   'track': ['medium']}
+
+
 
 l_tables = {}
 
@@ -301,7 +320,11 @@ class MusicBrainzImporter:
                         'l_recording_work': MBTableCached,
                         'artist': MBTableFromDisk,
                         'release_group': MBTableCached,
-                        'l_artist_url': MBTableCached}
+                        'l_artist_url': MBTableCached,
+                        'release_country': MBTableFromDisk,
+                        'release_label': MBTableFromDisk,
+                        'l_artist_release': MBTableFromDisk}
+
         try:
             MBTableClass = tableClasses[tablename]
         except KeyError:
@@ -313,15 +336,19 @@ class MusicBrainzImporter:
         #                  'l_artist_work', 'work', 'artist_credit',
         #                  'release_label', 'artist_credit_name',
         #                  'release_country', 'l_artist_release']:
-        #     table = MBTableInDisk(tablename, columns)
+        #     table = MBTableFromDisk(tablename, columns)
         # else:
-        table = MBTableClass(tablename, columns)
+        if MBTableClass == MBTableFromDisk:
+            table = MBTableClass(tablename, columns,
+                                 indexed_columns.get(tablename, []))
+        else:
+            table = MBTableClass(tablename, columns)
 
         table.loadFromFile(filename)
 
         print('##########################################################  ' +
               f'Read {type(table).__name__}({tablename}). Size:',
-              getsize(table))
+              getsize(table), '. len: ', len(table))
 
         return table
 

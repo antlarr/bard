@@ -6,34 +6,55 @@ from largedictintint import LargeDictOfIntToInt
 
 
 class MBTableFromDisk:
-    def __init__(self, name, columns):
+    def __init__(self, name, columns, index_columns=[]):
         """Create a MBTableFromDisk object."""
         self.name = name
         self.columns = columns
         self.column_types = {x[0]: x[1] for x in columns}
         self.column_position = {x[0]: i for i, x in enumerate(columns)}
+
+        self.index_columns = set(index_columns)
+
         print(self.columns)
         print(self.column_position)
         try:
             self.id_position = self.column_position['id']
-            self.entry_positions = LargeDictOfIntToInt()
+            self.index_columns.add('id')
         except KeyError:
             self.id_position = None
-            self.entry_positions = None
+
+        self.indexed_positions = {c: LargeDictOfIntToInt()
+                                  for c in self.index_columns
+                                  if c in self.column_position.keys()}
+
         self.fh = None
 
         self.serial = 0
 
+    def __len__(self):
+        if not self.indexed_positions:
+            raise None
+        return len(next(iter(self.indexed_positions.values())))
+
     def indexFile(self):
+        temp = {col: {} for col in self.indexed_positions.keys()}
         line = self.fh.readline()
         pos = 0
         while line:
             values = line.split(b'\t')
-            if self.id_position is not None:
-                self.entry_positions[int(values[self.id_position])] = pos
+            for col in self.indexed_positions.keys():
+                k = int(values[self.column_position[col]])
+                temp[col].setdefault(k, []).append(pos)
+                # self.indexed_positions[col][k] = pos
+
             pos += len(line)
 
             line = self.fh.readline()
+
+        for col in self.indexed_positions.keys():
+            print(col)
+            self.indexed_positions[col].fromdict(temp[col])
+            # self.indexed_positions[col].dumpvalues()
 
     def loadFromFile(self, filename):
         self.fh = open(filename, 'rb')
@@ -48,9 +69,8 @@ class MBTableFromDisk:
             raise KeyError('Error getting MBTableFromDisk(%s)[%s]: No id col' %
                            (self.name, str(_id)))
 
-        print(self.entry_positions)
         try:
-            pos = self.entry_positions[_id]
+            pos = self.indexed_positions['id'][_id]
         except KeyError:
             raise KeyError('Error getting MBTableFromDisk(%s)[%s]: No id avail' %
                        (self.name, str(_id)))
@@ -77,7 +97,15 @@ class MBTableFromDisk:
         if column == 'id':
             return self[value]
 
-        self.fh.seek(0)
+        if column in self.indexed_positions:
+            try:
+                pos = self.indexed_positions[column][_id]
+            except KeyError:
+                raise KeyError('Error getting MBTableFromDisk(%s)[%s:%s] ' %
+                               (self.name, column, str(value)))
+            self.fh.seek(pos)
+        else:
+            self.fh.seek(0)
 
         col_position = self.column_position[column]
         value = str(value).encode('utf-8')
@@ -90,13 +118,11 @@ class MBTableFromDisk:
                        (self.name, column, value))
 
     def getbycolumns(self, column_values):
-        raise RuntimeError('Undefined MBTableFromDisk.getbycolumns')
+        raise RuntimeError('MBTableFromDisk.getbycolumns not implemented')
 
     def contains(self, column, value):
-        if column == 'id' and self.id_position is not None:
-            return value in self.line_positions
-        elif column == 'id':
-            raise ValueError('No id column in table?')
+        if column in self.index_columns:
+            return value in self.indexed_positions[column]
 
         self.fh.seek(0)
 
@@ -111,12 +137,24 @@ class MBTableFromDisk:
 
     def getallbycolumn(self, column, value):
         col_position = self.column_position[column]
-        value = tobytes(value)
         r = []
+
+        if column in self.index_columns:
+            positions = self.indexed_positions[column].getallvalues(value)
+            value = tobytes(value)
+            for position in positions:
+                self.fh.seek(position)
+                line = self.fh.readline()
+                cols = line.rstrip(b'\n').split(b'\t')
+                if cols[col_position] == value:
+                    r.append(mbtable.processLine(line.decode('utf-8'), self.columns))
+            return r
+
+        value = tobytes(value)
+
         self.fh.seek(0)
         for line in self.fh.readlines():
             cols = line.rstrip(b'\n').split(b'\t')
-            print(cols[col_position], value)
             if cols[col_position] == value:
                 r.append(mbtable.processLine(line.decode('utf-8'), self.columns))
 
