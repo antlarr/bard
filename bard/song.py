@@ -321,8 +321,9 @@ class Song:
 
     def moveFrom(self, prevSong):
         """Move prevSong to the location and values of self."""
-        print(f'Moving song from %d, %s to %s' % (prevSong.id, prevSong.path(),
-                                                  self.path()))
+        print(f'Moving song from {prevSong.id}, {prevSong.path()}\n'
+              f"              to {getattr(self, 'id', None)}, {self.path()}")
+
         if not self._path:
             return False
         r = MusicDatabase.moveSong(prevSong.id, self._path, self._root)
