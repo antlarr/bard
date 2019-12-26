@@ -86,6 +86,7 @@ columns_translations = {
                 'artist_credit_id': 'artist_credit',
                 'release_group_id': 'release_group',
                 'release_status': 'status'},
+    'release_group_secondary_type_join': {'release_group_id': 'release_group'},
     'release_country': {'release_id': 'release',
                         'country_id': 'country'},
     'release_label': {'release_id': 'release',
@@ -112,7 +113,6 @@ tables = ['area',
           'enum_area_type_values',
           'enum_artist_alias_type_values',
           'enum_artist_type_values',
-          'enum_country_values',
           'enum_event_type_values',
           'enum_gender_values',
           'enum_instrument_type_values',
@@ -241,7 +241,10 @@ table_translations = {
     'enum_work_type_values': 'work_type',
     'enum_place_type_values': 'place_type',
     'enum_series_type_values': 'series_type',
-    'enum_label_type_values': 'label_type'}
+    'enum_label_type_values': 'label_type',
+    'enum_instrument_type_values': 'instrument_type',
+    'enum_release_group_secondary_type_values': 'release_group_secondary_type'
+}
 
 # When importing an item of type 'key', also import other tables, specified as
 # a list of tuples of 3 strings. The first is the new table to import,
@@ -410,11 +413,12 @@ class MusicBrainzImporter:
         latest = urllib.request.urlopen(url + "/LATEST")
         latest = latest.read().decode('utf-8').strip('\n')
 
-        return url + "/" + latest
+        print(latest)
+        return url + "/" + latest, latest
 
     @staticmethod
     def retrieve_mbdump_file(filename):
-        url = MusicBrainzImporter.get_fullexport_latest_directory()
+        url, _ = MusicBrainzImporter.get_fullexport_latest_directory()
         url += '/' + filename
 
         directory = os.path.expanduser('~/.local/share/bard')
@@ -635,6 +639,9 @@ class MusicBrainzImporter:
             MusicDatabase.insert_or_update(dbtable, record,
                 and_(dbtable.c.release_id == record['release_id'],  # noqa
                      dbtable.c.country_id == record['country_id']))
+        elif entity == 'release_group_secondary_type_join':
+            MusicDatabase.insert_or_update(dbtable, record,
+                dbtable.c.release_group_id == record['release_group_id'])  # noqa
         else:
             MusicDatabase.insert_or_update(dbtable, record)
 
@@ -872,6 +879,13 @@ class MusicBrainzImporter:
                    for x in table.getlines_matching_values(
                    'id', self.ids['release']))
 
+    def get_labels_from_release_ids(self):
+        table = self.get_mbdump_tableiter('release_label')
+
+        return set(x['label']
+                   for x in table.getlines_matching_values(
+                   'release', self.ids['release']))
+
     def get_files_to_check_manually_for_missing_uuids(self):
         tab_cols = {'artist': [('songs_mb_artistids', 'artistid'),
                                ('songs_mb_albumartistids', 'albumartistid')],
@@ -950,6 +964,7 @@ class MusicBrainzImporter:
         self.ids['artist_credit'] = set()
         self.ids['series'] = set()
         self.ids['link'] = set()
+        self.ids['label'] = set()
         for entity, uuids in self.uuids.items():
             _, self.ids[entity] = self.convert_uuids_to_ids(entity, uuids)
             print(entity, len(self.ids[entity]), 'ids')
@@ -967,6 +982,9 @@ class MusicBrainzImporter:
 
         ids = self.get_release_groups_from_release_ids()
         self.ids['release_group'].update(ids)
+
+        ids = self.get_labels_from_release_ids()
+        self.ids['label'].update(ids)
 
         if artist_credits:
             futures = []
@@ -1042,24 +1060,37 @@ class MusicBrainzImporter:
         self.import_enum_table('enum_place_type_values')
         self.import_enum_table('enum_series_type_values')
         self.import_enum_table('enum_label_type_values')
+        self.import_enum_table('enum_instrument_type_values')
+        self.import_enum_table('enum_release_group_secondary_type_values')
 
-        # self.import_elements_from_table('area')
-        # self.import_table('artist')
-        # self.import_table('artist_credit')
-        # self.import_elements_from_table('artist_credit_name',
-        #                                 column='artist_credit',
-        #                                 ids=self.ids['artist_credit'])
-        # self.import_elements_from_table('artist_alias',
-        #                                 column='artist',
-        #                                 ids=self.ids['artist'])
-        # self.import_table('release_group')
-        # self.import_table('release')
-        # self.import_table('medium')
-        # self.import_table('recording')
-        # self.import_table('track')
-        # self.import_table('work')
-        # self.import_table('event')
-        # self.import_table('series')
+        self.import_elements_from_table('area')
+        self.import_table('artist')
+        self.import_table('artist_credit')
+        self.import_elements_from_table('artist_credit_name',
+                                        column='artist_credit',
+                                        ids=self.ids['artist_credit'])
+        self.import_elements_from_table('artist_alias',
+                                        column='artist',
+                                        ids=self.ids['artist'])
+        self.import_table('release_group')
+        self.import_elements_from_table('release_group_secondary_type_join',
+                                        column='release_group',
+                                        ids=self.ids['release_group'])
+
+        self.import_table('release')
+        self.import_elements_from_table('release_country',
+                                        column='release',
+                                        ids=self.ids['release'])
+        self.import_table('label')
+        self.import_elements_from_table('release_label',
+                                        column='release',
+                                        ids=self.ids['release'])
+        self.import_table('medium')
+        self.import_table('recording')
+        self.import_table('track')
+        self.import_table('work')
+        self.import_table('event')
+        self.import_table('series')
         self.import_elements_from_table('link_type')
         if 'link_attribute_type' in self.parent_ids:
             (self.import_elements_from_table('link_attribute_type',

@@ -28,6 +28,11 @@ CREATE TABLE musicbrainz.enum_release_group_type_values (
        name TEXT
 );
 
+CREATE TABLE musicbrainz.enum_release_group_secondary_type_values (
+       id_value SERIAL PRIMARY KEY,
+       name TEXT
+);
+
 CREATE TABLE musicbrainz.enum_release_status_values (
        id_value SERIAL PRIMARY KEY,
        name TEXT
@@ -202,6 +207,16 @@ CREATE TABLE musicbrainz.release_group (
 CREATE INDEX ON musicbrainz.release_group (mbid);
 CREATE INDEX ON musicbrainz.release_group (artist_credit_id);
 
+CREATE TABLE musicbrainz.release_group_secondary_type_join (
+       release_group_id INTEGER PRIMARY KEY,
+       secondary_type INTEGER NOT NULL,
+
+       FOREIGN KEY(release_group_id)
+         REFERENCES release_group(id),
+       FOREIGN KEY(secondary_type)
+         REFERENCES enum_release_group_secondary_type_values(id_value)
+);
+
 CREATE TABLE musicbrainz.release (
        id SERIAL PRIMARY KEY,
        mbid TEXT UNIQUE,
@@ -218,14 +233,10 @@ CREATE TABLE musicbrainz.release (
          REFERENCES enum_release_status_values(id_value),
        FOREIGN KEY(language)
          REFERENCES enum_language_values(id_value),
-       FOREIGN KEY(country)
-         REFERENCES enum_country_values(id_value),
        FOREIGN KEY(artist_credit_id)
          REFERENCES artist_credit(id),
        FOREIGN KEY(release_group_id)
-         REFERENCES release_group(id),
-       FOREIGN KEY(label_id)
-         REFERENCES label(id)
+         REFERENCES release_group(id)
 );
 
 CREATE INDEX ON musicbrainz.release (mbid);

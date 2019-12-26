@@ -40,13 +40,13 @@ if use_directories:
     for dirname in sorted(dirs):
         print(dirname)
 
-    print('----------------- Files with wrong recording uuids:')
+    print('----------------- Files with wrong recording ids:')
     dirs = set(albumdirectory(path) for path in missing_files2)
 
     for dirname in sorted(dirs):
         print(dirname)
 
-    print('----------------- Files with wrong recording uuids:')
+    print('----------------- Files with missing work uuids:')
     dirs = set(albumdirectory(path) for path in files_with_missing_works)
 
     for dirname in sorted(dirs):
