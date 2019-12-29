@@ -3,6 +3,7 @@
 from bard.config import config
 from bard.normalizetags import normalizeTagValues
 from bard.utils import DecodedAudioPropertiesTuple, DecodeMessageRecord
+from bard.album import albumPath
 import sqlalchemy
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
@@ -759,6 +760,8 @@ CREATE TABLE similarities(
                     c.rollback()
                     print(sql, tags)
                     raise
+            albumID = MusicDatabase.getAlbumID(albumPath(song.path()))
+            MusicDatabase.setSongInAlbum(song.id, albumID)
 
     @staticmethod
     def removeSong(song=None, byID=None):
@@ -780,6 +783,7 @@ CREATE TABLE similarities(
         c.execute('DELETE FROM tags where song_id=:id', params)
         c.execute('DELETE FROM properties where song_id=:id', params)
         c.execute('DELETE FROM ratings where song_id=:id', params)
+        c.execute('DELETE FROM album_songs where song_id=:id', params)
         c.execute('DELETE FROM songs where id=:id', params)
         MusicDatabase.commit()
 
@@ -1494,6 +1498,77 @@ or name {like} '%%MusicBrainz/Track Id'""")
             print(f'insert {table.name} db data for {recorddict}')
             i = table.insert().values(**recorddict)
             MusicDatabase.execute(i)
+
+    @staticmethod
+    def songsWithReleaseID(onlyWithoutAlbums=True):
+        c = MusicDatabase.getCursor()
+        if onlyWithoutAlbums:
+            extra = '   AND song_id NOT IN (select song_id from album_songs)'
+        else:
+            extra = ''
+        sql = text('SELECT id, path '
+                   '  FROM songs, songs_mb '
+                   ' WHERE id = song_id '
+                   '   AND releaseid IS NOT NULL '
+                   f'   {extra}'
+                   'ORDER BY id')
+        result = c.execute(sql)
+        return [(x[0], x[1]) for x in result.fetchall()]
+
+    @staticmethod
+    def getAlbumID(albumPath):
+        c = MusicDatabase.getCursor()
+        sql = text('SELECT id FROM albums where path = :path')
+
+        result = c.execute(sql, {'path': albumPath}).fetchone()
+        if result:
+            return result[0]
+        else:
+            sql = text('INSERT INTO albums(path) VALUES (:path)')
+            c.execute(sql, {'path': albumPath})
+
+            try:
+                sql = "SELECT currval(pg_get_serial_sequence('albums','id'))"
+                result = c.execute(sql)
+            except sqlalchemy.exc.OperationalError:
+                # Try the sqlite way
+                sql = 'SELECT last_insert_rowid()'
+                result = c.execute(sql)
+
+            MusicDatabase.commit()
+            albumID = result.fetchone()[0]
+            return albumID
+
+    @staticmethod
+    def setSongInAlbum(songID, albumID):
+        record = {'song_id': songID, 'album_id': albumID}
+        album_songs = MusicDatabase.table('album_songs')
+        MusicDatabase.insert_or_update(album_songs, record,
+                                       album_songs.c.song_id == songID)
+
+    @staticmethod
+    def removeOrphanAlbums():
+        c = MusicDatabase.getCursor()
+        sql = text('DELETE FROM albums '
+                   ' WHERE id NOT IN (SELECT DISTINCT album_id '
+                   '                    FROM album_songs)')
+        result = c.execute(sql)
+        MusicDatabase.commit()
+
+        if result.rowcount:
+            print(f'{result.rowcount} orphan albums removed')
+
+    @staticmethod
+    def refreshMaterializedView(viewName):
+        c = MusicDatabase.getCursor()
+        sql = text(f'refresh materialized view {viewName}')
+        c.execute(sql)
+        MusicDatabase.commit()
+
+    @staticmethod
+    def refreshMaterializedViews():
+        MusicDatabase.refreshMaterializedView('album_properties')
+        MusicDatabase.refreshMaterializedView('album_release')
 
 
 table = MusicDatabase.table

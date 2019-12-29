@@ -303,15 +303,66 @@ class MusicBrainzDatabase:
                    '                   FROM songs_mb '
                    '                  WHERE recordingid is not NULL)'
                    '     ORDER BY 1')
-        print('Songs which should have musicbrainz tags but don\'t:')
-        table = [('ID', 'PATH')]
+        table = []
         for root in config['musicbrainzTaggedMusicPaths']:
             result = c.execute(sql, {'root': root})
             table.extend((str(song_id), path)
                          for song_id, path in result.fetchall())
-        aligned = alignColumns(table, (False, True))
-        for line in aligned:
-            print(line)
+        if table:
+            table.insert(0, ('SONGID', 'PATH'))
+            aligned = alignColumns(table, (False, True))
+            print('Songs which should have musicbrainz tags but don\'t:')
+            for line in aligned:
+                print(line)
+        return bool(table)
+
+    @staticmethod
+    def checkAlbumsWithDifferentReleases():
+        c = MusicDatabase.getCursor()
+        sql = text('SELECT album_id, path, '
+                   '       COUNT(DISTINCT musicbrainz.release.id) '
+                   '  FROM songs_mb, albums, album_songs, musicbrainz.release '
+                   ' WHERE albums.id = album_songs.album_id '
+                   '   AND releaseid = mbid '
+                   '   AND songs_mb.song_id = album_songs.song_id '
+                   ' GROUP BY album_songs.album_id, albums.path '
+                   ' HAVING COUNT(DISTINCT musicbrainz.release.id) > 1')
+
+        result = c.execute(sql)
+        table = [(str(album_id), path, str(count))
+                 for album_id, path, count in result.fetchall()]
+        if table:
+            table.insert(0, ('ALBUMID', 'PATH', 'NUMBER OF RELEASES'))
+            aligned = alignColumns(table, (False, True, False))
+            print('Albums that contain songs from different releases:')
+            for line in aligned:
+                print(line)
+        return bool(table)
+
+    @staticmethod
+    def checkAlbumsWithDifferentFormats():
+        c = MusicDatabase.getCursor()
+        sql = text('select id, path, format '
+                   '  from albums, album_properties '
+                   ' where id in (select album_id '
+                   '                from (select  album_id, count(*) '
+                   '                        from album_properties '
+                   '                    group by album_id '
+                   '                      having count(*)>1) '
+                   '                  as foo) '
+                   '   and id = album_id')
+
+        result = c.execute(sql)
+        table = [(str(album_id), path, audioFormat)
+                 for album_id, path, audioFormat in result.fetchall()]
+        if table:
+            table.insert(0, ('ALBUMID', 'PATH', 'FORMAT'))
+            aligned = alignColumns(table, (False, True, True))
+            print('Albums that contain songs with different formats:')
+            for line in aligned:
+                print(line)
+        return bool(table)
+
 
     @staticmethod
     def get_all_artists():

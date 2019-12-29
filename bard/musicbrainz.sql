@@ -1582,8 +1582,8 @@ CREATE TABLE musicbrainz.l_work_work (
 );
 
 
--- This table doesn't come from MB. To fill it with data,
--- run "bard cache-mb-data"
+-- These tables don't come from MB. To fill artists_mb with data,
+-- run "bard cache-musicbrainz-db"
 CREATE TABLE artists_mb (
        id INTEGER PRIMARY KEY,
 
@@ -1598,3 +1598,61 @@ CREATE TABLE artists_mb (
           REFERENCES musicbrainz.artist(id)
 );
 
+CREATE TABLE albums (
+       id SERIAL PRIMARY KEY,
+       path TEXT UNIQUE
+);
+
+CREATE TABLE album_songs (
+       song_id INTEGER,
+       album_id INTEGER,
+
+       FOREIGN KEY(song_id)
+          REFERENCES songs(id),
+       FOREIGN KEY(album_id)
+          REFERENCES albums(id)
+);
+
+-- CREATE TABLE album_release (
+--        album_id INTEGER,
+--        release_id INTEGER,
+--
+--        FOREIGN KEY(album_id)
+--           REFERENCES albums(id),
+--        FOREIGN KEY(release_id)
+--           REFERENCES musicbrainz.release(id)
+-- );
+
+CREATE MATERIALIZED VIEW album_release
+                      AS select album_songs.album_id, musicbrainz.release.id release_id
+                           from songs_mb, album_songs, musicbrainz.release
+                          where releaseid = mbid
+                            and songs_mb.song_id = album_songs.song_id
+                       group by album_songs.album_id, musicbrainz.release.id;
+
+CREATE UNIQUE INDEX ON album_release (album_id);
+CREATE INDEX ON album_release (release_id);
+
+
+-- SELECT album_id, string_agg(distinct format,'+'), min(bitrate) min_bitrate, max(bitrate) max_bitrate from album_songs, properties p where album_songs.song_id = p.song_id group by album_songs.album_id
+
+CREATE MATERIALIZED VIEW album_properties
+                      AS SELECT album_id, format,
+                                min(bitrate) min_bitrate, max(bitrate) max_bitrate,
+                                min(bits_per_sample) min_bits_per_sample, max(bits_per_sample) max_bits_per_sample,
+                                min(sample_rate) min_sample_rate, max(sample_rate) max_sample_rate,
+                                min(channels) min_channels, max(channels) max_channels
+                           from album_songs, properties p
+                          where album_songs.song_id = p.song_id
+                       group by album_songs.album_id, format;
+--       format TEXT,
+--       min_bitrate INTEGER, -- 128, 320
+--       max_bitrate INTEGER,
+--       min_channels INTEGER, -- 2, 6
+--       max_channels INTEGER,
+--       min_bits_per_sample INTEGER, -- 16, 24
+--       max_bits_per_sample INTEGER,
+--       min_samplerate INTEGER,  -- 44100, 96000
+--       max_samplerate INTEGER,
+
+CREATE INDEX ON album_properties (album_id);

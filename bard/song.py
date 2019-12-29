@@ -10,6 +10,7 @@ from bard.musicdatabase import MusicDatabase
 from bard.normalizetags import getTag
 from bard.ffprobemetadata import FFProbeMetadata
 from bard.terminalcolors import TerminalColors
+from bard.album import albumPath
 from pydub import AudioSegment
 from pydub.exceptions import PydubException
 from sqlalchemy import text
@@ -331,6 +332,9 @@ class Song:
             self.id = prevSong.id
             prevSong._path = self._path
             prevSong._root = self._root
+
+            albumID = MusicDatabase.getAlbumID(albumPath(self._path))
+            MusicDatabase.setSongInAlbum(self.id, albumID)
         return r
 
     def root(self):

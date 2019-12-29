@@ -31,6 +31,7 @@ from argparse import ArgumentParser
 from bard.config import config, translatePath
 from bard.user import requestNewPassword
 from bard.musicbrainz_database import MusicBrainzDatabase
+from bard.album import albumPath
 
 
 ComparisonResult = namedtuple('ComparisonResult', ['offset', 'similarity'])
@@ -326,9 +327,12 @@ class Bard:
                 print('Removing song', song.path())
                 self.db.removeSong(song)
 
+        MusicDatabase.removeOrphanAlbums()
+
         print('update musicbrainz ids')
         # do things for new songs
         MusicBrainzDatabase.updateMusicBrainzIDs(ids)
+        MusicDatabase.refreshMaterializedViews()
 
     def info(self, ids_or_paths, currentlyPlaying=False):
         songs = []
@@ -1194,8 +1198,32 @@ class Bard:
         songIDs = MusicBrainzDatabase.songsWithoutMBData()
         MusicBrainzDatabase.updateMusicBrainzIDs(songIDs)
 
+    def updateAlbums(self, regenerate=False, verbose=False):
+        songIDsAndPaths = MusicDatabase.songsWithReleaseID(
+            onlyWithoutAlbums=not regenerate)
+
+        lastAlbumPath = None
+        albumID = None
+        for songID, songPath in songIDsAndPaths:
+            aPath = albumPath(songPath)
+            if aPath != lastAlbumPath:
+                albumID = MusicDatabase.getAlbumID(aPath)
+                lastAlbumPath = aPath
+
+            MusicDatabase.setSongInAlbum(songID, albumID)
+        MusicDatabase.removeOrphanAlbums()
+        MusicDatabase.refreshMaterializedViews()
+
     def checkMusicBrainzTags(self, verbose=False):
-        MusicBrainzDatabase.checkMusicBrainzTags()
+        r1 = MusicBrainzDatabase.checkMusicBrainzTags()
+        r2 = MusicBrainzDatabase.checkAlbumsWithDifferentReleases()
+        r3 = MusicBrainzDatabase.checkAlbumsWithDifferentFormats()
+        if not any([r1, r2, r3]):
+            print('Musicbrainz tags are ok!')
+            print('This means that every song in the '
+                  'musicbrainzTaggedMusicPaths directories\n'
+                  'is tagged correctly and every directory only '
+                  'contains one release.')
 
     def cacheMusicBrainzDB(self, verbose=False):
         MusicBrainzDatabase.cacheMusicBrainzDB()
@@ -1540,6 +1568,15 @@ cache-musicbrainz-db [-v]
                                 'the database musicbrainz IDs from songs')
         parser.add_argument('-v', '--verbose', dest='verbose',
                             action='store_true', help='Be verbose')
+        # update-albums command
+        parser = sps.add_parser('update-albums', description='Update '
+                                'the albums to which songs belong to (this '
+                                'should be never needed)')
+        parser.add_argument('-r', '--regenerate', dest='regenerate',
+                            action='store_true', help='Reassign the album '
+                            'of all songs')
+        parser.add_argument('-v', '--verbose', dest='verbose',
+                            action='store_true', help='Be verbose')
         # check-musicbrainz-tags command
         parser = sps.add_parser('check-musicbrainz-tags', description='Check '
                                 'if there are songs which should have correct '
@@ -1650,6 +1687,9 @@ cache-musicbrainz-db [-v]
             self.backupMusic(options.target)
         elif options.command == 'update-musicbrainz-ids':
             self.updateMusicBrainzIDs(verbose=options.verbose)
+        elif options.command == 'update-albums':
+            self.updateAlbums(regenerate=options.regenerate,
+                              verbose=options.verbose)
         elif options.command == 'check-musicbrainz-tags':
             self.checkMusicBrainzTags(verbose=options.verbose)
         elif options.command == 'cache-musicbrainz-db':
