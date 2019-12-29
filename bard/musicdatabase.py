@@ -1490,14 +1490,6 @@ or name {like} '%%MusicBrainz/Track Id'""")
                 MusicDatabase.execute(u)
 #            else:
 #                print(f'no changes in {table.name} db data for {recorddict}')
-            for k in [c.name for c in table.columns]:
-                if k not in recorddict:
-                    print(f"WARNING! Should remove value for {k} from "
-                          f"{table.name} where id == {recorddict['id']}")
-                    raise KeyError(f'Missing code to remove value for {k} in '
-                                   f'{table.name} where '
-                                   f"id == {recorddict['id']}")
-
         else:
             print(f'insert {table.name} db data for {recorddict}')
             i = table.insert().values(**recorddict)
