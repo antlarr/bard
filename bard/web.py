@@ -162,6 +162,8 @@ def structFromReleaseGroup(rg):
     r['release_group_type'] = rg.release_group_type
     r['artist_credit_id'] = rg.artist_credit_id
     r['artist_credit_name'] = rg.artist_credit_name
+    r['secondary_types'] = \
+        MusicBrainzDatabase.get_release_group_secondary_types(rg.id)
     return r
 
 

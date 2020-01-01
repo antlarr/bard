@@ -363,7 +363,6 @@ class MusicBrainzDatabase:
                 print(line)
         return bool(table)
 
-
     @staticmethod
     def get_all_artists():
         """Return all artists (used by the mb importer)."""
@@ -563,13 +562,15 @@ class MusicBrainzDatabase:
     def get_artist_release_groups(artistID):
         c = MusicDatabase.getCursor()
         sql = ('select rg.id, mbid, rg.name, disambiguation, '
-               'release_group_type, rg.artist_credit_id, '
+               'rgt.name as release_group_type, rg.artist_credit_id, '
                'ac.name as artist_credit_name'
                ' from musicbrainz.release_group as rg, '
                '      musicbrainz.artist_credit as ac, '
-               '      musicbrainz.artist_credit_name as acn '
+               '      musicbrainz.artist_credit_name as acn, '
+               '      musicbrainz.enum_release_group_type_values as rgt '
                'where rg.artist_credit_id = ac.id '
                '  and rg.artist_credit_id = acn.artist_credit_id '
+               '  and rg.release_group_type = rgt.id_value '
                '  and acn.artist_id = :artistID')
         result = c.execute(sql, {'artistID': artistID})
         return result.fetchall()
@@ -698,16 +699,32 @@ class MusicBrainzDatabase:
         return MusicDatabase.execute(s).fetchone()
 
     @staticmethod
+    def get_release_group_secondary_types(rgID):
+        c = MusicDatabase.getCursor()
+        sql = ('select name '
+               '  from musicbrainz.release_group_secondary_type_join, '
+               '       musicbrainz.enum_release_group_secondary_type_values '
+               ' where release_group_id = :rgID '
+               '   and secondary_type = id_value')
+        r = c.execute(text(sql), {'rgID': rgID})
+        return [x[0] for x in r.fetchall()]
+
+    @staticmethod
     def get_release_group_releases(rgID):
-        r = table('musicbrainz.release')
-        ac = table('musicbrainz.artist_credit')
-        s = (select([r.c.id, r.c.mbid, r.c.name,
-                     r.c.disambiguation,
-                     r.c.release_status, r.c.language, r.c.barcode,
-                     r.c.artist_credit_id, ac.c.name.label('artist_name')])
-             .where(and_(r.c.artist_credit_id == ac.c.id,
-                         r.c.release_group_id == rgID)))
-        return MusicDatabase.execute(s).fetchall()
+        c = MusicDatabase.getCursor()
+        sql = text('select album_id, r.id, mbid, r.name, disambiguation, '
+                   ' rs.name as release_status, language, barcode, '
+                   ' artist_credit_id, ac.name '
+                   '  from musicbrainz.release r, '
+                   '       musicbrainz.artist_credit ac, '
+                   '       album_release ar, '
+                   '       musicbrainz.enum_release_status_values rs '
+                   ' where ar.release_id = r.id '
+                   '   and r.artist_credit_id = ac.id '
+                   '   and r.release_status = rs.id_value '
+                   '   and r.release_group_id = :rgID ')
+        r = c.execute(sql, {'rgID': rgID})
+        return r.fetchall()
 
     @staticmethod
     def get_release_mediums(releaseID):
@@ -749,4 +766,3 @@ class MusicBrainzDatabase:
                '              where releaseid=:releaseMBID)')
         result = c.execute(sql, {'releaseMBID': releaseMBID})
         return set(os.path.dirname(path) for (path,) in result.fetchall())
-
