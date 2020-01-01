@@ -654,14 +654,14 @@ class BackupMusic:
             print(dirpath)
             filenames.sort()
             dirnames.sort()
-            target_dirpath = self.targetPath(dirpath)
+            tgt_dirpath = self.targetPath(dirpath)
 
             try:
-                remoteDirCache = {os.path.join(target_dirpath, x.filename): x
-                                  for x in self.sftp.listdir_attr(target_dirpath)}
+                remoteDirCache = {os.path.join(tgt_dirpath, x.filename): x
+                                  for x in self.sftp.listdir_attr(tgt_dirpath)}
             except FileNotFoundError:
                 src_attr = os.stat(self.source)
-                mkdir = CreateRemoteDir(self.source, target_dirpath, src_attr)
+                mkdir = CreateRemoteDir(self.source, tgt_dirpath, src_attr)
                 mkdir.run(self.sftp)
                 remoteDirCache = {}
 
@@ -693,7 +693,7 @@ class BackupMusic:
                     pending_changes.append(upload)
 
             try:
-                attr = self.sftp.stat(target_dirpath)
+                attr = self.sftp.stat(tgt_dirpath)
                 iterate_tgt_dirpath = stat.S_ISDIR(attr.st_mode)
             except FileNotFoundError:
                 iterate_tgt_dirpath = False
@@ -704,7 +704,7 @@ class BackupMusic:
                     is_dir = stat.S_ISDIR(f_attr.st_mode)
                     if ((is_file and f_attr.filename not in filenames) or
                             (is_dir and f_attr.filename not in dirnames)):
-                        tgt_filename = os.path.join(target_dirpath,
+                        tgt_filename = os.path.join(tgt_dirpath,
                                                     f_attr.filename)
                         path = os.path.join(dirpath, f_attr.filename)
                         remove = RemoveRemote(path, tgt_filename,
@@ -729,7 +729,7 @@ class BackupMusic:
                        (Color.Filename + dirpath + Color.ENDC,
                         '\n'.join(aligned_descs),
                         Color.Host + self.server + Color.ENDC + ':' +
-                        Color.Filename + target_dirpath + Color.ENDC))
+                        Color.Filename + tgt_dirpath + Color.ENDC))
                 if user_input not in ['a', 'l']:
                     options = ['S', 'a', 'k', 'l', 'p', 'c',
                                'll', 'lr', 'llr', 'lrr']
@@ -739,14 +739,14 @@ class BackupMusic:
                                              path=dirpath,
                                              pending_changes=pending_changes),
                                'lr': partial(self.listRemoteDir,
-                                             path=target_dirpath,
+                                             path=tgt_dirpath,
                                              pending_changes=pending_changes),
                                'llr': partial(self.listLocalDir,
                                               path=dirpath,
                                               pending_changes=pending_changes,
                                               recursive=True),
                                'lrr': partial(self.listRemoteDir,
-                                              path=target_dirpath,
+                                              path=tgt_dirpath,
                                               pending_changes=pending_changes,
                                               recursive=True)}
                     options_long = ['(s)ubmit', 'submit (a)lways',
