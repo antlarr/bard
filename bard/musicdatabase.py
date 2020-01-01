@@ -5,7 +5,7 @@ from bard.normalizetags import normalizeTagValues
 from bard.utils import DecodedAudioPropertiesTuple, DecodeMessageRecord
 from bard.album import albumPath
 import sqlalchemy
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, Table
 from sqlalchemy.orm import Session
 import sqlite3
 import os
@@ -216,6 +216,7 @@ class MusicDatabase:
             self.createDatabase()
         MusicDatabase.getConnection()
         MusicDatabase._meta = sqlalchemy.MetaData()
+        MusicDatabase._meta.bind = MusicDatabase.engine
 
     @staticmethod
     def getConnection():
@@ -232,14 +233,25 @@ class MusicDatabase:
         return MusicDatabase.getConnection()
 
     @staticmethod
+    def reflectDBSchema():
+        MusicDatabase._meta.reflect()
+        MusicDatabase._meta.schema = 'musicbrainz'
+        MusicDatabase._meta.reflect()
+        MusicDatabase._meta.schema = None
+
+    @staticmethod
     def table(tablename):
         if not MusicDatabase._meta.tables:
-            MusicDatabase._meta.reflect(bind=MusicDatabase.engine)
-            MusicDatabase._meta.schema = 'musicbrainz'
-            MusicDatabase._meta.reflect(bind=MusicDatabase.engine)
-            MusicDatabase._meta.schema = None
+            MusicDatabase.reflectDBSchema()
 
         return MusicDatabase._meta.tables[tablename]
+
+    @staticmethod
+    def view(viewname):
+        if not MusicDatabase._meta.tables:
+            MusicDatabase.reflectDBSchema()
+
+        return Table(viewname, MusicDatabase._meta, autoload=True)
 
     def createDatabase(self):
         if config['immutableDatabase']:
@@ -1572,3 +1584,4 @@ or name {like} '%%MusicBrainz/Track Id'""")
 
 
 table = MusicDatabase.table
+view = MusicDatabase.view
