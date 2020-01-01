@@ -3,7 +3,8 @@
 from bard.config import config
 from bard.musicdatabase import MusicDatabase
 from bard.musicdatabase_songs import getSongsFromIDorPath, getSongsAtPath
-from bard.utils import calculateSHA256_data, printSongsInfo, alignColumns
+from bard.utils import calculateSHA256_data, printSongsInfo, alignColumns,\
+    cutStringAtMaxBytesLength
 from bard.terminalcolors import TerminalColors as Color
 from bard.percentage import Percentage
 from bard.song import Song
@@ -63,11 +64,13 @@ def uploadFile(srcpath, tgtpath, sftp):
     print(' ... ', end='')
     (tgtdirname, tgtbasename) = os.path.split(tgtpath)
 
-    tmptgtpath = os.path.join(tgtdirname, tgtbasename[:246] + '.partial')
+    cutbasename = cutStringAtMaxBytesLength(tgtbasename, 246)
+    tmptgtpath = os.path.join(tgtdirname, cutbasename + '.partial')
     try:
         suffix = 1
         while sftp.stat(tmptgtpath):
-            tmptgtpath = os.path.join(tgtdirname, tgtbasename[:246] + f'.part~{suffix}')
+            tmptgtpath = os.path.join(tgtdirname,
+                                      cutbasename + f'.part~{suffix}')
             suffix += 1
     except FileNotFoundError:
         pass

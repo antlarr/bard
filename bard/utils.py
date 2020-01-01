@@ -936,3 +936,10 @@ def alignColumns(lines, col_alignments=None):
                 newline += ' ' * num_spaces + col + ' '
         aligned.append(newline)
     return aligned
+
+
+def cutStringAtMaxBytesLength(s, length):
+    s = s[:length]
+    while len(s.encode('utf-8')) > length:
+        s = s[:-1]
+    return s
