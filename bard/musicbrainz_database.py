@@ -713,15 +713,14 @@ class MusicBrainzDatabase:
     def get_release_group_releases(rgID):
         c = MusicDatabase.getCursor()
         sql = text('select album_id, r.id, mbid, r.name, disambiguation, '
-                   ' rs.name as release_status, language, barcode, '
-                   ' artist_credit_id, ac.name '
+                   '       release_status, language, barcode, '
+                   '       artist_credit_id, ac.name, '
+                   '       r.release_group_id '
                    '  from musicbrainz.release r, '
                    '       musicbrainz.artist_credit ac, '
-                   '       album_release ar, '
-                   '       musicbrainz.enum_release_status_values rs '
+                   '       album_release ar'
                    ' where ar.release_id = r.id '
                    '   and r.artist_credit_id = ac.id '
-                   '   and r.release_status = rs.id_value '
                    '   and r.release_group_id = :rgID ')
         r = c.execute(sql, {'rgID': rgID})
         return r.fetchall()
