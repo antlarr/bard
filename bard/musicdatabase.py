@@ -1571,6 +1571,14 @@ or name {like} '%%MusicBrainz/Track Id'""")
             print(f'{result.rowcount} orphan albums removed')
 
     @staticmethod
+    def getAlbumProperties(albumID):
+        c = MusicDatabase.getCursor()
+        sql = text('select * from album_properties '
+                   ' where album_id = :albumID')
+        r = c.execute(sql, {'albumID': albumID})
+        return r.fetchall()
+
+    @staticmethod
     def refreshMaterializedView(viewName):
         c = MusicDatabase.getCursor()
         sql = text(f'refresh materialized view {viewName}')

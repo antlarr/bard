@@ -765,3 +765,61 @@ class MusicBrainzDatabase:
                '              where releaseid=:releaseMBID)')
         result = c.execute(sql, {'releaseMBID': releaseMBID})
         return set(os.path.dirname(path) for (path,) in result.fetchall())
+
+    @staticmethod
+    def get_release_label(releaseID):
+        rl = table('musicbrainz.release_label')
+        label = table('musicbrainz.label')
+        s = (select([label.c.name.label('label_name'), rl.c.catalog_number])
+             .where(and_(rl.c.label_id == label.c.id,
+                         rl.c.release_id == releaseID)))
+        return MusicDatabase.execute(s).fetchall()
+
+    @staticmethod
+    def getAlbumDisambiguation(release):
+        c = MusicDatabase.getCursor()
+        sql = text('select name, value '
+                   '  from tags, album_songs '
+                   ' where tags.song_id = album_songs.song_id '
+                   '   and album_songs.album_id = :albumID '
+                   '   and name IN (\'comment\',\'usereleasecomment\','
+                   '                \'uselabel\') '
+                   ' group by name, value')
+        r = c.execute(sql, {'albumID': release['album_id']})
+        album = {x['name']: x['value'] for x in r.fetchall()}
+        print(release, album)
+        try:
+            usereleasecomment = int(album['usereleasecomment'])
+        except KeyError:
+            usereleasecomment = 1
+
+        try:
+            uselabel = int(album['uselabel'])
+        except KeyError:
+            uselabel = 0
+
+        result = []
+        if usereleasecomment == 2:
+            result.append(album['comment'])
+        elif usereleasecomment == 1:
+            if release['disambiguation']:
+                result.append(release['disambiguation'])
+        elif usereleasecomment == 3:
+            rg = MusicBrainzDatabase.get_release_group_info(
+                release['release_group_id'])
+            if rg['disambiguation']:
+                result.append(rg['disambiguation'])
+
+        if uselabel > 0:
+            release_label = \
+                MusicBrainzDatabase.get_release_label(release['id'])[0]
+            if uselabel == 1:
+                result.append(release_label['label_name'])
+            else:
+                print(release_label)
+                print(release_label['label_name'])
+                print(release_label['catalog_number'])
+                result.append(release_label['label_name'] + ':' +
+                              release_label['catalog_number'])
+
+        return ','.join(result)

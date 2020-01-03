@@ -8,6 +8,7 @@ from bard.web_utils import get_redirect_target
 from PIL import Image
 from bard.musicdatabase_songs import getSongs
 from bard.musicbrainz_database import MusicBrainzDatabase
+from bard.musicdatabase import MusicDatabase
 
 import mimetypes
 import base64
@@ -164,6 +165,36 @@ def structFromReleaseGroup(rg):
     r['artist_credit_name'] = rg.artist_credit_name
     r['secondary_types'] = \
         MusicBrainzDatabase.get_release_group_secondary_types(rg.id)
+    return r
+
+
+def album_properties_to_string(prop):
+    r = dict(prop)
+    s = []
+    if prop['format'] in ['mp3', 'wma']:
+        if prop['min_bitrate'] != prop['max_bitrate']:
+            s.append(f"{prop['min_bitrate']//1000}-"
+                     f"{prop['max_bitrate']//1000}kbps")
+        else:
+            s.append(f"{prop['min_bitrate']//1000}kbps")
+
+    if prop['min_sample_rate'] != prop['max_sample_rate']:
+        s.append(f"{prop['min_sample_rate']}-{prop['max_sample_rate']}Hz")
+    elif prop['min_sample_rate'] != 44100:
+        s.append(f"{prop['min_sample_rate']}Hz")
+
+    if prop['min_bits_per_sample'] != prop['max_bits_per_sample']:
+        s.append(f"{prop['min_bits_per_sample']}-"
+                 f"{prop['max_bits_per_sample']}bits")
+    elif prop['min_bits_per_sample'] != 16:
+        s.append(f"{prop['min_bits_per_sample']}bits")
+
+    if prop['min_channels'] != prop['max_channels']:
+        s.append(f"{prop['min_channels']}-{prop['max_channels']}ch")
+    elif prop['min_channels'] != 2:
+        s.append(f"{prop['min_channels']}ch")
+
+    r['string'] = prop['format'].upper() + ((':' + ','.join(s)) if s else '')
     return r
 
 
@@ -389,6 +420,12 @@ def release_group_releases():
         mediums = MusicBrainzDatabase.get_release_mediums(release['id'])
         rel = dict(release)
         rel['mediums_desc'] = MusicBrainzDatabase.mediumlist_to_string(mediums)
+        rel['audio_properties'] = [album_properties_to_string(x)
+                                   for x in MusicDatabase.getAlbumProperties(
+                                       release['album_id'])]
+        rel['album_disambiguation'] = \
+            MusicBrainzDatabase.getAlbumDisambiguation(release)
+
         result.append(rel)
 
     print('aaa', result)

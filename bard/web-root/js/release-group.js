@@ -29,7 +29,10 @@ function releasesReceived( result )
 
     for (i=0 ; i< result.length; i++)
     {
-        r+="<li><a onclick=\"openRelease('" + result[i].id + "')\"><img src=\"/api/v1/release/image?mbid=" + result[i].mbid + "\"><p class=\"name\">" + result[i].name + "</p></a></li>";
+        audio_prop = "";
+        for (j=0; j<result[i].audio_properties.length; j++)
+            audio_prop += result[i].audio_properties[j].string;
+        r+="<li><a onclick=\"openRelease('" + result[i].id + "')\"><img src=\"/api/v1/release/image?mbid=" + result[i].mbid + "\"><p class=\"name\">" + result[i].name + "</p><p class=\"disambiguation\">" + result[i].album_disambiguation + "</p></a><p class=\"audio_properties\">" + audio_prop + "</p></li>";
     };
     $( "#releasesList" ).html( "<ul>"+r+"</ul>" );
 }
