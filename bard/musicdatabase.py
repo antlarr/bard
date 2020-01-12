@@ -773,7 +773,7 @@ CREATE TABLE similarities(
                     print(sql, tags)
                     raise
             albumID = MusicDatabase.getAlbumID(albumPath(song.path()))
-            MusicDatabase.setSongInAlbum(song.id, albumID)
+            MusicDatabase.setSongInAlbum(song.id, albumID, connection=c)
 
     @staticmethod
     def removeSong(song=None, byID=None):
@@ -1486,7 +1486,8 @@ or name {like} '%%MusicBrainz/Track Id'""")
         return MusicDatabase.engine.execute(executable)
 
     @staticmethod
-    def insert_or_update(table, recorddict, wherestatement=None):
+    def insert_or_update(table, recorddict, wherestatement=None,
+                         *, connection=None):
         if type(table) == str:
             table = MusicDatabase.table(table)
 
@@ -1494,7 +1495,9 @@ or name {like} '%%MusicBrainz/Track Id'""")
             wherestatement = (table.c.id == recorddict['id'])
 
         dbRecord = table.select(wherestatement)
-        dbRecord = MusicDatabase.execute(dbRecord).fetchone()
+        if not connection:
+            connection = MusicDatabase.getCursor()
+        dbRecord = connection.execute(dbRecord).fetchone()
         if dbRecord:
             if any(dbRecord[k] != recorddict[k]
                    for k in [c.name for c in table.columns]
@@ -1503,13 +1506,13 @@ or name {like} '%%MusicBrainz/Track Id'""")
                 u = table.update() \
                          .where(wherestatement) \
                          .values(**recorddict)
-                MusicDatabase.execute(u)
+                connection.execute(u)
 #            else:
 #                print(f'no changes in {table.name} db data for {recorddict}')
         else:
             print(f'insert {table.name} db data for {recorddict}')
             i = table.insert().values(**recorddict)
-            MusicDatabase.execute(i)
+            connection.execute(i)
 
     @staticmethod
     def songsWithReleaseID(onlyWithoutAlbums=True):
@@ -1552,11 +1555,12 @@ or name {like} '%%MusicBrainz/Track Id'""")
             return albumID
 
     @staticmethod
-    def setSongInAlbum(songID, albumID):
+    def setSongInAlbum(songID, albumID, *, connection=None):
         record = {'song_id': songID, 'album_id': albumID}
         album_songs = MusicDatabase.table('album_songs')
         MusicDatabase.insert_or_update(album_songs, record,
-                                       album_songs.c.song_id == songID)
+                                       album_songs.c.song_id == songID,
+                                       connection=connection)
 
     @staticmethod
     def removeOrphanAlbums():
