@@ -886,6 +886,14 @@ class MusicBrainzImporter:
                    for x in table.getlines_matching_values(
                    'release', self.ids['release']))
 
+    def get_tracks_and_recordings_from_medium_ids(self):
+        table = self.get_mbdump_tableiter('track')
+
+        result = [(x['id'], x['recording'])
+                  for x in table.getlines_matching_values(
+                  'medium', self.ids['medium'])]
+        return zip(*result)
+
     def get_files_to_check_manually_for_missing_uuids(self):
         tab_cols = {'artist': [('songs_mb_artistids', 'artistid'),
                                ('songs_mb_albumartistids', 'albumartistid')],
@@ -986,6 +994,21 @@ class MusicBrainzImporter:
         ids = self.get_labels_from_release_ids()
         self.ids['label'].update(ids)
 
+        if mediums:
+            self.ids['medium'] = self.get_mediums_from_release_ids()
+            print('-------')
+            print('tracks: ', len(self.ids['track']))
+            print('recording: ', len(self.ids['recording']))
+            # Add all recordings from all mediums so we can show
+            # also missing recordings from releases
+            track_ids, recording_ids = \
+                self.get_tracks_and_recordings_from_medium_ids()
+            self.ids['recording'].update(recording_ids)
+            self.ids['track'].update(track_ids)
+
+            print('tracks: ', len(self.ids['track']))
+            print('recording: ', len(self.ids['recording']))
+
         if artist_credits:
             futures = []
             with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -1011,9 +1034,6 @@ class MusicBrainzImporter:
             ids = self.get_artists_from_artist_credit_ids()
             self.ids['artist'].update(ids)
             print('artist ids', len(self.ids['artist']))
-
-        if mediums:
-            self.ids['medium'] = self.get_mediums_from_release_ids()
 
         if linked_entities:
             for entity, relations in related_entities_to_import.items():
