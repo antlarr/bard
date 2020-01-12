@@ -276,7 +276,7 @@ def component(page):
     elif page in ('artists',):
         letter = request.args.get('letter', default='0', type=str)
         return render_template('%s.html' % page, letter=letter)
-    elif page in ('artist', 'release-group'):
+    elif page in ('artist', 'release-group', 'album'):
         _id = request.args.get('id', default=0, type=int)
         print('artist page', _id)
         return render_template('%s.html' % page, _id=_id)
@@ -454,3 +454,35 @@ def release_get_image():
     response = Response(data, status=200, mimetype=mime[0])
     response.headers["Content-Type"] = mime[0]
     return response
+
+
+@app.route('/api/v1/album/tracks')
+def album_tracks():
+    if request.method != 'GET':
+        return None
+    albumID = request.args.get('id', type=int)
+    songIDs = {x['releasetrackid']: x['song_id']
+               for x in MusicBrainzDatabase.get_album_songs(albumID)}
+
+    tracks = MusicBrainzDatabase.get_album_tracks(albumID)
+    result = []
+    medium = {'number': None, 'tracks': []}
+    current_medium_number = None
+    for track in tracks:
+        if track['medium_number'] != current_medium_number:
+            if current_medium_number:
+                result.append(medium)
+            current_medium_number = track['medium_number']
+
+            medium = {'number': track['medium_number'],
+                      'name': track['medium_name'],
+                      'tracks': []}
+        trk = dict(track)
+        try:
+            trk['song_id'] = songIDs[track['track_mbid']]
+        except KeyError:
+            trk['song_id'] = None
+        medium['tracks'].append(trk)
+
+    result.append(medium)
+    return jsonify(result)

@@ -763,7 +763,7 @@ class MusicBrainzDatabase:
                ' where id in (select song_id '
                '               from songs_mb '
                '              where releaseid=:releaseMBID)')
-        result = c.execute(sql, {'releaseMBID': releaseMBID})
+        result = c.execute(text(sql), {'releaseMBID': releaseMBID})
         return set(os.path.dirname(path) for (path,) in result.fetchall())
 
     @staticmethod
@@ -823,3 +823,33 @@ class MusicBrainzDatabase:
                               release_label['catalog_number'])
 
         return ','.join(result)
+
+    @staticmethod
+    def get_album_tracks(albumID):
+        c = MusicDatabase.getCursor()
+        sql = ('select ar.album_id, '
+               '       m.position as medium_number, m.name as medium_name, '
+               '       t.position as track_position, t.mbid as track_mbid, '
+               '       t.recording_id, t.number_text , t.name, '
+               '       ac.name as artist_name, '
+               '       t.is_data_track '
+               '  from album_release ar, musicbrainz.medium m, '
+               '       musicbrainz.track t, musicbrainz.artist_credit ac '
+               ' where ar.release_id = m.release_id '
+               '   and m.id = t.medium_id '
+               '   and ar.album_id = :albumID '
+               '   and t.artist_credit_id = ac.id '
+               ' order by m.position, t.position')
+        result = c.execute(text(sql), {'albumID': albumID})
+        return result.fetchall()
+
+    @staticmethod
+    def get_album_songs(albumID):
+        c = MusicDatabase.getCursor()
+        sql = ('select songs_mb.song_id, '
+               '       songs_mb.releasetrackid '
+               '  from album_songs, songs_mb '
+               ' where album_songs.song_id = songs_mb.song_id '
+               '   and album_songs.album_id = :albumID ')
+        result = c.execute(text(sql), {'albumID': albumID})
+        return result.fetchall()

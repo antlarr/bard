@@ -1,9 +1,4 @@
-function openAlbum( id )
-{
-    openComponent('album', {id: id});
-}
-
-function releaseGroupInfoReceived( result )
+function albumInfoReceived( result )
 {
     var r="";
 
@@ -23,49 +18,62 @@ function releaseGroupInfoReceived( result )
     $( "#artistAliases" ).html( "<ul>" + r + "</ul>" );
 }
 
-function releasesReceived( result )
+function mediumSignature(medium)
+{
+    suffix = "";
+    if (medium.name)
+        suffix = " : " + medium.name;
+    return "Medium " + medium.number + suffix;
+}
+
+function albumTracksReceived( result )
 {
     var r="";
 
-    for (i=0 ; i< result.length; i++)
+    for (i=0 ; i < result.length; i++)
     {
-        audio_prop = "";
-        for (j=0; j<result[i].audio_properties.length; j++)
-            audio_prop += result[i].audio_properties[j].string;
-        r+="<li><a onclick=\"openAlbum('" + result[i].album_id + "')\"><img src=\"/api/v1/release/image?mbid=" + result[i].mbid + "\"><p class=\"name\">" + result[i].name + "</p><p class=\"disambiguation\">" + result[i].album_disambiguation + "</p></a><p class=\"audio_properties\">" + audio_prop + "</p></li>";
+        medium = "<div class=\"medium\">" + mediumSignature(result[i]);
+        tracks = result[i].tracks;
+        medium += "<ul>"
+        for (j=0; j < tracks.length; j++)
+        {
+            medium +="<li><a onclick=\"playSong(" + tracks[j].song_id + ")\">" + tracks[j].name + "</a> (" + tracks[j].artist_name +") </li>";
+        }
+        medium += "</ul></div>"
+        r+=medium;
     };
-    $( "#releasesList" ).html( "<ul>"+r+"</ul>" );
+    $( "#albumTracks" ).html( "<ul>"+r+"</ul>" );
 }
 
 
-function requestReleaseGroupInfo(id)
+function requestAlbumInfo(id)
 {
     $.ajax({
-        url: "/api/v1/release_group/info",
+        url: "/api/v1/album/info",
         data: {id: id},
-        success: releaseGroupInfoReceived,
+        success: albumInfoReceived,
         error: function( jqXHR, textStatus, errorThrown) {
             alert(textStatus + "\n" + errorThrown);
         }
     });
 }
 
-function requestReleasesInReleaseGroup(id)
+function requestAlbumTracks(id)
 {
     $.ajax({
-        url: "/api/v1/release_group/releases",
+        url: "/api/v1/album/tracks",
         data: {id: id},
-        success: releasesReceived,
+        success: albumTracksReceived,
         error: function( jqXHR, textStatus, errorThrown) {
             alert(textStatus + "\n" + errorThrown);
         }
     });
 }
 
-function fillReleaseGroupPage(id)
+function fillAlbumPage(id)
 {
-    requestReleaseGroupInfo(id);
-    requestReleasesInReleaseGroup(id);
+    //requestReleaseGroupInfo(id);
+    requestAlbumTracks(id);
     /*$('#artistsContent').on('scroll', function() {
         if($(this).scrollTop() + $(this).innerHeight() >= $(this)[0].scrollHeight) {
             requestArtists(artistsOffset, page_size);
