@@ -310,10 +310,13 @@ class Bard:
         return songsIDs
 
     def update(self, paths, verbose=False):
+        removedSongIDs = set()
         removedSongs = []
 
         def storeRemovedSongs(song):
-            removedSongs.append(song)
+            if song.id not in removedSongIDs:
+                removedSongIDs.add(song.id)
+                removedSongs.append(song)
 
         self.checkSongsExistenceInPaths(paths, verbose=verbose,
                                         callback=storeRemovedSongs)
