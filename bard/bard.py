@@ -1194,6 +1194,10 @@ class Bard:
             playingSongs = self.getCurrentlyPlayingSongs()
             songs.extend(playingSongs)
 
+        if not songs:
+            print('No song selected to set rating to')
+            return
+
         userID = MusicDatabase.getUserID(config['username'])
         for song in songs:
             print('Setting rating of %s to %d' % (song.path(), rating))
