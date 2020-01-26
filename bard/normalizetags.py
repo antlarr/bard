@@ -300,18 +300,19 @@ def normalizeTagValue(obj, mutagenFile, tag, removeBinaryData=False):
             text = ','.join(text)
         return text
 
-    if isinstance(obj, mutagen.id3.TXXX) and \
-            (obj.desc.lower() == 'musicbrainz album type' or
-             obj.desc.lower() == 'musicbrainz artist id' or
-             obj.desc.lower() == 'musicbrainz album artist id' or
-             obj.desc.lower() == 'musicbrainz work id' or
-             obj.desc.lower() == 'artists' or
-             obj.desc.lower() == 'writer' or
-             obj.desc.lower() == 'work' or
-             obj.desc.lower() == 'performer' or
-             obj.desc.lower() == 'license' or
-             obj.desc.lower() == 'catalognumber' or
-             obj.desc.lower() == 'comment'):
+    if (isinstance(obj, mutagen.id3.TXXX) and
+        obj.desc.lower() in ['musicbrainz album type',
+                             'musicbrainz artist id',
+                             'musicbrainz album artist id',
+                             'musicbrainz work id',
+                             'author',
+                             'artists',
+                             'writer',
+                             'work',
+                             'performer',
+                             'license',
+                             'catalognumber',
+                             'comment']):
         return obj.text
 
     if isinstance(obj, (mutagen.id3.TRCK, mutagen.id3.TPOS)):
