@@ -16,6 +16,7 @@ from bard.backup import backupMusic
 import chromaprint
 from collections import MutableSet, namedtuple
 from sqlalchemy import text
+import urllib.parse
 import dbus
 import sys
 import os
@@ -200,7 +201,8 @@ class Bard:
                 continue
             metadata = properties.Get('org.mpris.MediaPlayer2.Player',
                                       'Metadata')
-            path = metadata['xesam:url']
+            url = urllib.parse.urlparse(metadata['xesam:url'])
+            path = urllib.parse.unquote(url.path)
             if playbackStatus == 'Playing':
                 songs.extend(getSongsAtPath(path, exact=True))
             else:
