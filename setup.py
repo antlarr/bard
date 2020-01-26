@@ -36,7 +36,7 @@ bard_audiofile = Extension('bard_audiofile',
                                                '-funroll-loops'])
 setup(
     name="bard",
-    version="0.2.0",
+    version="0.3.0",
     author="Antonio Larrosa",
     author_email="larrosa@kde.org",
     packages=["bard"],
@@ -68,5 +68,10 @@ setup(
                  ['config/bard', 'README.md'])],
     scripts=["scripts/bard"],
     license="GPL-3.0-only AND MIT",
-    ext_modules=[bard_ext, bard_audiofile]
+    ext_modules=[bard_ext, bard_audiofile],
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Topic :: Multimedia :: Sound/Audio",
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    ],
 )
