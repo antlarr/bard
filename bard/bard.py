@@ -13,6 +13,7 @@ from bard.terminalcolors import TerminalColors
 from bard.terminalkeyboard import ask_user_to_choose_one_option
 from bard.comparesongs import compareSongSets
 from bard.backup import backupMusic
+from bard import __version__
 import chromaprint
 from collections import MutableSet, namedtuple
 from sqlalchemy import text
@@ -1300,6 +1301,8 @@ class Bard:
         main_parser = ArgumentParser(
             description='Manage your music collection',
                         formatter_class=argparse.RawTextHelpFormatter)
+        main_parser.add_argument('--version', action='version',
+                                 version='Bard ' + __version__)
         sps = main_parser.add_subparsers(
             dest='command', metavar='command',
             help='''The following commands are available:

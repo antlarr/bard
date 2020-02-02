@@ -1,4 +1,5 @@
 from setuptools import setup, Extension
+from bard import __version__
 
 
 bard_ext = Extension('bard.bard_ext',
@@ -34,7 +35,7 @@ bard_audiofile = Extension('bard.bard_audiofile',
                                                '-funroll-loops'])
 setup(
     name="bard",
-    version="0.3.0",
+    version=__version__,
     author="Antonio Larrosa",
     author_email="larrosa@kde.org",
     packages=["bard"],
