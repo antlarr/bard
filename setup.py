@@ -1,20 +1,19 @@
 from setuptools import setup, Extension
 
 
-bard_ext = Extension('bard_ext',
+bard_ext = Extension('bard.bard_ext',
                      define_macros=[('MAJOR_VERSION', '1'),
                                     ('MINOR_VERSION', '0'),
                                     ('_GLIBCXX_PARALLEL', None)],
                      include_dirs=['/usr/include/boost'],
                      libraries=['boost_python-py3', 'gomp'],
-                     library_dirs=['/usr/lib'],
                      sources=['bard/bard_ext.cpp'],
                      extra_compile_args=['-std=gnu++17', '-fopenmp', '-Ofast',
                                          '-march=native', '-mtune=native',
                                          '-funroll-loops'])
 
 
-bard_audiofile = Extension('bard_audiofile',
+bard_audiofile = Extension('bard.bard_audiofile',
                            define_macros=[('MAJOR_VERSION', '1'),
                                           ('MINOR_VERSION', '0'),
                                           ('_GLIBCXX_PARALLEL', None)],
@@ -22,7 +21,6 @@ bard_audiofile = Extension('bard_audiofile',
                                          '/usr/include/ffmpeg'],
                            libraries=['boost_python-py3', 'avcodec',
                                       'avformat', 'avutil', 'swresample'],
-                           library_dirs=['/usr/lib'],
                            sources=['bard/audiofile/audiofile.cpp',
                                     'bard/audiofile/bufferaviocontext.cpp',
                                     'bard/audiofile/bufferdecodeoutput.cpp',
@@ -49,6 +47,7 @@ setup(
                      "properties, audio analysis, etc. Bard can also find "
                      "audio duplicates (not using tags, but the audio itself) "
                      "and run different kind of queries on the database.",
+    python_requires=">=3.5",
     install_requires=[
         "pyacoustid",
         "mutagen",

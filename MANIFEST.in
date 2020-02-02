@@ -1,3 +1,4 @@
 recursive-include bard/web-root *
 recursive-include bard/templates *
 recursive-include bard/musicbrainz_importer *
+recursive-exclude scripts bard
