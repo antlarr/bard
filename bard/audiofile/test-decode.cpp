@@ -79,7 +79,8 @@ int main(int argc, char *argv[]) {
         ("help,h", "Help screen")
         ("buffer", value<bool>()->default_value(true), "Use buffer")
         ("input-file", value<string>()->required(), "Input file")
-        ("reference-file", value<string>(), "File with reference data");
+        ("reference-file", value<string>(), "File with reference data")
+        ("output", value<string>()->default_value(""), "Output file");
 
     positional_options_description p;
     p.add("input-file", 1);
@@ -116,7 +117,9 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    string outFilename = std::string(filename) + ".raw";
+    string outFilename = vm["output"].as<string>();
+    if (outFilename.empty())
+        outFilename = std::string(filename) + ".raw";
 
     DecodeOutput *output;
 
