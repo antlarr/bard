@@ -20,6 +20,7 @@
 #include "audiofile.h"
 #include "filedecodeoutput.h"
 #include "bufferdecodeoutput.h"
+#include "referencedata.h"
 
 #include <stdio.h>
 #include <string>
@@ -153,10 +154,17 @@ int main(int argc, char *argv[]) {
     std::cout << "libavutil: " << LIBAVUTIL_IDENT << std::endl;
     std::cout << "libswresample: " << LIBSWRESAMPLE_IDENT << std::endl;
 
+    bool ok = true;
+    if (output->referenceData())
+    {
+        ok = output->referenceData()->isCheckOk();
+        std::cout << "output matches reference data: "  << (ok ? "yes" : "no" ) << std::endl;
+    }
+
     if (vm["buffer"].as<bool>())
         saveToFile(static_cast<BufferDecodeOutput *>(output), outFilename);
 
     delete output;
     if (data) free(data);
-    return 0;
+    return (ok ? 0 : 1);
 }

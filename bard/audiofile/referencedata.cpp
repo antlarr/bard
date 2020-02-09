@@ -87,6 +87,7 @@ void ReferenceData::checkData(uint8_t *buffer, uint64_t size, int bufferLineSize
     if (postBytesWritten > m_referenceSize)
     {
         std::cerr << "Wrote more (" << postBytesWritten << ") than reference size (" << m_referenceSize << ")" << std::endl;
+        m_checkOk = false;
         return;
     }
 
@@ -98,14 +99,20 @@ void ReferenceData::checkData(uint8_t *buffer, uint64_t size, int bufferLineSize
 #endif
     r = memcmp(tmp_ref, tmp_buf, size);
     if (r != 0)
+    {
         std::cerr << "Changes with reference at " << preBytesWritten << " bytes (size: " << size << ") !" << std::endl;
+        m_checkOk = false;
+    }
     for (int ch = 1; m_isPlanar && ch < m_channelCount; ch++)
     {
         tmp_ref += m_lineSize;
         tmp_buf += bufferLineSize;
         r = memcmp(tmp_ref, tmp_buf, size);
         if (r != 0)
+        {
             std::cerr << "Changes with reference at " << preBytesWritten << " bytes (size: " << size << ", ch: " << ch << ") !" << std::endl;
+            m_checkOk = false;
+        }
     }
 
     m_bytesWritten += size;

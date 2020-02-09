@@ -42,6 +42,7 @@ public:
     double duration() const { return m_samplesCount / (double)m_sampleRate; };
 
     void setReferenceFile(const std::string &referenceFile);
+    const class ReferenceData *referenceData() const { return m_referenceData; };
 
 protected:
     int m_channelCount = 0;

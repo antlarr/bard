@@ -47,6 +47,8 @@ public:
     void setReferenceFile(const string &filename);
     virtual void checkData(uint8_t *buffer, uint64_t size, int bufferLineSize);
 
+    bool isCheckOk() const { return m_checkOk; }
+
 protected:
     static char *readFromFile(const string& filename, uint64_t *size);
 
@@ -59,4 +61,6 @@ protected:
     int m_bytesPerSample = 0;
     bool m_isPlanar = false;
     int m_lineSize = 0;
+
+    bool m_checkOk = true;
 };
