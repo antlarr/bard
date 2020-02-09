@@ -50,7 +50,7 @@ namespace std
 };
 #endif
 
-BufferAVIOContext::BufferAVIOContext(const char *data, long size, long buffer_size)
+BufferAVIOContext::BufferAVIOContext(const char *data, int64_t size, long buffer_size)
        : m_data(reinterpret_cast<const unsigned char *>(data)), m_size(size), m_currentPtr(m_data)
 {
     unsigned char *buffer = reinterpret_cast<unsigned char *>(av_malloc(buffer_size));
@@ -78,7 +78,7 @@ int64_t BufferAVIOContext::seek(void *opaque, int64_t offset, int whence)
 
 int BufferAVIOContext::read(unsigned char *buf, int buf_size)
 {
-    int size = std::clamp(buf_size, 0, (int)(m_size - m_currentPos));
+    int size = std::clamp((int64_t)buf_size, (int64_t)0, m_size - m_currentPos);
     if (!size)
         return AVERROR_EOF;
     memcpy(buf, m_currentPtr, size);
@@ -91,19 +91,19 @@ int64_t BufferAVIOContext::seek(int64_t offset, int whence)
 {
     if (whence == SEEK_SET)
     {
-        offset = std::clamp(offset, 0L, m_size);
+        offset = std::clamp(offset, (int64_t)0, m_size);
         m_currentPtr = m_data + offset;
         m_currentPos = offset;
     }
     else if (whence == SEEK_CUR)
     {
-        offset = std::clamp(offset, (int64_t)-m_currentPos, m_size - m_currentPos);
+        offset = std::clamp(offset, -m_currentPos, m_size - m_currentPos);
         m_currentPtr += offset;
         m_currentPos += offset;
     }
     else if (whence == SEEK_END)
     {
-        offset = std::clamp(offset, -m_size, 0L);
+        offset = std::clamp(offset, -m_size, (int64_t)0);
         m_currentPtr = m_data + m_size + offset;
         m_currentPos = m_size + offset;
     }

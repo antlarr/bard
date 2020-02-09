@@ -26,7 +26,7 @@ private:
     BufferAVIOContext& operator = (BufferAVIOContext const &);
 
 public:
-    BufferAVIOContext(const char *data, long size, long buffer_size = 4096);
+    BufferAVIOContext(const char *data, int64_t size, long buffer_size = 4096);
     ~BufferAVIOContext();
 
     AVIOContext *avioContext() const { return m_ctx; }
@@ -39,9 +39,9 @@ public:
 
 protected:
     const unsigned char *m_data;
-    long m_size = 0;
+    int64_t m_size = 0;
     const unsigned char *m_currentPtr;
-    int m_currentPos = 0;
+    int64_t m_currentPos = 0;
     AVIOContext *m_ctx = nullptr;
 };
 
