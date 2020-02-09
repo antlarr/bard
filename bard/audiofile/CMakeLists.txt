@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 2.8.11)
 project (test-decode)
 set(CMAKE_BUILD_TYPE Debug)
 
-add_executable (test-decode audiofile.cpp bufferaviocontext.cpp bufferdecodeoutput.cpp bufferdecodeoutputwithreference.cpp decodeoutput.cpp filedecodeoutput.cpp referencedata.cpp test-decode.cpp)
+add_executable (test-decode audiofile.cpp bufferaviocontext.cpp bufferdecodeoutput.cpp decodeoutput.cpp filedecodeoutput.cpp referencedata.cpp test-decode.cpp)
 set_target_properties(test-decode PROPERTIES CXX_STANDARD 17)
 
 target_compile_definitions(test-decode PRIVATE DEBUG=1)
