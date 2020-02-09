@@ -192,6 +192,8 @@ class Bard:
             return []
         songs = []
         pausedSongs = []
+        path = None
+        playingSongPath = None
         for name in names:
             mpv = bus.get_object(name, '/org/mpris/MediaPlayer2')
             properties = dbus.Interface(mpv, 'org.freedesktop.DBus.Properties')
@@ -203,17 +205,22 @@ class Bard:
                                       'Metadata')
             url = urllib.parse.urlparse(metadata['xesam:url'])
             path = urllib.parse.unquote(url.path)
+            newSongs = getSongsAtPath(path, exact=True)
             if playbackStatus == 'Playing':
-                songs.extend(getSongsAtPath(path, exact=True))
+                playingSongPath = path
+                songs.extend([x for x in newSongs
+                              if x.id not in [y.id for y in songs]]) 
             else:
-                pausedSongs.extend(getSongsAtPath(path, exact=True))
+                pausedSongs.extend([x for x in newSongs if x.id not in
+                                    [y.id for y in pausedSongs]])
 
         if songs:
             return songs
         if len(pausedSongs) == 1:
             return pausedSongs
 
-        print("Couldn't find song in database:", path)
+        if playingSongPath:
+            print("Couldn't find song in database:", playingSongPath)
         return []
 
     def addSong(self, path, rootDir=None, removedSongsAudioSHA256={},
