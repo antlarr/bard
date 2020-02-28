@@ -1,4 +1,3 @@
-# https://picard.musicbrainz.org/docs/mappings/
 from bard.musicdatabase import MusicDatabase, table
 from collections import namedtuple
 from sqlalchemy import text, insert, select, and_, desc
@@ -12,6 +11,7 @@ MBDataTuple = namedtuple('MBDataTuple',
                           'recordingid', 'confirmed'])
 
 
+# https://picard.musicbrainz.org/docs/mappings/
 convert_tag = {
     'releasestatus':
         ['TXXX:MusicBrainz Album Status',
