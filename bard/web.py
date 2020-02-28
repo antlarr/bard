@@ -1,5 +1,5 @@
 from flask import Flask, request, Response, render_template, url_for, \
-    jsonify, abort, redirect
+    jsonify, abort, redirect, send_file
 from jinja2 import FileSystemLoader
 from flask_cors import CORS
 from flask_login import LoginManager, login_required, login_user, logout_user
@@ -13,6 +13,7 @@ from bard.musicdatabase import MusicDatabase
 import mimetypes
 import base64
 import os.path
+import re
 
 
 app = Flask(__name__, static_url_path='/kakaka')
@@ -217,20 +218,63 @@ def api_v1_metadata_song(songID):
     return jsonify(result)
 
 
+@app.after_request
+def after_request(response):
+    response.headers.add('Accept-Ranges', 'bytes')
+    return response
+
+
+def send_file_partial(path, *args, **kwargs):
+    """send_file replacemnt with support for HTTP 206 Partial Content."""
+    range_header = request.headers.get('Range', None)
+    if not range_header or not range_header.startswith('bytes='):
+        return send_file(path, *args, **kwargs)
+
+    size = os.path.getsize(path)
+
+    range_header = range_header[6:].strip()
+
+    if range_header[0] == '-':
+        # It's a suffix-byte-range-spec in RFC 7233
+        length = -int(range_header)
+        begin = size - length
+        end = size
+    else:
+        m = re.search(r'(\d+)-(\d*)', range_header)
+        begin, end = (int(x) if x else None for x in m.groups())
+
+        if end:
+            length = end - begin + 1
+        else:
+            length = size - begin
+
+    data = None
+    with open(path, 'rb') as f:
+        f.seek(begin)
+        data = f.read(length)
+
+    rv = Response(data,
+                  206,
+                  mimetype=mimetypes.guess_type(path)[0],
+                  direct_passthrough=True)
+    rv.headers.add('Content-Range',
+                   f'bytes {begin}-{begin + length - 1}/{size}')
+
+    return rv
+
+
 @app.route('/api/v1/audio/song/<songID>')
 def api_v1_audio_song(songID):
-    songs = getSongs(songID=songID)
-    if not songs:
+    try:
+        songs = getSongs(songID=int(songID))
+        if not songs:
+            raise ValueError
+    except ValueError:
         abort(404)
     song = songs[0]
     print('Delivering song %s: %s' % (songID, song.path()))
     localfilename = song.path()
-    s = open(localfilename, 'rb').read()
-    mime = mimetypes.guess_type(localfilename)
-    print(mime)
-    response = Response(s, status=200, mimetype=mime[0])
-    response.headers["Content-Type"] = mime[0]
-    return response
+    return send_file(localfilename)
 
 
 @app.route('/api/v1/coverart/song/<songID>')
@@ -242,11 +286,7 @@ def api_v1_coverart_song(songID):
     print('Delivering coverart of song %s: %s' % (songID, song.path()))
     coverart = song.getCoverImage()
     if isinstance(coverart, str):
-        data = open(coverart, 'rb').read()
-        mime = mimetypes.guess_type(coverart)
-        response = Response(data, status=200, mimetype=mime[0])
-        response.headers["Content-Type"] = mime[0]
-        return response
+        return send_file(coverart)
     elif isinstance(coverart, tuple):
         image, data = coverart
         response = Response(data, status=200)
@@ -263,6 +303,7 @@ def api_v1_coverart_song(songID):
 
 @app.route('/user/<username>')
 def profile(username):
+    # TODO: Some extra authentication would be nice here :)
     return '{}\'s profile'.format(username)
 
 
@@ -331,11 +372,7 @@ def artist_get_image():
     if not path:
         path = 'web-root/images/artist.png'
     print('Delivering artist image of artist %s: %s' % (artist_id, path))
-    data = open(path, 'rb').read()
-    mime = mimetypes.guess_type(path)
-    response = Response(data, status=200, mimetype=mime[0])
-    response.headers["Content-Type"] = mime[0]
-    return response
+    return send_file(path)
 
 
 @app.route('/api/v1/artist/info')
@@ -391,11 +428,7 @@ def release_group_get_image():
 
     print('Delivering release_group image of release_group %s: %s' %
           (release_group_mbid, path))
-    data = open(path, 'rb').read()
-    mime = mimetypes.guess_type(path)
-    response = Response(data, status=200, mimetype=mime[0])
-    response.headers["Content-Type"] = mime[0]
-    return response
+    return send_file(path)
 
 
 @app.route('/api/v1/release_group/info')
@@ -449,11 +482,7 @@ def release_get_image():
 
     print('Delivering release image of release %s: %s' %
           (release_mbid, path))
-    data = open(path, 'rb').read()
-    mime = mimetypes.guess_type(path)
-    response = Response(data, status=200, mimetype=mime[0])
-    response.headers["Content-Type"] = mime[0]
-    return response
+    return send_file(path)
 
 
 @app.route('/api/v1/album/tracks')
