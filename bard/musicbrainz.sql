@@ -1598,21 +1598,6 @@ CREATE TABLE artists_mb (
           REFERENCES musicbrainz.artist(id)
 );
 
-CREATE TABLE albums (
-       id SERIAL PRIMARY KEY,
-       path TEXT UNIQUE
-);
-
-CREATE TABLE album_songs (
-       song_id INTEGER,
-       album_id INTEGER,
-
-       FOREIGN KEY(song_id)
-          REFERENCES songs(id),
-       FOREIGN KEY(album_id)
-          REFERENCES albums(id)
-);
-
 -- CREATE TABLE album_release (
 --        album_id INTEGER,
 --        release_id INTEGER,
