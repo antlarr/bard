@@ -515,6 +515,8 @@ class Bard:
         if len(paths) > 2048:
             paths = paths[:2048]
 
+        MusicDatabase.closeConnections()
+
         command = ['mpv'] + paths
         subprocess.run(command)
 

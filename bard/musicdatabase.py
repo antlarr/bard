@@ -233,6 +233,13 @@ class MusicDatabase:
         return MusicDatabase.getConnection()
 
     @staticmethod
+    def closeConnections():
+        for conn in MusicDatabase.conn.values():
+            conn.close()
+        MusicDatabase.conn = {}
+        MusicDatabase.engine.dispose()
+
+    @staticmethod
     def reflectDBSchema():
         MusicDatabase._meta.reflect()
         MusicDatabase._meta.schema = 'musicbrainz'
