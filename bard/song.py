@@ -642,7 +642,10 @@ class Song:
 
     def sample_rate(self):
         self.loadMetadataInfo()
-        return self.metadata.info.sample_rate
+        try:
+            return self.metadata.info.sample_rate
+        except AttributeError:
+            return -1
 
     def channels(self):
         self.loadMetadataInfo()
