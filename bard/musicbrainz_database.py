@@ -279,7 +279,7 @@ class MusicBrainzDatabase:
     def songsWithoutMBData():
         c = MusicDatabase.getCursor()
         sql = text('SELECT id FROM songs '
-                   'WHERE id NOT IN (select song_id FROM songs_mb) '
+                   'WHERE NOT EXISTS (select song_id FROM songs_mb where song_id = id) '
                    'ORDER BY id')
         result = c.execute(sql)
         return [x[0] for x in result.fetchall()]
@@ -299,10 +299,11 @@ class MusicBrainzDatabase:
         c = MusicDatabase.getCursor()
         sql = text('SELECT id, path FROM songs '
                    'WHERE root = :root '
-                   '  AND id NOT IN (SELECT song_id '
+                   '  AND NOT EXISTS (SELECT song_id '
                    '                   FROM songs_mb '
-                   '                  WHERE recordingid is not NULL)'
-                   '     ORDER BY 1')
+                   '                  WHERE recordingid is not NULL '
+                   '                    AND song_id = id)'
+                   '     ORDER BY id')
         table = []
         for root in config['musicbrainzTaggedMusicPaths']:
             result = c.execute(sql, {'root': root})

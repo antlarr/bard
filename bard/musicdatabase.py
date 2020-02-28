@@ -1525,7 +1525,9 @@ or name {like} '%%MusicBrainz/Track Id'""")
     def songsWithReleaseID(onlyWithoutAlbums=True):
         c = MusicDatabase.getCursor()
         if onlyWithoutAlbums:
-            extra = '   AND song_id NOT IN (select song_id from album_songs)'
+            extra = ('   AND NOT EXISTS (SELECT song_id id2 '
+                     '                     FROM album_songs '
+                     '                    WHERE id2 = song_id)'
         else:
             extra = ''
         sql = text('SELECT id, path '
@@ -1573,8 +1575,9 @@ or name {like} '%%MusicBrainz/Track Id'""")
     def removeOrphanAlbums():
         c = MusicDatabase.getCursor()
         sql = text('DELETE FROM albums '
-                   ' WHERE id NOT IN (SELECT DISTINCT album_id '
-                   '                    FROM album_songs)')
+                   ' WHERE NOT EXISTS (SELECT album_id '
+                   '                     FROM album_songs '
+                   '                    WHERE album_id = id)')
         result = c.execute(sql)
         MusicDatabase.commit()
 
