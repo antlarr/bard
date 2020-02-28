@@ -537,6 +537,10 @@ CREATE TABLE similarities(
                   confirmed BOOLEAN,
                   FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
                   )''')
+        c.execute('CREATE INDEX songs_mb_releasegroupid_idx '
+                  ' ON songs_mb (releasegroupid)')
+        c.execute('CREATE INDEX songs_mb_recordingid_idx '
+                  ' ON songs_mb (recordingid)')
 
     @staticmethod
     def addSong(song):
