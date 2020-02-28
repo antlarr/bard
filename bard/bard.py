@@ -1300,8 +1300,8 @@ class Bard:
     def setPassword(self, username):
         requestNewPassword(username)
 
-    def backupMusic(self, target):
-        backupMusic(target)
+    def backupMusic(self, target, priorityPatterns):
+        backupMusic(target, priorityPatterns)
 
     def parseCommandLine(self):
         main_parser = ArgumentParser(
@@ -1619,6 +1619,10 @@ cache-musicbrainz-db [-v]
         parser = sps.add_parser('backup',
                                 description='Backup music to target')
         parser.add_argument('target', nargs='?', help='Target destination')
+        parser.add_argument('--priority', dest='priorityPatterns',
+                            action='append', help='Pattern to backup first '
+                            'when found in a directory')
+
         options = main_parser.parse_args()
 
         if options.command == 'find-duplicates':
@@ -1702,7 +1706,7 @@ cache-musicbrainz-db [-v]
         elif options.command == 'passwd':
             self.setPassword(options.username)
         elif options.command == 'backup':
-            self.backupMusic(options.target)
+            self.backupMusic(options.target, options.priorityPatterns)
         elif options.command == 'update-musicbrainz-ids':
             self.updateMusicBrainzIDs(verbose=options.verbose)
         elif options.command == 'update-albums':

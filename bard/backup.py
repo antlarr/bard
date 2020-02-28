@@ -481,6 +481,7 @@ class BackupMusic:
         self.ssh = paramiko.SSHClient()
         self.ssh.load_host_keys(os.path.expanduser(os.path.join("~", ".ssh",
                                 "known_hosts")))
+        self.priorityPatterns = []
         try:
             self.ssh.connect(self.server, username=self.username)
         except paramiko.ssh_exception.SSHException as e:
@@ -514,6 +515,9 @@ class BackupMusic:
              srcstat.st_size != tgtstat.st_size or
              int(srcstat.st_mtime) != int(tgtstat.st_mtime))
         return r, r, srcstat, tgtstat
+
+    def setPriorityPatterns(self, priorityPatterns):
+        self.priorityPatterns = priorityPatterns or []
 
     def askUser(self, txt, options, options_long, helpers={}):
         def_opts = [x for x in options if x.isupper()]
@@ -654,6 +658,15 @@ class BackupMusic:
             print(dirpath)
             filenames.sort()
             dirnames.sort()
+            for pattern in reversed(self.priorityPatterns):
+                for i in range(len(filenames)):
+                    if pattern in filenames[i]:
+                        filenames.insert(0, filenames.pop(i))
+
+                for i in range(len(dirnames)):
+                    if pattern in dirnames[i]:
+                        dirnames.insert(0, dirnames.pop(i))
+
             tgt_dirpath = self.targetPath(dirpath)
 
             try:
@@ -798,7 +811,7 @@ class BackupMusic:
         self.ssh.close()
 
 
-def backupMusic(target):
+def backupMusic(target, priorityPatterns):
     print(f'Backup to {target}')
     target_config = config['backups'][target]
     for path in config['musicPaths']:
@@ -808,6 +821,7 @@ def backupMusic(target):
             target = target_config['']
 
         backup = BackupMusic(path, target)
+        backup.setPriorityPatterns(priorityPatterns)
         if not backup.isValid():
             continue
         backup.performBackup()
