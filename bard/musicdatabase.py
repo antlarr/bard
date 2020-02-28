@@ -248,7 +248,8 @@ class MusicDatabase:
 
     @staticmethod
     def table(tablename):
-        if not MusicDatabase._meta.tables:
+        if (not MusicDatabase._meta.tables or
+                tablename not in MusicDatabase._meta.tables):
             MusicDatabase.reflectDBSchema()
 
         return MusicDatabase._meta.tables[tablename]
