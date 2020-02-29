@@ -1,0 +1,14 @@
+a.dragover {
+    color: lightblue;
+}
+.draggable {
+    display: inline-block;
+}
+li.draggable {
+    display: list-item;
+}
+
+tr.draggable {
+    display: table-row;
+}
+

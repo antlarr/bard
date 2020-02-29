@@ -71,11 +71,15 @@ body {
     display: flex;
     flex-direction: row;
     align-items: center;
+    border-top: 1px solid #bbb;
 }
 
 .current-song-view audio {
     flex-grow: 1;
     min-width: 50%;
+}
+.current-song-view audio:focus {
+    outline: none;
 }
 
 .centralView {
@@ -84,7 +88,6 @@ body {
     width: 100%;
     flex: 1;
     min-height: 0;
-    order: 2;
 }
 
 .App {
@@ -115,4 +118,19 @@ body {
 
 .current-song-main-metadata {
     width: 20rem;
+}
+
+#centralBand {
+    display: flex;
+    flex: 1;
+    flex-direction: row;
+    order: 2;
+    min-height: 0;  /* Inherited from centralView */
+}
+
+#playlistsPanel {
+    display: flex;
+    flex-direction: column;
+    width: 10em;
+    overflow-x: hidden;
 }

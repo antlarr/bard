@@ -2,13 +2,15 @@ from flask import Flask, request, Response, render_template, url_for, \
     jsonify, abort, redirect, send_file
 from jinja2 import FileSystemLoader
 from flask_cors import CORS
-from flask_login import LoginManager, login_required, login_user, logout_user
+from flask_login import LoginManager, login_required, login_user, \
+    logout_user, current_user
 from bard.user import User
 from bard.web_utils import get_redirect_target
 from PIL import Image
 from bard.musicdatabase_songs import getSongs
 from bard.musicbrainz_database import MusicBrainzDatabase
 from bard.musicdatabase import MusicDatabase
+from bard.playlist import Playlist
 
 import mimetypes
 import base64
@@ -317,7 +319,7 @@ def component(page):
     elif page in ('artists',):
         letter = request.args.get('letter', default='0', type=str)
         return render_template('%s.html' % page, letter=letter)
-    elif page in ('artist', 'release-group', 'album'):
+    elif page in ('artist', 'release-group', 'album', 'playlist'):
         _id = request.args.get('id', default=0, type=int)
         print('artist page', _id)
         return render_template('%s.html' % page, _id=_id)
@@ -404,6 +406,7 @@ def artist_release_groups():
     if request.method != 'GET':
         return None
     artistID = request.args.get('id', type=int)
+    print('artist release groups id=', artistID)
 
     result = [structFromReleaseGroup(x)
               for x in MusicBrainzDatabase.get_artist_release_groups(artistID)]
@@ -438,6 +441,7 @@ def release_group_info():
     rgID = request.args.get('id', type=int)
     print('id', rgID)
     result = MusicBrainzDatabase.get_release_group_info(rgID)
+    print('release_group_info', dict(result))
     return jsonify(dict(result))
 
 
@@ -490,14 +494,17 @@ def album_tracks():
     if request.method != 'GET':
         return None
     albumID = request.args.get('id', type=int)
-    songIDs = {x['releasetrackid']: x['song_id']
-               for x in MusicBrainzDatabase.get_album_songs(albumID)}
+    # songIDs = {x['releasetrackid']: x['song_id']
+    #            for x in MusicBrainzDatabase.get_album_songs(albumID)}
 
-    tracks = MusicBrainzDatabase.get_album_tracks(albumID)
+    all_tracks = MusicBrainzDatabase.get_album_tracks(albumID)
+    existing_tracks = MusicBrainzDatabase. \
+        get_album_songs_information_for_webui(albumID)
+    existing_tracks = {x['track_mbid']: dict(x) for x in existing_tracks}
     result = []
     medium = {'number': None, 'tracks': []}
     current_medium_number = None
-    for track in tracks:
+    for track in all_tracks:
         if track['medium_number'] != current_medium_number:
             if current_medium_number:
                 result.append(medium)
@@ -505,13 +512,85 @@ def album_tracks():
 
             medium = {'number': track['medium_number'],
                       'name': track['medium_name'],
+                      'format': track['medium_format'],
                       'tracks': []}
-        trk = dict(track)
         try:
-            trk['song_id'] = songIDs[track['track_mbid']]
+            medium['tracks'].append(existing_tracks[track['track_mbid']])
         except KeyError:
+            trk = dict(track)
             trk['song_id'] = None
-        medium['tracks'].append(trk)
+            medium['tracks'].append(trk)
 
     result.append(medium)
+    return jsonify(result)
+
+
+@app.route('/api/v1/playlist/list')
+def playlist_list():
+    if request.method != 'GET':
+        return None
+    print(current_user.username, current_user.userID)
+    result = []
+    for x in MusicDatabase.getPlaylistsForUser(current_user.userID):
+        result.append({'id': x['id'],
+                       'name': x['name'],
+                       'type': x['playlist_type']})
+    print(result)
+    return jsonify(result)
+
+
+@app.route('/api/v1/playlist/info')
+def playlist_info():
+    if request.method != 'GET':
+        return None
+    print(current_user.username, current_user.userID)
+    playlistID = request.args.get('id', type=int)
+    r = MusicDatabase.getPlaylistsForUser(current_user.userID, playlistID)
+    if not r:
+        return {}
+    r = r[0]
+    result = {'id': r['id'],
+              'name': r['name'],
+              'type': r['playlist_type']}
+    return jsonify(result)
+
+
+@app.route('/api/v1/playlist/add_song')
+def playlist_add_song():
+    if request.method != 'GET':
+        return None
+    print(current_user.username, current_user.userID)
+
+    playlistID = request.args.get('playlistID', type=int)
+    songID = request.args.get('songID', type=int)
+    print(playlistID, songID)
+    playlist = Playlist.load_id_from_db(playlistID, current_user.userID)
+    playlist.append_song(songID)
+    print(playlist.songs)
+    return ''
+
+
+@app.route('/api/v1/playlist/tracks')
+def playlist_tracks():
+    if request.method != 'GET':
+        return None
+
+    playlistID = request.args.get('id', type=int)
+    print(id)
+    songs = MusicBrainzDatabase.get_playlist_songs_information_for_webui(
+        playlistID)
+    result = [dict(song) for song in songs]
+    return jsonify(result)
+
+
+@app.route('/api/v1/artist_credit/info')
+def artist_credit_info():
+    if request.method != 'GET':
+        return None
+
+    artistCreditID = request.args.get('id', type=int)
+    print('artistCredit: ', artistCreditID)
+    result = MusicBrainzDatabase.get_artist_credit_info(artistCreditID)
+
+    result = [dict(x) for x in result]
     return jsonify(result)

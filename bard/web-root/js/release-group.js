@@ -7,20 +7,8 @@ function releaseGroupInfoReceived( result )
 {
     var r="";
 
-    /*for (i=0 ; i< result.length; i++)
-    {
-        r+="<li><a onclick=\"openArtist('" + result[i].mbid + "')\"><img src=\"artist.jpg\"><p class=\"name\">" + result[i].locale_name + "</p></a></li>";
-    };
-    $( "#artistsList" ).append( r );
-    artistsOffset += result.length;
-    */
-    $( "#artistInfo" ).html( "<p>" + result.name + "</p>" );
-    r = ""
-    for (i=0 ; i<result.aliases.length; i++)
-    {
-        r+="<li>" + result.aliases[i].name + " (" + result.aliases[i].locale + ")</li>";
-    }
-    $( "#artistAliases" ).html( "<ul>" + r + "</ul>" );
+    $( "#releaseGroupInfo" ).html( "<p>" + result.name + "</p>" );
+    $( "#releaseGroupArtists" ).html( "<p>" + result.artist_name + "</p>" );
 }
 
 function releasesReceived( result )

@@ -560,6 +560,40 @@ CREATE TABLE similarities(
                   ' ON album_songs (song_id)')
         c.execute('CREATE INDEX album_songs_album_id_idx '
                   ' ON album_songs (album_id)')
+        c.execute(f'''
+ CREATE TABLE enum_playlist_type_values (
+                  id_value {serial_primary_key},
+                  name TEXT
+                  )''')
+        c.execute('INSERT INTO enum_playlist_type_values '
+                  '''(name) VALUES ('user')''')
+
+        c.execute(f'''
+ CREATE TABLE playlists (
+                  id {serial_primary_key},
+                  name TEXT,
+                  owner_id INTEGER,
+                  playlist_type INTEGER,
+
+                  FOREIGN KEY(owner_id) REFERENCES users(id) ON DELETE CASCADE,
+                  FOREIGN KEY(playlist_type)
+                      REFERENCES enum_playlist_type_values(id_value)
+                  )''')
+
+        c.execute(f'''
+ CREATE TABLE playlist_songs (
+                  playlist_id INTEGER,
+                  song_id INTEGER,
+                  recording_mbid TEXT,
+                  pos INTEGER,
+
+                  FOREIGN KEY(playlist_id)
+                      REFERENCES playlists(id) ON DELETE CASCADE,
+                  FOREIGN KEY(song_id) REFERENCES songs(id),
+                  UNIQUE(playlist_id, pos)
+                  )''')
+        c.execute('CREATE INDEX playlist_songs_playlist_id_song_id_idx '
+                  ' ON playlist_songs (playlist_id, song_id)')
 
     @staticmethod  # noqa
     def addSong(song):
@@ -1615,6 +1649,24 @@ or name {like} '%%MusicBrainz/Track Id'""")
                    ' where album_id = :albumID')
         r = c.execute(sql, {'albumID': albumID})
         return r.fetchall()
+
+    @staticmethod
+    def getPlaylistsForUser(userID, playlistID=None):
+        c = MusicDatabase.getCursor()
+
+        if playlistID:
+            where = 'AND id=:playlist_id'
+            vars = {'playlist_id': playlistID}
+        else:
+            where = ''
+            vars = {}
+
+        sql = ('SELECT id, name, playlist_type FROM playlists '
+               f'WHERE owner_id = :owner_id {where} ORDER BY id')
+
+        result = c.execute(text(sql).bindparams(owner_id=userID, **vars))
+
+        return result.fetchall()
 
     @staticmethod
     def refreshMaterializedView(viewName):

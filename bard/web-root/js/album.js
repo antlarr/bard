@@ -20,29 +20,58 @@ function albumInfoReceived( result )
 
 function mediumSignature(medium)
 {
-    suffix = "";
+    var suffix = "";
     if (medium.name)
         suffix = " : " + medium.name;
-    return "Medium " + medium.number + suffix;
+    return medium.format + " " + medium.number + suffix;
 }
 
+function add_medium(medium, appendToObj)
+{
+    var medium_div = $("<div/>", { class: "medium", appendTo: appendToObj });
+    $("<span/>", { class: "mediumSignature",
+                   text: mediumSignature(medium),
+                   appendTo: medium_div
+    });
+   
+    add_table_of_songs(medium.tracks, medium_div, medium.number);
+    return medium_div;
+}
 function albumTracksReceived( result )
 {
-    var r="";
-
     for (i=0 ; i < result.length; i++)
     {
-        medium = "<div class=\"medium\">" + mediumSignature(result[i]);
-        tracks = result[i].tracks;
+        add_medium(result[i], $("#albumTracks"));
+    };
+}
+
+function albumTracksReceived_old( result )
+{
+    //jq_table = add_table_of_songs(result, $( "#albumTracks" ));
+    //jq_table.addClass('album');
+    //return
+    var r="";
+
+    var songs = []
+    for (i=0 ; i < result.length; i++)
+    {
+        var medium = "<div class=\"medium\">" + mediumSignature(result[i]);
+        var tracks = result[i].tracks;
         medium += "<ul>"
         for (j=0; j < tracks.length; j++)
         {
-            medium +="<li><a onclick=\"playSong(" + tracks[j].song_id + ")\">" + tracks[j].name + "</a> (" + tracks[j].artist_name +") </li>";
+            var songid = 'song-'+i+'-'+j;
+            medium +="<li><a id=\""+ songid + "\" onclick=\"playSong(" + tracks[j].song_id + ")\">" + tracks[j].name + "</a> (" + tracks[j].artist_name +") </li>";
+            songs.push([songid,{'application/x-bard': JSON.stringify({'songID': tracks[j].song_id})}]);
         }
         medium += "</ul></div>"
         r+=medium;
     };
     $( "#albumTracks" ).html( "<ul>"+r+"</ul>" );
+
+    songs.forEach((x,i) => {
+        setDraggable($( "#" + x[0] ), x[1]);
+    });
 }
 
 

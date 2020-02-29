@@ -1,12 +1,12 @@
 
-.albumView {
+.playlistView {
     display: flex;
     flex-direction: column;
     width: 100%;
     background-color: #fafafa;
 }
 
-.albumContent {
+.playlistContent {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -14,40 +14,29 @@
   padding: 2em;
 }
 
-#albumTracks {
-  list-style-type:none;
-  min-height: -webkit-min-content;
-  display: flex;
-  flex-flow: row wrap;
-  justify-content: flex-start;
-  align-items: flex-start;
-  align-content: flex-start;
+#playlistTracks {
 }
 
-#albumTracks li {
+#playlistTracks li {
+  width: 10em;
 /*  height: 12em;*/
-  text-align: left;
+  text-align: center;
   margin:0 1em;
 }
-
-#albumTracks img {
+#playlistTracks img {
   width: 10em;
   height: 10em;
 }
 
-div.medium {
-  width:100%;
-}
-
-.medium table {
+table.playlist {
   width:100%;
   border: 1px solid black;
   background-color: #fff;
 }
-.medium td,.medium th {
+.playlist td,.playlist th {
   padding: 1em 0.5em;
 }
 
-.medium tr {
+.playlist tr {
    border-bottom: 1px solid #bbb;
 }

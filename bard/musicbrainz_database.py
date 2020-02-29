@@ -10,6 +10,9 @@ MBDataTuple = namedtuple('MBDataTuple',
                           'releasegroupid', 'releaseid', 'releasetrackid',
                           'recordingid', 'confirmed'])
 
+FullSongsWebQuery = namedtuple('FullSongsWebQuery',
+                               ['columns', 'tables', 'where', 'order_by',
+                                'values'], defaults=('', '', '', '', {}))
 
 # https://picard.musicbrainz.org/docs/mappings/
 convert_tag = {
@@ -829,15 +832,17 @@ class MusicBrainzDatabase:
     def get_album_tracks(albumID):
         c = MusicDatabase.getCursor()
         sql = ('select ar.album_id, '
-               '       m.position as medium_number, m.name as medium_name, '
+               '       m.position as medium_number, emfv.name as medium_format, m.name as medium_name, '
                '       t.position as track_position, t.mbid as track_mbid, '
                '       t.recording_id, t.number_text , t.name, '
                '       ac.name as artist_name, '
                '       t.is_data_track '
                '  from album_release ar, musicbrainz.medium m, '
+               '       musicbrainz.enum_medium_format_values emfv, '
                '       musicbrainz.track t, musicbrainz.artist_credit ac '
                ' where ar.release_id = m.release_id '
                '   and m.id = t.medium_id '
+               '   and m.format = emfv.id_value '
                '   and ar.album_id = :albumID '
                '   and t.artist_credit_id = ac.id '
                ' order by m.position, t.position')
@@ -853,4 +858,72 @@ class MusicBrainzDatabase:
                ' where album_songs.song_id = songs_mb.song_id '
                '   and album_songs.album_id = :albumID ')
         result = c.execute(text(sql), {'albumID': albumID})
+        return result.fetchall()
+
+    @staticmethod
+    def get_songs_information_for_webui(*, songIDs=None,
+                                        query=FullSongsWebQuery()):
+        if songIDs:
+            query = FullSongsWebQuery(where=['als.song_id in :songIDs'],
+                                      order_by=['als.song_id'],
+                                      values={'songIDs': tuple(songIDs)})
+
+        c = MusicDatabase.getCursor()
+        cq = (',' + ','.join(query.columns)) if query.columns else ''
+        ct = (',' + ','.join(query.tables)) if query.tables else ''
+        cw = (' AND ' + ' AND '.join(query.where)) if query.where else ''
+        co = ('ORDER BY ' + ','.join(query.order_by)) if query.order_by else ''
+        sql = ('select als.album_id, als.song_id, '
+               '       m.position as medium_number, emfv.name as medium_format, m.name as medium_name, '
+               '       t.position as track_position, t.mbid as track_mbid, '
+               '       t.recording_id, t.number_text , t.name, '
+               '       ac.name as artist_name, t.artist_credit_id, '
+               '       t.is_data_track, p.duration, p.format, p.bitrate, '
+               f'       p.bits_per_sample, p.sample_rate, p.channels {cq}'
+               '  from album_songs als, album_release ar, '
+               '       musicbrainz.medium m, musicbrainz.enum_medium_format_values emfv, '
+               '       musicbrainz.track t, '
+               '       musicbrainz.artist_credit ac, '
+               f'       songs_mb smb, properties p {ct}'
+               ' where ar.release_id = m.release_id '
+               '   and m.id = t.medium_id '
+               '   and m.format = emfv.id_value '
+               '   and ar.album_id = als.album_id '
+               '   and t.artist_credit_id = ac.id '
+               '   and smb.song_id = als.song_id '
+               '   and p.song_id = als.song_id '
+               '   and smb.releasetrackid = t.mbid '
+               f'  {cw} {co}')
+        result = c.execute(text(sql), query.values)
+        return result.fetchall()
+
+    @staticmethod
+    def get_playlist_songs_information_for_webui(playlistID):
+        query = (FullSongsWebQuery(
+                 columns=['pl.pos as position'],
+                 tables=['playlist_songs pl'],
+                 where=['pl.playlist_id = :playlistID',
+                        'als.song_id = pl.song_id'],
+                 order_by=['pl.pos'],
+                 values={'playlistID': playlistID}))
+        return MusicBrainzDatabase.get_songs_information_for_webui(query=query)
+
+    @staticmethod
+    def get_album_songs_information_for_webui(albumID):
+        query = (FullSongsWebQuery(
+                 columns=[],
+                 tables=[],
+                 where=['ar.album_id = :albumID'],
+                 order_by=['m.position', 't.position'],
+                 values={'albumID': albumID}))
+        return MusicBrainzDatabase.get_songs_information_for_webui(query=query)
+
+    @staticmethod
+    def get_artist_credit_info(artistCreditID):
+        c = MusicDatabase.getCursor()
+        sql = ('select artist_id, position, name, join_phrase'
+               '  from musicbrainz.artist_credit_name '
+               ' where artist_credit_id = :artistCreditID '
+               '  order by position')
+        result = c.execute(text(sql), {'artistCreditID': artistCreditID})
         return result.fetchall()

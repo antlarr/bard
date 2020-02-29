@@ -18,6 +18,131 @@ function openComponent(page, data=null, push_to_history=true, callback=null)
     // $( "#container" ).html("<p>Login!</p>");
 }
 
+
+/**
+ * Formatting songs and playlists
+ */
+
+function finalizeFormatArtist(jq, artist_credit)
+{
+    ac = $('<span/>');
+    artist_credit.forEach((credit,i) => {
+        $('<a/>', {
+            on: {
+               click: function() { openArtist(credit['artist_id']); }
+            },
+            text: credit['name'],
+            appendTo: ac
+        });
+
+        ac.append(credit.join_phrase);
+    });
+    jq.empty();
+    jq.append(ac);
+}
+
+function formatArtist(jq, song)
+{
+    jq.html(song['artist_name']);
+    $.ajax({
+        url: "/api/v1/artist_credit/info",
+        data: {id: song['artist_credit_id']},
+        success: function( data, textStatus, jqXHR) {
+            finalizeFormatArtist(jq, data);
+        },
+        error: function( jqXHR, textStatus, errorThrown) {
+            alert(textStatus + "\n" + errorThrown);
+        }
+    });
+}
+
+function formatSongName(jq, song)
+{
+   jq.html('<a>' + song['name'] + '</a>');
+   jq.on('click', { songID: song['song_id'] }, function(ev) { playSong(ev.data.songID); });
+}
+
+function formatDuration(jq, song)
+{
+   var duration = song['duration']
+   var hours = Math.floor(duration / 3600);
+   duration = duration % 3600;
+   var minutes = Math.floor(duration / 60);
+   if (hours > 0 && minutes < 10) {
+     minutes = '0' + minutes
+   }
+   duration = Math.floor(duration % 60);
+   if (duration < 10) {
+     duration = '0' + duration
+   }
+   formatted = minutes + ':' + duration;
+   if (hours > 0)
+   {
+     formatted = hours + ':' + formatted;
+   }
+   jq.html(formatted);
+}
+
+columns = [['#', ['position', 'track_position']],
+           ['Name', formatSongName],
+           ['Artist', formatArtist],
+           ['Length', formatDuration ]]
+
+function add_table_of_songs(songs, appendToObj, uniquesuffix='0')
+{
+    table = $("<table/>", { appendTo: appendToObj });
+    var i, j, col;
+
+    var r = "";
+    columns.forEach((col,i) => {
+        r+= '<th>' + col[0] + '</th>';
+    });
+    var trh = $("<tr/>").append(r);
+    table.append(trh);
+
+    songs.forEach((song,i) => {
+        var songid = 'song-'+i+'-'+uniquesuffix;
+        console.log(song);
+        var tr = $("<tr/>");
+        columns.forEach((col,j) => {
+            console.log(col);
+            var td = $("<td/>", { appendTo: tr})
+            if (typeof(col[1]) =="function")
+            {
+                col[1](td, song);
+            }
+            else if (typeof(col[1]) == "object")
+            {
+               columns_to_check = col[1];
+               for (var k=0 ; k < columns_to_check.length; k++)
+               {
+                   if (song.hasOwnProperty(columns_to_check[k]))
+                   {
+                       td.html(song[columns_to_check[k]]);
+                       break;
+                   };
+               };
+            }
+            else
+            {
+                td.html(song[col[1]]);
+            }
+        });
+
+        console.log('out of songs loop');
+        table.append(tr);
+
+        setDraggable(tr, {'application/x-bard': JSON.stringify({'songID': song['song_id']})});
+    });
+
+    return table;
+}
+
+/**
+ * Formatting songs and playlists (end)
+ */
+
+
 function openAbout(push_to_history=true)
 {
     if (push_to_history)
@@ -79,6 +204,11 @@ function setCurrentSongInfo(id, metadata)
         $( "#current-song-title" ).html(metadata.title);
         $( "#current-song-artist" ).html(metadata.artist);
     }
+}
+
+function openArtist( id )
+{
+    openComponent('artist', {id: id});
 }
 
 function playSong(id)
@@ -153,3 +283,8 @@ window.onpopstate = function( event ) {
     }
 }
 
+function initBard()
+{
+    fillPlaylists();
+    document.requestFullScreen();
+}

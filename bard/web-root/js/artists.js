@@ -42,11 +42,6 @@ function artistsReceived( result )
     artistsOffset += result.length;
 }
 
-function openArtist( id )
-{
-    openComponent('artist', {id: id});
-}
-
 function requestArtists(offset, count)
 {
     $.ajax({

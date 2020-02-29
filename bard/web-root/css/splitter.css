@@ -1,0 +1,16 @@
+.splitter {
+    flex: 1;
+}
+.left-pane {
+    order: 1;
+}
+.pane-divider {
+    width: 5px;
+    order: 2;
+    border-right: 1px solid #333;
+    cursor: col-resize;
+}
+
+.right-pane {
+    order: 3;
+}
