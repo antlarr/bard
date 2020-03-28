@@ -6,6 +6,7 @@ from flask_login import LoginManager, login_required, login_user, \
     logout_user, current_user
 from bard.user import User
 from bard.web_utils import get_redirect_target
+from bard.config import config
 from PIL import Image
 from bard.musicdatabase_songs import getSongs
 from bard.musicbrainz_database import MusicBrainzDatabase
@@ -87,11 +88,18 @@ def load_user_from_request(request):
     # finally, return None if both methods did not login the user
     return None
 
+def base_href():
+    use_ssl = config['use_ssl']
+    hostname = config['hostname']
+    port = config['port']
+    protocol = {False: 'http', True: 'https'}[use_ssl]
+    return f'{protocol}://{hostname}:{port}'
+
 
 @app.route('/')
 @login_required
 def index():
-    return render_template('index.html')
+    return render_template('index.html', base_href=base_href())
 
 
 @app.route('/login', methods=['GET', 'POST'])
