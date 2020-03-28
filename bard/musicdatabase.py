@@ -7,6 +7,7 @@ from bard.album import albumPath
 import sqlalchemy
 from sqlalchemy import create_engine, text, Table
 from sqlalchemy.orm import Session
+from functools import lru_cache
 import sqlite3
 import os
 import re
@@ -96,6 +97,7 @@ class DatabaseEnum:
             return None
         return r[0]
 
+    @lru_cache(maxsize=64)
     def name(self, id_value):
         if self.name_is_dict:
             return self.name_dict(id_value)
