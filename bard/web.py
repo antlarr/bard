@@ -9,7 +9,7 @@ from bard.web_utils import get_redirect_target
 from bard.config import config
 from PIL import Image
 from bard.musicdatabase_songs import getSongs
-from bard.musicbrainz_database import MusicBrainzDatabase
+from bard.musicbrainz_database import MusicBrainzDatabase, MediumFormatEnum
 from bard.musicdatabase import MusicDatabase
 from bard.playlist import Playlist
 
@@ -517,10 +517,13 @@ def album_tracks():
             if current_medium_number:
                 result.append(medium)
             current_medium_number = track['medium_number']
+            format_id = track['medium_format_id']
+            medium_format_name = (MediumFormatEnum.name(format_id) or
+                                  'Unknown Format')
 
             medium = {'number': track['medium_number'],
                       'name': track['medium_name'],
-                      'format': track['medium_format'],
+                      'format': medium_format_name,
                       'tracks': []}
         try:
             medium['tracks'].append(existing_tracks[track['track_mbid']])
