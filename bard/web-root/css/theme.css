@@ -133,4 +133,9 @@ body {
     flex-direction: column;
     width: 10em;
     overflow-x: hidden;
+    position: relative;
+}
+
+tr.unavailableSong {
+    background-color: #ddd;
 }

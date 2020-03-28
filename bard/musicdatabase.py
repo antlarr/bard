@@ -1671,6 +1671,21 @@ or name {like} '%%MusicBrainz/Track Id'""")
         return result.fetchall()
 
     @staticmethod
+    def get_next_playlist_song(userID, playlistID, index):
+        c = MusicDatabase.getCursor()
+        sql = text('SELECT song_id, recording_mbid, pos '
+                   '  FROM playlist_songs, playlists '
+                   ' WHERE playlist_id = :playlistID '
+                   '   AND id = playlist_id '
+                   '   AND owner_id = :owner_id '
+                   ' ORDER BY pos '
+                   '   LIMIT 1 OFFSET :index ')
+        result = c.execute(sql.bindparams(owner_id=userID,
+                                          playlistID=playlistID,
+                                          index=index + 1))
+        return result.fetchone()
+
+    @staticmethod
     def refreshMaterializedView(viewName):
         c = MusicDatabase.getCursor()
         sql = text(f'refresh materialized view {viewName}')

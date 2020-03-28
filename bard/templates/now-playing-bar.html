@@ -1,7 +1,10 @@
 <div id="current-song-view" class="current-song-view">
     {% include "current-song-info.html" %}
-    <audio id="player" src="" controls autoPlay>
+    <audio id="player" controls autoPlay>
         Your browser does not support the audio html5 tag
     </audio>
     <input id="current-song-id" type="hidden" value="">
+    <script type="text/javascript">
+        $('#player').on('ended', function() { requestNextSong() });
+    </script>
 </div>

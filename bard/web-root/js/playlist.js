@@ -4,30 +4,14 @@ function playlistInfoReceived( result )
 }
 
 
-function playlistTracksReceived( result )
+function playlistTracksReceived( result, playlistID )
 {
-//    var x = table_from_songs(result, 'playlist');
-//    var r = x[0];
-//    var songs = x[1];
-
-/*    var r = "<div><ul>"
-    var tracks = result;
-    var i=0;
-
-    for (j=0; j < tracks.length; j++)
-    {
-        var songid = 'song-'+i+'-'+j;
-        r +="<li><a id=\""+ songid + "\" onclick=\"playSong(" + tracks[j].song_id + ")\">" + tracks[j].name + "</a> (" + tracks[j].artist_name +") </li>";
-    }
-    r += "</ul></div>"
-*/
-
-    jq_table = add_table_of_songs(result, $( "#playlistTracks" ));
+    console.log(result);
+    var playlistInfo = {
+        playlistID: playlistID
+    };
+    jq_table = add_table_of_songs(result, $( "#playlistTracks" ), 0, playlistInfo );
     jq_table.addClass('playlist');
-
-//    songs.forEach((x,i) => {
-//        setDraggable($( "#" + x[0] ), x[1]);
-//    });
 }
 
 
@@ -48,7 +32,7 @@ function requestPlaylistTracks(id)
     $.ajax({
         url: "/api/v1/playlist/tracks",
         data: {id: id},
-        success: playlistTracksReceived,
+        success: function(result) { playlistTracksReceived(result, id); },
         error: function( jqXHR, textStatus, errorThrown) {
             alert(textStatus + "\n" + errorThrown);
         }

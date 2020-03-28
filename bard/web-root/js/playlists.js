@@ -34,12 +34,14 @@ function playlistsReceived( result )
 {
     var r="";
     var playlists = [];
+    plList = $( "#playlistList" );
+    plList.empty();
     for (var i=0 ; i< result.length; i++)
     {
         var plid = "playlist-" + i;
         playlists.push(plid);
         r="<li><a id=\"" + plid + "\" onclick=\"openPlaylist('" + result[i].id + "')\" class=\"playlist\">" + result[i].name + "</a></li>";
-        $( "#playlistList" ).append( r );
+        plList.append( r );
         setDropArea($( "#" + plid ), playlist_drop_filter, playlist_drop_handler, {'playlistID': result[i].id});
     };
 }

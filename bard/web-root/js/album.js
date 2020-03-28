@@ -26,22 +26,28 @@ function mediumSignature(medium)
     return medium.format + " " + medium.number + suffix;
 }
 
-function add_medium(medium, appendToObj)
+function add_medium(medium, appendToObj, playlistInfo)
 {
     var medium_div = $("<div/>", { class: "medium", appendTo: appendToObj });
     $("<span/>", { class: "mediumSignature",
                    text: mediumSignature(medium),
                    appendTo: medium_div
     });
-   
-    add_table_of_songs(medium.tracks, medium_div, medium.number);
+
+    add_table_of_songs(medium.tracks, medium_div, medium.number, playlistInfo);
     return medium_div;
 }
-function albumTracksReceived( result )
+function albumTracksReceived( result, albumID )
 {
+    console.log(result);
+    console.log(albumID);
     for (i=0 ; i < result.length; i++)
     {
-        add_medium(result[i], $("#albumTracks"));
+        var playlistInfo = {
+            albumID: albumID,
+            mediumNumber: result[i].number
+        };
+        add_medium(result[i], $("#albumTracks"), playlistInfo);
     };
 }
 
@@ -92,7 +98,7 @@ function requestAlbumTracks(id)
     $.ajax({
         url: "/api/v1/album/tracks",
         data: {id: id},
-        success: albumTracksReceived,
+        success: function(result) { albumTracksReceived(result, id); },
         error: function( jqXHR, textStatus, errorThrown) {
             alert(textStatus + "\n" + errorThrown);
         }

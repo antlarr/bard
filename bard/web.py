@@ -627,3 +627,41 @@ def artist_credit_info():
 
     result = [dict(x) for x in result]
     return jsonify(result)
+
+
+@app.route('/api/v1/playlist/current/next_song', methods=['POST'])
+def playlist_current_next_song():
+    print(request.method, request.data)
+    if request.method != 'POST':
+        return None
+    print(current_user.username, current_user.userID)
+    print(dir(request))
+    print(request.form)
+    # playlistSongInfo= {'albumID': 1,
+    #                    'mediumNumber': 2,
+    #                    'track_position': 3}
+    # playlistSongInfo= {'playlistID': 1,
+    #                    'index': 2}
+    playlistID = None
+    albumID = None
+    try:
+        playlistID = int(request.form['playlistID'])
+    except KeyError:
+        albumID = int(request.form['albumID'])
+    if playlistID:
+        # TODO: Check that the user has access to the playlist!
+        index = int(request.form['index'])
+        r = MusicDatabase.get_next_playlist_song(current_user.userID, playlistID, index)
+        result = {'songID': r['song_id'],
+                  'playlistSongInfo': {'playlistID': playlistID,
+                                       'index': r['pos']}}
+    elif albumID:
+        mediumNumber = int(request.form['mediumNumber'])
+        track_position = int(request.form['track_position'])
+        r = MusicDatabase.get_next_album_song(albumID, mediumNumber, track_position)
+        result = {'songID': r['song_id'],
+                  'playlistSongInfo': {'albumID': albumID,
+                                       'mediumNumber': r['mediumNumber']}}
+
+    print(result)
+    return jsonify(result)

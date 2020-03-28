@@ -1,4 +1,6 @@
 var current_song_id = 0;
+var current_playlist_song_info = null;
+
 
 function openComponent(page, data=null, push_to_history=true, callback=null)
 {
@@ -39,7 +41,7 @@ function finalizeFormatArtist(jq, artist_credit)
     jq.append(ac);
 }
 
-function formatArtist(jq, song)
+function formatArtist(jq, song, playlistInfo)
 {
     jq.html(song['artist_name']);
     $.ajax({
@@ -54,13 +56,36 @@ function formatArtist(jq, song)
     });
 }
 
-function formatSongName(jq, song)
+function playSongFromPlaylist(songID, playlistSongInfo)
 {
-   jq.html('<a>' + song['name'] + '</a>');
-   jq.on('click', { songID: song['song_id'] }, function(ev) { playSong(ev.data.songID); });
+    console.log(playlistSongInfo);
+    /*if (playlistSongInfo.hasOwnProperty('albumID')) {
+        alert('1play song ' + songID +
+              ' from playlist ' + playlistSongInfo['albumID'] +
+              '/' + playlistSongInfo['mediumNumber'] +
+              ' index ' + playlistSongInfo['track_position']);
+    } else {
+        alert('2play song ' + songID +
+              ' from playlist ' + playlistSongInfo['playlistID'] +
+              ' index ' + playlistSongInfo['index']);
+    }*/
+    current_playlist_song_info = playlistSongInfo;
+    playSong(songID);
 }
 
-function formatDuration(jq, song)
+function formatSongName(jq, song, playlistSongInfo)
+{
+   console.log(song);
+   jq.html('<a>' + song['name'] + '</a>');
+   jq.on('click', { songID: song['song_id'],
+                    playlistSongInfo: playlistSongInfo},
+          function(ev) {
+              playSongFromPlaylist(ev.data.songID, ev.data.playlistSongInfo);
+          });
+
+}
+
+function formatDuration(jq, song, playlistInfo)
 {
    var duration = song['duration']
    var hours = Math.floor(duration / 3600);
@@ -86,7 +111,7 @@ columns = [['#', ['position', 'track_position']],
            ['Artist', formatArtist],
            ['Length', formatDuration ]];
 
-function add_table_of_songs(songs, appendToObj, uniquesuffix='0')
+function add_table_of_songs(songs, appendToObj, uniquesuffix='0', playlistInfo=null)
 {
     table = $("<table/>", { appendTo: appendToObj });
     var i, j, col;
@@ -100,14 +125,19 @@ function add_table_of_songs(songs, appendToObj, uniquesuffix='0')
 
     songs.forEach((song,i) => {
         var songid = 'song-'+i+'-'+uniquesuffix;
+        var tmpPlaylistInfo = $.extend({index: i, track_position: song['track_position']},playlistInfo);
         console.log(song);
         var tr = $("<tr/>");
+        if (song['song_id'] == null)
+        {
+            tr.addClass('unavailableSong');
+        };
         columns.forEach((col,j) => {
-            console.log(col);
+            //console.log(col);
             var td = $("<td/>", { appendTo: tr})
             if (typeof(col[1]) =="function")
             {
-                col[1](td, song);
+                col[1](td, song, tmpPlaylistInfo);
             }
             else if (typeof(col[1]) == "object")
             {
@@ -219,6 +249,21 @@ function playSong(id)
         setCurrentSongInfo(id, metadata);
     }
     $( "#player" ).attr("src", base + "/api/v1/audio/song/" + id)
+}
+
+function requestNextSong()
+{
+    console.log('next_song');
+    $.ajax({
+      type: "POST",
+      url: "/api/v1/playlist/current/next_song",
+      data: current_playlist_song_info,
+      success: function( result ) {
+          console.log(result);
+          console.log(result.songID);
+          playSongFromPlaylist(result.songID, result.playlistSongInfo);
+      }
+    });
 }
 
 function submitLogin()
