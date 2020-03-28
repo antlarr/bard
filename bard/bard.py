@@ -878,7 +878,7 @@ class Bard:
                 else:
                     fpm.addSong(songID, dfp[0], duration)
                     result = []
-                tmp = '%d%%' % (songID * 100.0 / from_song_id)
+                tmp = '%d%% ' % (songID * 100.0 / from_song_id)
                 if tmp != percentage:
                     backspaces = '\b' * len(percentage)
                     percentage = tmp
@@ -947,7 +947,7 @@ class Bard:
             info[songID] = (sha256sum, audioSha256sum, path, completeness)
             if result:
                 MusicDatabase.commit()
-            elif start_time:
+            elif start_time and not incremental_song_ids_to_compare:
                 print(f'No match found for song {songID}: {path}')
 
             if print_stats and start_time:
@@ -962,11 +962,13 @@ class Bard:
 
                 if delete_not_found_similarities:
                     print('\b' * len(percentage), end='')
-                print('Stats: %0.3f seconds in evaluating %d/%d songs '
-                      '%0.3f songs/s (avg: %0.3f, songs left: %d, '
-                      'estimated end at: %s)' %
-                      (delta_time, len(info), totalSongsCount, speeds[-1],
-                       avg, totalSongsCount - songs_processed, now + d))
+                if (not incremental_song_ids_to_compare or
+                        songID in incremental_song_ids_to_compare):
+                    print('Stats: %0.3f seconds in evaluating %d/%d songs '
+                          '%0.3f songs/s (avg: %0.3f, songs left: %d, '
+                          'estimated end at: %s)' %
+                          (delta_time, len(info), totalSongsCount, speeds[-1],
+                           avg, totalSongsCount - songs_processed, now + d))
 
         if delete_not_found_similarities:
             print(('\b' * len(percentage)) + '100% . Done')
