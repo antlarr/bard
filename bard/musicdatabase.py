@@ -1583,14 +1583,14 @@ or name {like} '%%MusicBrainz/Track Id'""")
     def songsWithReleaseID(onlyWithoutAlbums=True):
         c = MusicDatabase.getCursor()
         if onlyWithoutAlbums:
-            extra = ('   AND NOT EXISTS (SELECT song_id id2 '
+            extra = ('   AND NOT EXISTS (SELECT song_id '
                      '                     FROM album_songs '
-                     '                    WHERE id2 = song_id)'
+                     '                    WHERE song_id = songs.id)')
         else:
             extra = ''
         sql = text('SELECT id, path '
                    '  FROM songs, songs_mb '
-                   ' WHERE id = song_id '
+                   ' WHERE id = songs_mb.song_id '
                    '   AND releaseid IS NOT NULL '
                    f'   {extra}'
                    'ORDER BY id')
