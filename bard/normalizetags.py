@@ -283,6 +283,14 @@ def normalizeTagValue(obj, mutagenFile, tag, removeBinaryData=False):
         return obj.value
 
     if isinstance(obj, mutagen.mp4.MP4FreeForm):
+        try:
+            if obj.FORMAT_TEXT == mutagen.mp4.AtomDataType.UTF8:
+                return obj.decode('utf-8').replace('\x00','')
+            elif obj.FORMAT_TEXT == mutagen.mp4.AtomDataType.UTF16:
+                return obj.decode('utf-16').replace('\x00','')
+        except UnicodeDecodeError:
+            print(f'Wrong unicode data found in tag {tag}: {obj}')
+            return None
         return str(obj)
 
     if isinstance(obj, (mutagen.id3.TCON, mutagen.id3.TPUB, mutagen.id3.TSRC,
