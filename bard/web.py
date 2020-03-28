@@ -339,6 +339,16 @@ def hello():
     return 'Hello, World'
 
 
+@app.route('/favicon.ico')
+def serve_favicon():
+    filename = 'favicon.ico'
+    localfilename = 'web-root/%s' % filename
+    print(localfilename)
+    s = open(localfilename, 'rb').read()
+    mime = mimetypes.guess_type(localfilename)
+    return Response(s, mimetype=mime[0])
+
+
 @app.route('/static/<path:filename>')
 def static_file(filename):
     localfilename = 'web-root/%s' % filename
@@ -473,7 +483,6 @@ def release_group_releases():
 
         result.append(rel)
 
-    print('aaa', result)
     return jsonify(result)
 
 
