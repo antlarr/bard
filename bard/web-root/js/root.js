@@ -18,11 +18,9 @@ function openComponent(page, data=null, push_to_history=true, callback=null)
     // $( "#container" ).html("<p>Login!</p>");
 }
 
-
 /**
  * Formatting songs and playlists
  */
-
 function finalizeFormatArtist(jq, artist_credit)
 {
     ac = $('<span/>');
@@ -86,7 +84,7 @@ function formatDuration(jq, song)
 columns = [['#', ['position', 'track_position']],
            ['Name', formatSongName],
            ['Artist', formatArtist],
-           ['Length', formatDuration ]]
+           ['Length', formatDuration ]];
 
 function add_table_of_songs(songs, appendToObj, uniquesuffix='0')
 {
@@ -141,7 +139,6 @@ function add_table_of_songs(songs, appendToObj, uniquesuffix='0')
 /**
  * Formatting songs and playlists (end)
  */
-
 
 function openAbout(push_to_history=true)
 {
@@ -245,25 +242,6 @@ function submitLogin()
     });
 }
 
-$( "#nav-home" ).on( "click", function( event ) {
-    openComponent('home');
-    event.preventDefault();
-});
-
-$( "#nav-artists" ).on( "click", function( event ) {
-    openComponent('artists');
-    event.preventDefault();
-});
-
-$( "#nav-albums" ).on( "click", function( event ) {
-    openComponent('albums');
-    event.preventDefault();
-});
-
-$( "#nav-genres" ).on( "click", function( event ) {
-    openComponent('genres');
-    event.preventDefault();
-});
 
 window.onpopstate = function( event ) {
     switch (event.state['page'])
@@ -283,8 +261,33 @@ window.onpopstate = function( event ) {
     }
 }
 
-function initBard()
+
+function initBardConstructor()
 {
+    $( "#nav-home" ).on( "click", function( event ) {
+        openComponent('home');
+        event.preventDefault();
+    });
+
+    $( "#nav-artists" ).on( "click", function( event ) {
+        openComponent('artists');
+        event.preventDefault();
+    });
+
+    $( "#nav-albums" ).on( "click", function( event ) {
+        openComponent('albums');
+        event.preventDefault();
+    });
+
+    $( "#nav-genres" ).on( "click", function( event ) {
+        openComponent('genres');
+        event.preventDefault();
+    });
+
     fillPlaylists();
-    document.requestFullScreen();
-}
+    //document.requestFullScreen();
+};
+
+var bard = new Object();
+
+bard.initBard = initBardConstructor

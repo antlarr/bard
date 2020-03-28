@@ -11,10 +11,11 @@
         <link href="/static/css/splitter.css" rel="stylesheet">
         <link href="/static/css/dnd.css" rel="stylesheet">
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
-        <script src="static/js/jquery-3.4.1.min.js"></script>
+        <script type="text/javascript" src="/static/js/jquery-3.4.1.min.js"></script>
         <script type="text/javascript" src="/static/js/dnd.js"></script>
+        <script type="text/javascript" src="/static/js/root.js"></script>
     </head>
-    <body onload="initBard()">
+    <body>
         <noscript>You need to enable JavaScript to run this app.</noscript>
         <div class="Bard App">
           <header class="header">
@@ -39,9 +40,14 @@
           {% include "now-playing-bar.html" %}
         </div>
 
-        <script src="static/js/splitter.js"></script>
+        <script src="/static/js/splitter.js"></script>
 <!--<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>-->
-        <script type="text/javascript" src="/static/js/root.js"></script>
         <script type="text/javascript" src="/static/js/metadata.js"></script>
+        <script type="text/javascript">
+
+            jQuery(window).on("load", function(){
+                bard.initBard();
+            });
+        </script>
     </body>
 </html>
