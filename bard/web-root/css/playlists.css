@@ -24,3 +24,18 @@ ul#playlistList {
   animation-iteration-count: 1;
 }
 
+#addPlaylistButton {
+  border: 1px solid #888;
+  background-color: #eee;
+  right: 0.5em;
+  bottom: 0.5em;
+  display: block;
+  position: absolute;
+  width: 1em;
+  text-align: center;
+  color: #888;
+}
+
+#addPlaylistButton:hover {
+   background-color: #fed;
+}

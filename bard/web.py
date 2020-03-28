@@ -575,6 +575,19 @@ def playlist_info():
     return jsonify(result)
 
 
+@app.route('/api/v1/playlist/new')
+def playlist_new():
+    if request.method != 'GET':
+        return None
+    print(current_user.username, current_user.userID)
+    name = request.args.get('name', type=str)
+    print(f'Request to create playlist with name {name}')
+    pl = Playlist(None, owner_id=current_user.userID)
+    pl.set_name(name)
+    pl.create_in_db()
+    return jsonify([])
+
+
 @app.route('/api/v1/playlist/add_song')
 def playlist_add_song():
     if request.method != 'GET':

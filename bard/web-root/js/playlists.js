@@ -60,3 +60,22 @@ function fillPlaylists()
     requestPlaylists();
 }
 
+
+function addPlaylist()
+{
+   name = prompt('Enter the name of the playlist to create');
+
+   if (name)
+   {
+     $.ajax({
+        url: "/api/v1/playlist/new",
+        data: {name: name},
+        success: function( data, textStatus, jqXHR) {
+            fillPlaylists();
+        },
+        error: function( jqXHR, textStatus, errorThrown) {
+            alert(textStatus + "\n" + errorThrown);
+        }
+      });
+   };
+}
