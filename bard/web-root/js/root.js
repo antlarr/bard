@@ -69,6 +69,19 @@ function formatSongName(jq, song, playlistSongInfo)
 
 }
 
+function formatRelease(jq, song, playlistSongInfo)
+{
+   console.log(song);
+   jq.html('<a>' + song['release_name'] + '</a>');
+   jq.on('click', { songID: song['song_id'],
+                    albumID: song['album_id'],
+                    playlistSongInfo: playlistSongInfo},
+          function(ev) {
+                openAlbum(ev.data.albumID);
+          });
+
+}
+
 function formatDurationValue(duration)
 {
    var hours = Math.floor(duration / 3600);
@@ -95,15 +108,20 @@ function formatDuration(jq, song, playlistInfo)
    jq.html(formatDurationValue(song['duration']));
 }
 
-columns = [['#', ['position', 'track_position']],
+const columns_base = [['#', ['position', 'track_position']],
            ['Name', formatSongName],
            ['Artist', formatArtist],
            ['Length', formatDuration ]];
 
-function add_table_of_songs(songs, appendToObj, uniquesuffix='0', playlistInfo=null)
+function add_table_of_songs(songs, appendToObj, uniquesuffix='0', playlistInfo=null, release_column=false)
 {
     table = $("<table/>", { appendTo: appendToObj });
     var i, j, col;
+
+    var columns = [...columns_base];
+    if (release_column) {
+        columns.splice(2, 0, ['Release', formatRelease])
+    }
 
     var r = "";
     columns.forEach((col,i) => {
@@ -191,25 +209,28 @@ function dateTuplesRangeToString(begin, end)
     return null;
 }
 
+function songsSearchResultReceived( result )
+{
+    console.log(result);
+    var playlistInfo = {
+        searchResult: true
+    };
+    jq_table = add_table_of_songs(result, $( "#searchResult" ), 0, playlistInfo, true );
+    jq_table.addClass('playlist');
+}
+
+
 function performSearch(push_to_history=true)
 {
     searchText=$("#searchBar").val();
     if (push_to_history)
         window.history.pushState({page: 'performSearch', query: searchText}, "", "/");
     $.ajax({
-      url: "/api/v1/search",
+      url: "/api/v1/song/search",
       data: {
         query: searchText
       },
-      success: function( result ) {
-        r="";
-        for (i=0 ; i< result.length; i++)
-        {
-            r+="<br><a onclick=\"playSong(" + result[i].id + ")\">" + result[i].path + "</a>";
-        };
-        $( "#searchResult" ).html( r );
-        set_song_metadata_cache( result );
-      }
+      success: songsSearchResultReceived
     });
 }
 
@@ -220,6 +241,11 @@ function setCurrentSongInfo(id, metadata)
         $( "#current-song-title" ).html(metadata.title);
         $( "#current-song-artist" ).html(metadata.artist);
     }
+}
+
+function openAlbum( id )
+{
+    openComponent('album', {id: id});
 }
 
 function openArtist( id )

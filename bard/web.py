@@ -148,7 +148,6 @@ def structFromArtistAlias(aliasRow):
 
 def structFromArtist(artistRow, aliasesRows=[]):
     r = {}
-    print(artistRow)
     r['id'] = artistRow.id
     r['mbid'] = artistRow.mbid
     r['name'] = artistRow.name
@@ -167,7 +166,6 @@ def structFromArtist(artistRow, aliasesRows=[]):
 
 def structFromReleaseGroup(rg):
     r = {}
-    print(rg)
     r['id'] = rg.id
     r['mbid'] = rg.mbid
     r['name'] = rg.name
@@ -210,14 +208,12 @@ def album_properties_to_string(prop):
     return r
 
 
-@app.route('/api/v1/search')
-def api_v1_search():
-    print(request.method)
-    print(request.args)
-    print(request.args['query'])
+@app.route('/api/v1/song/search')
+def api_v1_song_search():
+    print('song search', request.args['query'])
     result = []
-    for song in getSongs(request.args['query'], metadata=True):
-        result.append(structFromSong(song))
+    songs = MusicBrainzDatabase.search_songs_for_webui(request.args['query'])
+    result = [dict(song) for song in songs]
     return jsonify(result)
 
 
