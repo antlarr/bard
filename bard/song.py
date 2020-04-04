@@ -14,11 +14,17 @@ from bard.album import albumPath
 from pydub import AudioSegment
 from pydub.exceptions import PydubException
 from sqlalchemy import text
+from collections import namedtuple
 import sqlite3
 import os
 import shutil
 import acoustid
 import mutagen
+
+
+CueTrack = namedtuple('CueTrack', ['idx',
+                                   'sample_position', 'time_position',
+                                   'title'])
 
 
 class DifferentLengthException(Exception):
@@ -101,6 +107,7 @@ class Song:
         Song.ratings = None
         self.fingerprint = None
         self._decode_properties = None
+        self.cuesheet = []
         if type(x) == sqlite3.Row or \
            hasattr(x, 'keys'):
             self.id = x['id']
@@ -317,6 +324,23 @@ class Song:
 
         self.fingerprint = self.getAcoustidFingerprint_data(audiodata,
                                                             properties)
+        if self.metadata and getattr(self.metadata, 'cuesheet', None):
+            for track in self.metadata.cuesheet.tracks:
+                if (track.track_number == 255 or
+                        track.start_offset == self.metadata.info.total_samples):  # noqa
+                    continue
+                timepos = (self.metadata.info.length * track.start_offset /
+                           self.metadata.info.total_samples)
+
+                try:
+                    title = self.metadata['SUBTRACKTITLES'][track.track_number - 1]  # noqa
+                except (KeyError, IndexError):
+                    title = None
+                ct = CueTrack(track.track_number,
+                              track.start_offset,
+                              timepos,
+                              title)
+                self.cuesheet.append(ct)
 
         self.isValid = True
 

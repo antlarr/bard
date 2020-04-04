@@ -174,6 +174,17 @@ def extractTagsList(song):
     return tags
 
 
+def extractCueSheetTracks(song):
+    tracks = []
+    for track in song.cuesheet:
+        tracks.append({'id': song.id,
+                       'idx': track.idx,
+                       'sample_position': track.sample_position,
+                       'time_position': track.time_position,
+                       'title': track.title})
+    return tracks
+
+
 class MusicDatabase:
     conn = {}
     mtime_cache_by_path = {}
@@ -596,6 +607,17 @@ CREATE TABLE similarities(
                   )''')
         c.execute('CREATE INDEX playlist_songs_playlist_id_song_id_idx '
                   ' ON playlist_songs (playlist_id, song_id)')
+        c.execute('''
+CREATE TABLE cuesheets(
+                  song_id INTEGER NOT NULL,
+                  idx INTEGER NOT NULL,
+                  sample_position INTEGER NOT NULL,
+                  time_position REAL NOT NULL,
+                  title TEXT,
+                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
+                  )''')
+        c.execute('CREATE INDEX cuesheets_song_id_idx '
+                  ' ON cuesheets (song_id)')
 
     @staticmethod  # noqa
     def addSong(song):
@@ -737,6 +759,22 @@ CREATE TABLE similarities(
                     c.rollback()
                     print(sql, tags)
                     raise
+
+            sql = 'DELETE from cuesheets where song_id = :id'
+            c.execute(text(sql).bindparams(**values))
+
+            cuesheettracks = extractCueSheetTracks(song)
+
+            if cuesheettracks:
+                sql = ('INSERT INTO cuesheets(song_id, idx, sample_position, '
+                       'time_position, title) '
+                       'VALUES (:id,:idx,:sample_position,:time_position,:title)')
+                try:
+                    c.execute(text(sql), cuesheettracks)
+                except ValueError:
+                    c.rollback()
+                    print(sql, cuesheettracks)
+                    raise
         else:
             # print('Adding song to database')
             values['path'] = song.path()
@@ -841,6 +879,19 @@ CREATE TABLE similarities(
                     raise
             albumID = MusicDatabase.getAlbumID(albumPath(song.path()))
             MusicDatabase.setSongInAlbum(song.id, albumID, connection=c)
+
+            cuesheettracks = extractCueSheetTracks(song)
+
+            if cuesheettracks:
+                sql = ('INSERT INTO cuesheets(song_id, idx, sample_position, '
+                       'time_position, title) '
+                       'VALUES (:id,:idx,:sample_position,:time_position,:title)')
+                try:
+                    c.execute(text(sql), cuesheettracks)
+                except ValueError:
+                    c.rollback()
+                    print(sql, cuesheettracks)
+                    raise
 
     @staticmethod
     def removeSong(song=None, byID=None):
