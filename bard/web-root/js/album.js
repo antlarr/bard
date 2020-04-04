@@ -67,7 +67,7 @@ function albumTracksReceived_old( result )
         for (j=0; j < tracks.length; j++)
         {
             var songid = 'song-'+i+'-'+j;
-            medium +="<li><a id=\""+ songid + "\" onclick=\"playSong(" + tracks[j].song_id + ")\">" + tracks[j].name + "</a> (" + tracks[j].artist_name +") </li>";
+            medium +="<li><a id=\""+ songid + "\" onclick=\"bard.playSong(" + tracks[j].song_id + ")\">" + tracks[j].name + "</a> (" + tracks[j].artist_name +") </li>";
             songs.push([songid,{'application/x-bard': JSON.stringify({'songID': tracks[j].song_id})}]);
         }
         medium += "</ul></div>"

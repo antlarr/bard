@@ -56,22 +56,6 @@ function formatArtist(jq, song, playlistInfo)
     });
 }
 
-function playSongFromPlaylist(songID, playlistSongInfo)
-{
-    console.log(playlistSongInfo);
-    /*if (playlistSongInfo.hasOwnProperty('albumID')) {
-        alert('1play song ' + songID +
-              ' from playlist ' + playlistSongInfo['albumID'] +
-              '/' + playlistSongInfo['mediumNumber'] +
-              ' index ' + playlistSongInfo['track_position']);
-    } else {
-        alert('2play song ' + songID +
-              ' from playlist ' + playlistSongInfo['playlistID'] +
-              ' index ' + playlistSongInfo['index']);
-    }*/
-    current_playlist_song_info = playlistSongInfo;
-    playSong(songID);
-}
 
 function formatSongName(jq, song, playlistSongInfo)
 {
@@ -80,14 +64,13 @@ function formatSongName(jq, song, playlistSongInfo)
    jq.on('click', { songID: song['song_id'],
                     playlistSongInfo: playlistSongInfo},
           function(ev) {
-              playSongFromPlaylist(ev.data.songID, ev.data.playlistSongInfo);
+              bard.playSongFromPlaylist(ev.data.songID, ev.data.playlistSongInfo);
           });
 
 }
 
-function formatDuration(jq, song, playlistInfo)
+function formatDurationValue(duration)
 {
-   var duration = song['duration']
    var hours = Math.floor(duration / 3600);
    duration = duration % 3600;
    var minutes = Math.floor(duration / 60);
@@ -98,12 +81,18 @@ function formatDuration(jq, song, playlistInfo)
    if (duration < 10) {
      duration = '0' + duration
    }
-   formatted = minutes + ':' + duration;
+   var formatted = minutes + ':' + duration;
    if (hours > 0)
    {
      formatted = hours + ':' + formatted;
    }
-   jq.html(formatted);
+   return formatted;
+}
+
+
+function formatDuration(jq, song, playlistInfo)
+{
+   jq.html(formatDurationValue(song['duration']));
 }
 
 columns = [['#', ['position', 'track_position']],
@@ -238,33 +227,6 @@ function openArtist( id )
     openComponent('artist', {id: id});
 }
 
-function playSong(id)
-{
-    current_song_id = id;
-    base=window.location.protocol + '//' + window.location.host;
-    $( "#current-song-cover" ).attr("src", base + "/api/v1/coverart/song/" + id)
-    var metadata = get_song_metadata( id, setCurrentSongInfo );
-    if (metadata)
-    {
-        setCurrentSongInfo(id, metadata);
-    }
-    $( "#player" ).attr("src", base + "/api/v1/audio/song/" + id)
-}
-
-function requestNextSong()
-{
-    console.log('next_song');
-    $.ajax({
-      type: "POST",
-      url: "/api/v1/playlist/current/next_song",
-      data: current_playlist_song_info,
-      success: function( result ) {
-          console.log(result);
-          console.log(result.songID);
-          playSongFromPlaylist(result.songID, result.playlistSongInfo);
-      }
-    });
-}
 
 function submitLogin()
 {
@@ -307,7 +269,7 @@ window.onpopstate = function( event ) {
 }
 
 
-function initBardConstructor()
+function Bard()
 {
     $( "#nav-home" ).on( "click", function( event ) {
         openComponent('home');
@@ -331,8 +293,69 @@ function initBardConstructor()
 
     fillPlaylists();
     //document.requestFullScreen();
+
+    $.when(
+        $.getScript("/static/js/player-controls.js"),
+        $.getScript("/static/js/webplayer.js").fail(function(jqxhr, settings, exception) { alert('error' + exception); }),
+        $.Deferred(function( deferred ){
+            $( deferred.resolve );
+        })
+    ).done(function(){
+        this.player = new WebPlayer();
+        this.controls = new PlayerControls();
+        this.controls.player = this.player;
+        this.player.ui = this.controls;
+        console.log('loaded ' + this.player + this.controls );
+    }.bind(this));
+
+    this.playSongFromPlaylist = function(songID, playlistSongInfo)
+    {
+        console.log(playlistSongInfo);
+        /*if (playlistSongInfo.hasOwnProperty('albumID')) {
+            alert('1play song ' + songID +
+                  ' from playlist ' + playlistSongInfo['albumID'] +
+                  '/' + playlistSongInfo['mediumNumber'] +
+                  ' index ' + playlistSongInfo['track_position']);
+        } else {
+            alert('2play song ' + songID +
+                  ' from playlist ' + playlistSongInfo['playlistID'] +
+                  ' index ' + playlistSongInfo['index']);
+        }*/
+        current_playlist_song_info = playlistSongInfo;
+        this.playSong(songID);
+    }
+
+    this.playSong = function(id)
+    {
+        current_song_id = id;
+        base=window.location.protocol + '//' + window.location.host;
+        $( "#current-song-cover" ).attr("src", base + "/api/v1/coverart/song/" + id)
+        var metadata = get_song_metadata( id, setCurrentSongInfo );
+        if (metadata)
+        {
+            setCurrentSongInfo(id, metadata);
+        }
+        $( "#player" ).attr("src", base + "/api/v1/audio/song/" + id)
+        bard.controls.setEnable(true);
+    }
+
+    this.requestPrevSong = function()
+    {
+    };
+
+    this.requestNextSong = function()
+    {
+        console.log('next_song');
+        $.ajax({
+          type: "POST",
+          url: "/api/v1/playlist/current/next_song",
+          data: current_playlist_song_info,
+          success: function( result ) {
+              console.log(result);
+              console.log(result.songID);
+              bard.playSongFromPlaylist(result.songID, result.playlistSongInfo);
+          }
+        });
+    }
 };
 
-var bard = new Object();
-
-bard.initBard = initBardConstructor

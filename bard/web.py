@@ -88,6 +88,7 @@ def load_user_from_request(request):
     # finally, return None if both methods did not login the user
     return None
 
+
 def base_href():
     use_ssl = config['use_ssl']
     hostname = config['hostname']
@@ -631,11 +632,8 @@ def artist_credit_info():
 
 @app.route('/api/v1/playlist/current/next_song', methods=['POST'])
 def playlist_current_next_song():
-    print(request.method, request.data)
     if request.method != 'POST':
         return None
-    print(current_user.username, current_user.userID)
-    print(dir(request))
     print(request.form)
     # playlistSongInfo= {'albumID': 1,
     #                    'mediumNumber': 2,
@@ -651,17 +649,27 @@ def playlist_current_next_song():
     if playlistID:
         # TODO: Check that the user has access to the playlist!
         index = int(request.form['index'])
-        r = MusicDatabase.get_next_playlist_song(current_user.userID, playlistID, index)
-        result = {'songID': r['song_id'],
-                  'playlistSongInfo': {'playlistID': playlistID,
-                                       'index': r['pos']}}
+        r = MusicDatabase.get_next_playlist_song(current_user.userID,
+                                                 playlistID, index)
+        if r:
+            result = {'songID': r['song_id'],
+                      'playlistSongInfo': {'playlistID': playlistID,
+                                           'index': r['pos']}}
+        else:
+            result = None
     elif albumID:
         mediumNumber = int(request.form['mediumNumber'])
         track_position = int(request.form['track_position'])
-        r = MusicDatabase.get_next_album_song(albumID, mediumNumber, track_position)
-        result = {'songID': r['song_id'],
-                  'playlistSongInfo': {'albumID': albumID,
-                                       'mediumNumber': r['mediumNumber']}}
+        r = MusicDatabase.get_next_album_song(albumID, mediumNumber,
+                                              track_position)
+        if r:
+            result = {'songID': r['song_id'],
+                      'playlistSongInfo': {'albumID': albumID,
+                                           'mediumNumber': r['medium_number'],
+                                           'track_position':
+                                               r['track_position']}}
+        else:
+            result = None
 
     print(result)
     return jsonify(result)

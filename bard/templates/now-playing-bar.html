@@ -1,10 +1,27 @@
+<div id="progress-bar-container">
+   <div id="progress-bar"></div>
+   <span id="progress-dot"></span>
+</div>
 <div id="current-song-view" class="current-song-view">
     {% include "current-song-info.html" %}
-    <audio id="player" controls autoPlay>
+    <div id="media-controls">
+    <button type="button" id="prevSongButton" class="playerControl"></button>
+    <button type="button" id="playPauseSongButton" class="playerControl"></button>
+    <button type="button" id="nextSongButton" class="playerControl"></button>
+
+    <!--<audio id="player" controls autoPlay>-->
+    <audio id="player" autoPlay>
         Your browser does not support the audio html5 tag
     </audio>
-    <input id="current-song-id" type="hidden" value="">
     <script type="text/javascript">
-        $('#player').on('ended', function() { requestNextSong() });
+        $('#player').on('ended', function() { bard.requestNextSong() });
     </script>
+    <input id="current-song-id" type="hidden" value="">
+    </div>
+    <div id="media-status">
+       <div id="current-time-container"><span id="current-time">--:--</span> / <span id="song-duration">--:--</span></div>
+       <div class="slidercontainer" id="volumecontainer">
+         <input type="range" min="0" max="100" value="100" class="slider" id="volume">
+       </div>
+    </div>
 </div>
