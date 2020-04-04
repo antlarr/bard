@@ -1686,6 +1686,30 @@ or name {like} '%%MusicBrainz/Track Id'""")
         return result.fetchone()
 
     @staticmethod
+    def get_next_album_song(albumID, mediumNumber, track_position):
+        c = MusicDatabase.getCursor()
+        sql = text('SELECT mb.song_id, mb.recordingid, '
+                   '       m.position medium_number, t.position track_position'
+                   '  FROM musicbrainz.track t, musicbrainz.medium m, '
+                   '       album_release ar, album_songs asongs, songs_mb mb '
+                   ' WHERE m.id = t.medium_id '
+                   '   AND m.release_id = ar.release_id '
+                   '   AND ar.album_id = asongs.album_id '
+                   '   AND asongs.album_id = :albumID '
+                   '   AND mb.song_id = asongs.song_id '
+                   '   AND mb.releasetrackid = t.mbid '
+                   '   AND ((m.position = :mediumNumber '
+                   '         AND t.position > :track_position) '
+                   '        OR m.position > :mediumNumber) '
+                   ' ORDER BY m.position, t.position'
+                   '  LIMIT 1')
+
+        result = c.execute(sql.bindparams(albumID=albumID,
+                                          mediumNumber=mediumNumber,
+                                          track_position=track_position))
+        return result.fetchone()
+
+    @staticmethod
     def refreshMaterializedView(viewName):
         c = MusicDatabase.getCursor()
         sql = text(f'refresh materialized view {viewName}')
