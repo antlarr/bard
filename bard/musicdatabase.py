@@ -1704,6 +1704,25 @@ or name {like} '%%MusicBrainz/Track Id'""")
         return r.fetchall()
 
     @staticmethod
+    def getAlbumPath(albumID, mediumNumber=None):
+        c = MusicDatabase.getCursor()
+        if not mediumNumber:
+            sql = text('select path from albums '
+                       ' where id = :albumID')
+            r = c.execute(sql, {'albumID': albumID}).fetchone()
+            return r[0] if r else None
+        sql = text('select path from songs, album_songs '
+                   ' where id = song_id '
+                   '   and album_id = :albumID '
+                   '   and discnumber = :mediumNumber '
+                   ' LIMIT 1')
+        r = c.execute(sql, {'albumID': albumID,
+                            'mediumNumber': mediumNumber}).fetchone()
+        if not r:
+            return None
+        return os.path.dirname(r[0])
+
+    @staticmethod
     def getPlaylistsForUser(userID, playlistID=None):
         c = MusicDatabase.getCursor()
 

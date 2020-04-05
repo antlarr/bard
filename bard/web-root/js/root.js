@@ -72,7 +72,9 @@ function formatSongName(jq, song, playlistSongInfo)
 function formatRelease(jq, song, playlistSongInfo)
 {
    console.log(song);
-   jq.html('<a>' + song['release_name'] + '</a>');
+   jq.addClass('no-padding');
+   var imgurl = bard.base + '/api/v1/album/image?id=' + song['album_id'] + '&mediumNumber='+ song['medium_number']
+   jq.html('<div class="horizontal"><img src="' + imgurl + '"><span class="releasename"><a>' + song['release_name'] + '</a></span>');
    jq.on('click', { songID: song['song_id'],
                     albumID: song['album_id'],
                     playlistSongInfo: playlistSongInfo},

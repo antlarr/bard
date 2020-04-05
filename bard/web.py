@@ -12,6 +12,7 @@ from bard.musicdatabase_songs import getSongs
 from bard.musicbrainz_database import MusicBrainzDatabase, MediumFormatEnum
 from bard.musicdatabase import MusicDatabase
 from bard.playlist import Playlist
+from bard.album import coverAtPath
 
 import mimetypes
 import base64
@@ -546,6 +547,26 @@ def album_tracks():
 
     result.append(medium)
     return jsonify(result)
+
+
+@app.route('/api/v1/album/image')
+def album_cover():
+    if request.method != 'GET':
+        return None
+    albumID = request.args.get('id', type=int)
+    mediumNumber = request.args.get('mediumNumber', type=int, default=None)
+    print(f'Delivering coverart of album {albumID} medium {mediumNumber}')
+
+    path = MusicDatabase.getAlbumPath(albumID, mediumNumber)
+    if not path:
+        print(f'ERROR getting album image for album {albumID} / {mediumNumber}')
+        return ''
+    coverfilename = coverAtPath(path)
+
+    if coverfilename:
+        return send_file(coverfilename)
+
+    return ''
 
 
 @app.route('/api/v1/playlist/list')
