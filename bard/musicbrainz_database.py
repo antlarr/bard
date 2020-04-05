@@ -12,7 +12,8 @@ MBDataTuple = namedtuple('MBDataTuple',
 
 FullSongsWebQuery = namedtuple('FullSongsWebQuery',
                                ['columns', 'tables', 'where', 'order_by',
-                                'values'], defaults=('', '', '', '', {}))
+                                'values', 'limit', 'offset'],
+                               defaults=('', '', '', '', {}, None, None))
 
 MediumFormatEnum = DatabaseEnum('medium_format', schema='musicbrainz')
 
@@ -880,6 +881,8 @@ class MusicBrainzDatabase:
         ct = (',' + ','.join(query.tables)) if query.tables else ''
         cw = (' AND ' + ' AND '.join(query.where)) if query.where else ''
         co = ('ORDER BY ' + ','.join(query.order_by)) if query.order_by else ''
+        climit = f'LIMIT {query.limit}' if query.limit else ''
+        coffset = f'OFFSET {query.offset}' if query.offset else ''
         sql = ('select als.album_id, als.song_id, '
                '       m.position as medium_number, '
                '       m.format as medium_format_id, '
@@ -907,7 +910,7 @@ class MusicBrainzDatabase:
                '   and smb.song_id = als.song_id '
                '   and p.song_id = als.song_id '
                '   and smb.releasetrackid = t.mbid '
-               f'  {cw} {co}')
+               f'  {cw} {co} {climit} {coffset}')
         result = c.execute(text(sql), query.values)
         return result.fetchall()
 
@@ -943,11 +946,14 @@ class MusicBrainzDatabase:
         return result.fetchall()
 
     @staticmethod
-    def search_songs_for_webui(query):
+    def search_songs_for_webui(query, offset=None, page_size=200):
         query = (FullSongsWebQuery(
                  tables=['songs s'],
                  where=['s.path ilike :query',
                         'als.song_id = s.id'],
                  order_by=['als.album_id', 'm.position', 't.position'],
-                 values={'query': '%' + query + '%'}))
+                 values={'query': '%' + query + '%'},
+                 limit=page_size,
+                 offset=offset,
+                 ))
         return MusicBrainzDatabase.get_songs_information_for_webui(query=query)

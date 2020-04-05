@@ -211,9 +211,15 @@ def album_properties_to_string(prop):
 @app.route('/api/v1/song/search')
 def api_v1_song_search():
     print('song search', request.args['query'])
+    query = request.args['query']
+    offset = request.args.get('offset', default=0, type=int)
+    page_size = request.args.get('page_size', default=200, type=int)
     result = []
-    songs = MusicBrainzDatabase.search_songs_for_webui(request.args['query'])
-    result = [dict(song) for song in songs]
+    songs = MusicBrainzDatabase.search_songs_for_webui(query, offset,
+                                                       page_size)
+    songs = [dict(song) for song in songs]
+    result = {'query': query,
+              'songs': songs}
     return jsonify(result)
 
 

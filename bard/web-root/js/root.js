@@ -113,9 +113,8 @@ const columns_base = [['#', ['position', 'track_position']],
            ['Artist', formatArtist],
            ['Length', formatDuration ]];
 
-function add_table_of_songs(songs, appendToObj, uniquesuffix='0', playlistInfo=null, release_column=false)
+function append_rows_to_table_of_songs(songs, table, uniquesuffix='0', playlistInfo=null, release_column=false, add_header_row=true)
 {
-    table = $("<table/>", { appendTo: appendToObj });
     var i, j, col;
 
     var columns = [...columns_base];
@@ -123,12 +122,14 @@ function add_table_of_songs(songs, appendToObj, uniquesuffix='0', playlistInfo=n
         columns.splice(2, 0, ['Release', formatRelease])
     }
 
-    var r = "";
-    columns.forEach((col,i) => {
-        r+= '<th>' + col[0] + '</th>';
-    });
-    var trh = $("<tr/>").append(r);
-    table.append(trh);
+    if (add_header_row) {
+        var r = "";
+        columns.forEach((col,i) => {
+            r+= '<th>' + col[0] + '</th>';
+        });
+        var trh = $("<tr/>").append(r);
+        table.append(trh);
+    }
 
     songs.forEach((song,i) => {
         var songid = 'song-'+i+'-'+uniquesuffix;
@@ -173,6 +174,12 @@ function add_table_of_songs(songs, appendToObj, uniquesuffix='0', playlistInfo=n
     return table;
 }
 
+function add_table_of_songs(songs, appendToObj, uniquesuffix='0', playlistInfo=null, release_column=false, add_header_row=true)
+{
+    table = $("<table/>", { appendTo: appendToObj });
+    return append_rows_to_table_of_songs(songs, table, uniquesuffix, playlistInfo, release_column, add_header_row);
+}
+
 /**
  * Formatting songs and playlists (end)
  */
@@ -207,31 +214,6 @@ function dateTuplesRangeToString(begin, end)
     if (end_date)
         return "– " + end_date;
     return null;
-}
-
-function songsSearchResultReceived( result )
-{
-    console.log(result);
-    var playlistInfo = {
-        searchResult: true
-    };
-    jq_table = add_table_of_songs(result, $( "#searchResult" ), 0, playlistInfo, true );
-    jq_table.addClass('playlist');
-}
-
-
-function performSearch(push_to_history=true)
-{
-    searchText=$("#searchBar").val();
-    if (push_to_history)
-        window.history.pushState({page: 'performSearch', query: searchText}, "", "/");
-    $.ajax({
-      url: "/api/v1/song/search",
-      data: {
-        query: searchText
-      },
-      success: songsSearchResultReceived
-    });
 }
 
 function setCurrentSongInfo(id, metadata)
