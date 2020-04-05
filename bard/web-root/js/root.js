@@ -319,6 +319,7 @@ function Bard()
 
     fillPlaylists();
     //document.requestFullScreen();
+    this.base = window.location.protocol + '//' + window.location.host;
 
     $.when(
         $.getScript("/static/js/player-controls.js"),
@@ -354,14 +355,13 @@ function Bard()
     this.playSong = function(id)
     {
         current_song_id = id;
-        base=window.location.protocol + '//' + window.location.host;
-        $( "#current-song-cover" ).attr("src", base + "/api/v1/coverart/song/" + id)
+        $( "#current-song-cover" ).attr("src", this.base + "/api/v1/coverart/song/" + id)
         var metadata = get_song_metadata( id, setCurrentSongInfo );
         if (metadata)
         {
             setCurrentSongInfo(id, metadata);
         }
-        $( "#player" ).attr("src", base + "/api/v1/audio/song/" + id)
+        $( "#player" ).attr("src", this.base + "/api/v1/audio/song/" + id)
         bard.controls.setEnable(true);
     }
 
