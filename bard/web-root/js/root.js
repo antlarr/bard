@@ -8,16 +8,15 @@ function openComponent(page, data=null, push_to_history=true, callback=null)
         window.history.pushState({page: 'openComponent', component: page, data:data}, "", "/");
     $.ajax({
         url: "/component/" + page,
-        data: data,
-        success: function( result ) {
+        data: data
+    }).done(
+        function( result, textStatus, jqXHR ) {
             $( "#container" ).html( result );
             if (callback) callback();
-        },
-        error: function( jqXHR, textStatus, errorThrown) {
+    }).fail(
+        function( jqXHR, textStatus, errorThrown) {
             alert(textStatus + "\n" + errorThrown);
-        }
     });
-    // $( "#container" ).html("<p>Login!</p>");
 }
 
 function Cache()
