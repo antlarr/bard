@@ -5,7 +5,7 @@ from bard.normalizetags import normalizeTagValues
 from bard.utils import DecodedAudioPropertiesTuple, DecodeMessageRecord
 from bard.album import albumPath
 import sqlalchemy
-from sqlalchemy import create_engine, text, Table
+from sqlalchemy import create_engine, text, Table, select
 from sqlalchemy.orm import Session
 from functools import lru_cache
 import sqlite3
@@ -1649,6 +1649,16 @@ or name {like} '%%MusicBrainz/Track Id'""")
                    'ORDER BY id')
         result = c.execute(sql)
         return [(x[0], x[1]) for x in result.fetchall()]
+
+    @staticmethod
+    def getRecordingMBID(song_id):
+        mb = MusicDatabase.table('songs_mb')
+        try:
+            return (select([mb.c.recordingid])
+                    .where(mb.c.song_id == song_id)
+                    .execute().fetchone()[0])
+        except (ValueError, KeyError):
+            return None
 
     @staticmethod
     def getAlbumID(albumPath):
