@@ -56,7 +56,7 @@ function finalizeFormatArtist(jq, artist_credit)
     jq.append(ac);
 }
 
-function formatArtist(jq, song, playlistInfo)
+function formatArtist(jq, song, playlist_song_info)
 {
     ac = artist_credits_cache.get(song['artist_credit_id'])
     if (ac == null) {
@@ -78,29 +78,27 @@ function formatArtist(jq, song, playlistInfo)
 }
 
 
-function formatSongName(jq, song, playlistSongInfo)
+function formatSongName(jq, song, playlist_song_info)
 {
-   console.log(song);
    jq.html('<a>' + song['name'] + '</a>');
-   jq.on('click', { songID: song['song_id'],
-                    playlistSongInfo: playlistSongInfo},
+   jq.on('click', { song_id: song['song_id'],
+                    playlist_song_info: playlist_song_info},
           function(ev) {
-              bard.playSongFromPlaylist(ev.data.songID, ev.data.playlistSongInfo);
+              bard.playSongFromPlaylist(ev.data.song_id, ev.data.playlist_song_info);
           });
 
 }
 
-function formatRelease(jq, song, playlistSongInfo)
+function formatRelease(jq, song, playlist_song_info)
 {
-   console.log(song);
    jq.addClass('no-padding');
-   var imgurl = bard.base + '/api/v1/album/image?id=' + song['album_id'] + '&mediumNumber='+ song['medium_number']
+   var imgurl = bard.base + '/api/v1/album/image?id=' + song['album_id'] + '&medium_number='+ song['medium_number']
    jq.html('<div class="horizontal"><img src="' + imgurl + '"><span class="releasename"><a>' + song['release_name'] + '</a></span>');
-   jq.on('click', { songID: song['song_id'],
-                    albumID: song['album_id'],
-                    playlistSongInfo: playlistSongInfo},
+   jq.on('click', { song_id: song['song_id'],
+                    album_id: song['album_id'],
+                    playlist_song_info: playlist_song_info},
           function(ev) {
-                openAlbum(ev.data.albumID);
+                openAlbum(ev.data.album_id);
           });
 
 }
@@ -157,14 +155,12 @@ function append_rows_to_table_of_songs(songs, table, uniquesuffix='0', playlistI
     songs.forEach((song,i) => {
         var songid = 'song-'+i+'-'+uniquesuffix;
         var tmpPlaylistInfo = $.extend({index: i, track_position: song['track_position']},playlistInfo);
-        console.log(song);
         var tr = $("<tr/>");
         if (song['song_id'] == null)
         {
             tr.addClass('unavailableSong');
         };
         columns.forEach((col,j) => {
-            //console.log(col);
             var td = $("<td/>", { appendTo: tr})
             if (typeof(col[1]) =="function")
             {
@@ -188,7 +184,6 @@ function append_rows_to_table_of_songs(songs, table, uniquesuffix='0', playlistI
             }
         });
 
-        console.log('out of songs loop');
         table.append(tr);
 
         setDraggable(tr, {'application/x-bard': JSON.stringify({'songID': song['song_id']})});
@@ -292,8 +287,8 @@ window.onpopstate = function( event ) {
             break;
        case 'performSearch':
             openComponent('home', null, push_to_history=false, callback= function() {
-               $("#searchBar").val(event.state['query']);
-               performSearch(false);
+               $("#searchBar").val(event.state['search_query']['query']);
+               searchView.performSearch(false);
              });
             break;
     }
@@ -340,21 +335,10 @@ function Bard()
         console.log('loaded ' + this.player + this.controls );
     }.bind(this));
 
-    this.playSongFromPlaylist = function(songID, playlistSongInfo)
+    this.playSongFromPlaylist = function(song_id, playlist_song_info)
     {
-        console.log(playlistSongInfo);
-        /*if (playlistSongInfo.hasOwnProperty('albumID')) {
-            alert('1play song ' + songID +
-                  ' from playlist ' + playlistSongInfo['albumID'] +
-                  '/' + playlistSongInfo['mediumNumber'] +
-                  ' index ' + playlistSongInfo['track_position']);
-        } else {
-            alert('2play song ' + songID +
-                  ' from playlist ' + playlistSongInfo['playlistID'] +
-                  ' index ' + playlistSongInfo['index']);
-        }*/
-        current_playlist_song_info = playlistSongInfo;
-        this.playSong(songID);
+        current_playlist_song_info = playlist_song_info;
+        this.playSong(song_id);
     }
 
     this.playSong = function(id)
@@ -376,15 +360,12 @@ function Bard()
 
     this.requestNextSong = function()
     {
-        console.log('next_song');
         $.ajax({
           type: "POST",
           url: "/api/v1/playlist/current/next_song",
           data: current_playlist_song_info,
           success: function( result ) {
-              console.log(result);
-              console.log(result.songID);
-              bard.playSongFromPlaylist(result.songID, result.playlistSongInfo);
+              bard.playSongFromPlaylist(result.song_id, result);
           }
         });
     }

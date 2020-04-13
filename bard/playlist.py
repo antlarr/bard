@@ -1,14 +1,22 @@
 from bard.musicdatabase import MusicDatabase, DatabaseEnum, table
 from bard.config import config
-from sqlalchemy import text, exc, select, and_
+from sqlalchemy import text, exc, and_
 import sqlite3
 from sqlalchemy.engine.result import RowProxy
+import enum
+
+
+class PlaylistTypes(enum.Enum):
+    User = 'user'
+    Album = 'album'
+    Search = 'search'
 
 
 class Playlist:
     def __init__(self, x, owner_id=None):
         """Create a Playlist object."""
         self.id = None
+        self.type = PlaylistTypes.User
         self.name = None
         if not owner_id:
             username = config['username']
@@ -235,3 +243,11 @@ class Playlist:
         self.insert_song(to_position, item=item, connection=c)
         if not connection:
             c.commit()
+
+    @staticmethod
+    def get_next_song(playlistID, index, user_id):
+        r = MusicDatabase.get_next_playlist_song(user_id,
+                                                 playlistID, index)
+        if not r:
+            return None
+        return (r['song_id'], r['pos'])

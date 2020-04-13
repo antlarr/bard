@@ -12,14 +12,16 @@
 
   <script type="text/javascript" src="/static/js/search.js"></script>
   <script type="text/javascript">
+      searchView = new SearchView();
+
       $( "#searchForm" ).on( "submit", function( event ) {
-          performSearch();
+          searchView.performSearch();
           event.preventDefault();
       });
 
       $('#searchResultContainer').on('scroll', function() {
         if($(this).scrollTop() + $(this).innerHeight() >= $(this)[0].scrollHeight) {
-            requestSearchSongs(bard.lastSearchQuery, searchResultOffset, page_size);
+            searchView.requestMoreSearchResults();
         }
       });
 

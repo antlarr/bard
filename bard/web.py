@@ -13,6 +13,9 @@ from bard.musicbrainz_database import MusicBrainzDatabase, MediumFormatEnum
 from bard.musicdatabase import MusicDatabase
 from bard.playlist import Playlist
 from bard.album import coverAtPath
+from bard.searchquery import SearchQuery
+from bard.searchplaylist import SearchPlaylist
+from bard.playlistsonginfo import PlaylistSongInfo
 
 import mimetypes
 import base64
@@ -211,15 +214,22 @@ def album_properties_to_string(prop):
 
 @app.route('/api/v1/song/search')
 def api_v1_song_search():
-    print('song search', request.args['query'])
-    query = request.args['query']
-    offset = request.args.get('offset', default=0, type=int)
-    page_size = request.args.get('page_size', default=200, type=int)
-    result = []
-    songs = MusicBrainzDatabase.search_songs_for_webui(query, offset,
-                                                       page_size)
+    plman = app.bard.playlist_manager
+    sq = SearchQuery.from_request(request, current_user.userID, plman)
+    pl = plman.get_search_result_playlist(sq)
+    if not pl:
+        pl = SearchPlaylist(sq)
+        plman.add_search_playlist(pl)
+
+    songs = MusicBrainzDatabase.search_songs_for_webui(sq.query,
+                                                       sq.offset,
+                                                       sq.page_size)
+
+    for song in songs:
+        pl.append_song(song['song_id'])
     songs = [dict(song) for song in songs]
-    result = {'query': query,
+    result = {'search_playlist_id': pl.searchPlaylistID,
+              'search_query': sq.as_dict(),
               'songs': songs}
     return jsonify(result)
 
@@ -553,13 +563,14 @@ def album_tracks():
 def album_cover():
     if request.method != 'GET':
         return None
-    albumID = request.args.get('id', type=int)
-    mediumNumber = request.args.get('mediumNumber', type=int, default=None)
-    print(f'Delivering coverart of album {albumID} medium {mediumNumber}')
+    album_id = request.args.get('id', type=int)
+    medium_number = request.args.get('medium_number', type=int, default=None)
+    print(f'Delivering coverart of album {album_id} medium {medium_number}')
 
-    path = MusicDatabase.getAlbumPath(albumID, mediumNumber)
+    path = MusicDatabase.getAlbumPath(album_id, medium_number)
     if not path:
-        print(f'ERROR getting album image for album {albumID} / {mediumNumber}')
+        print('ERROR getting album image for album'
+              f'{album_id}/{medium_number}')
         return ''
     coverfilename = coverAtPath(path)
 
@@ -658,41 +669,9 @@ def playlist_current_next_song():
     if request.method != 'POST':
         return None
     print(request.form)
-    # playlistSongInfo= {'albumID': 1,
-    #                    'mediumNumber': 2,
-    #                    'track_position': 3}
-    # playlistSongInfo= {'playlistID': 1,
-    #                    'index': 2}
-    playlistID = None
-    albumID = None
-    try:
-        playlistID = int(request.form['playlistID'])
-    except KeyError:
-        albumID = int(request.form['albumID'])
-    if playlistID:
-        # TODO: Check that the user has access to the playlist!
-        index = int(request.form['index'])
-        r = MusicDatabase.get_next_playlist_song(current_user.userID,
-                                                 playlistID, index)
-        if r:
-            result = {'songID': r['song_id'],
-                      'playlistSongInfo': {'playlistID': playlistID,
-                                           'index': r['pos']}}
-        else:
-            result = None
-    elif albumID:
-        mediumNumber = int(request.form['mediumNumber'])
-        track_position = int(request.form['track_position'])
-        r = MusicDatabase.get_next_album_song(albumID, mediumNumber,
-                                              track_position)
-        if r:
-            result = {'songID': r['song_id'],
-                      'playlistSongInfo': {'albumID': albumID,
-                                           'mediumNumber': r['medium_number'],
-                                           'track_position':
-                                               r['track_position']}}
-        else:
-            result = None
+    playlistSongInfo = PlaylistSongInfo.from_request(request)
+    playlistSongInfo.set_current_user(current_user.userID)
+    nextSongInfo = playlistSongInfo.next_song()
 
-    print(result)
-    return jsonify(result)
+    print(nextSongInfo)
+    return jsonify(nextSongInfo.as_dict())
