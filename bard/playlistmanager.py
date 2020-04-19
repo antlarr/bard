@@ -49,7 +49,7 @@ class PlaylistManager:
     def get_search_result_playlist(self, sq: SearchQuery):
         if sq.search_playlist_id:
             return self.get_search_playlist(sq.search_playlist_id,
-                                            sq.user_id)
+                                            sq.owner_id)
         try:
             spid = self.searchQueriesMap[sq.key()]
             return self.searchPlaylists[spid]
