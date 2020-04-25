@@ -743,9 +743,7 @@ def audioSamplesFromAudioFile(path):
                 break
 
             try:
-                print('a')
                 frames = packet.decode()
-                print('b')
             except av.AVError as exc:
                 decode_errors.append(str(exc))
                 print('error decoding', exc)
