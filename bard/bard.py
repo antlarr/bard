@@ -183,7 +183,7 @@ class Bard:
                                  '.md5', '.gz',
                                  '.fpl', '.wpl', '.accurip', '.db', '.ffp',
                                  '.flv', '.mkv', '.m4v', '.mov', '.mpg',
-                                 '.mpeg', '.avi']
+                                 '.mpeg', '.avi', '.artist_mbid']
 
         self.excludeDirectories = ['covers', 'info']
         self.playlist_manager = PlaylistManager()
