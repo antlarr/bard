@@ -236,10 +236,11 @@ def api_v1_song_search():
 
 @app.route('/api/v1/metadata/song/<songID>')
 def api_v1_metadata_song(songID):
-    result = []
-    for song in getSongs(songID=songID, metadata=True):
-        result.append(structFromSong(song))
-    return jsonify(result)
+    song = getSongs(songID=songID, metadata=True)
+    if not song:
+        return ''
+    song = song[0]
+    return jsonify(structFromSong(song))
 
 
 @app.after_request
