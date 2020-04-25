@@ -19,22 +19,6 @@ function openComponent(page, data=null, push_to_history=true, callback=null)
     });
 }
 
-function Cache()
-{
-    this.data = {},
-    this.set = function(id, value) {
-        this.data[id] = value;
-    };
-    this.get = function(id) {
-        return this.data[id];
-    };
-    this.contains = function(id) {
-        return this.data.hasOwnProperty(id) && this.data[id] != null;
-    }
-}
-
-var artist_credits_cache = new Cache();
-
 /**
  * Formatting songs and playlists
  */
@@ -58,23 +42,14 @@ function finalizeFormatArtist(jq, artist_credit)
 
 function formatArtist(jq, song, playlist_song_info)
 {
-    ac = artist_credits_cache.get(song['artist_credit_id'])
-    if (ac == null) {
-        jq.html(song['artist_name']);
-        $.ajax({
-            url: "/api/v1/artist_credit/info",
-            data: {id: song['artist_credit_id']},
-            success: function( data, textStatus, jqXHR) {
-                artist_credits_cache.set(song['artist_credit_id'], data)
-                finalizeFormatArtist(jq, data);
-            },
-            error: function( jqXHR, textStatus, errorThrown) {
-                alert(textStatus + "\n" + errorThrown);
-            }
-        });
-    } else {
-        finalizeFormatArtist(jq, ac);
-    }
+    bard.metadataManager.get_artist_credit_info(song['artist_credit_id'],
+        function(data) {
+            finalizeFormatArtist(jq, data);
+        },
+        function() {
+            jq.html(song['artist_name']);
+        }
+    );
 }
 
 
@@ -345,11 +320,7 @@ function Bard()
     {
         current_song_id = id;
         $( "#current-song-cover" ).attr("src", this.base + "/api/v1/coverart/song/" + id)
-        var metadata = get_song_metadata( id, setCurrentSongInfo );
-        if (metadata)
-        {
-            setCurrentSongInfo(id, metadata);
-        }
+        var metadata = this.metadataManager.get_song_metadata( id, setCurrentSongInfo );
         $( "#player" ).attr("src", this.base + "/api/v1/audio/song/" + id)
         bard.controls.setEnable(true);
     }
@@ -369,5 +340,7 @@ function Bard()
           }
         });
     }
+
+    this.metadataManager = new MetadataManager();
 };
 
