@@ -5,6 +5,12 @@ function SearchView()
     this.search_result_offset = 0;
     this.page_size = 100;
 
+    this.clearResults = function( result )
+    {
+        $( "#searchResult" ).empty();
+        this.search_result_offset = 0;
+    }
+
     this.songsSearchResultReceived = function( result )
     {
         var playlistInfo = {
@@ -34,7 +40,11 @@ function SearchView()
         $.ajax({
           url: "/api/v1/song/search",
           data: search_query,
-          success: this.songsSearchResultReceived.bind(this)
+          success: function(result)
+            {
+                this.clearResults();
+                this.songsSearchResultReceived(result);
+            }.bind(this)
         });
     }
 
