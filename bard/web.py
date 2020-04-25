@@ -577,6 +577,8 @@ def album_cover():
 
     if coverfilename:
         return send_file(coverfilename)
+    else:
+        print(f'Error cover not found at {path}')
 
     return ''
 
