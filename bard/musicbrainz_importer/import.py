@@ -5,7 +5,6 @@ from bard.musicbrainz_database import MusicBrainzDatabase
 from mbimporter import MusicBrainzImporter
 from datetime import datetime
 import argparse
-from argparse import ArgumentParser
 
 
 def updateMusicBrainzDBDump(verbose):
@@ -17,8 +16,8 @@ def updateMusicBrainzDBDump(verbose):
 def importData(verbose):
     print(f'importData {verbose}')
     importer = MusicBrainzImporter()
-    db = MusicDatabase()
-    mbdb = MusicBrainzDatabase()
+    _ = MusicDatabase()
+    _ = MusicBrainzDatabase()
 
     print('Load data to import')
     time1 = datetime.now()
@@ -49,13 +48,20 @@ def importData(verbose):
     # importer.import_entity_uuid('artist',  # David Lanz
     #                             '6416a02b-eda2-4c43-bca8-396ee30b5c74')
 
-    # importer.import_entity_uuid('artist', 'f3d8c154-208d-4efa-b52d-7e9f16adcdae')  # Kitaro
-    # importer.import_entity_uuid('artist', 'e61318db-a4de-4a2b-99b8-b892dba1b03b')  # Eric Tingstad
-    # importer.import_entity_uuid('artist', '89da72ac-30be-4950-9b59-ecdf2a9e772d')  # Nancy Rumbel
-    # importer.import_entity_uuid('release_group', '5bbbeefc-4dae-3c77-82bb-35fc2723b262')  # Woodlands
-    # importer.import_entity_uuid('release_group', '6b47c9a0-b9e1-3df9-a5e8-50a6ce0dbdbd')  # A night at the opera
-    # importer.import_entity_uuid('recording', '6244adb7-2a77-4e37-a0aa-6a99267bb655')  # A kind of magic
-    # importer.import_entity_uuid('work', '73c55095-fa3d-3a59-aa33-d75538233c08')  # A kind of magic
+    # importer.import_entity_uuid('artist',  # Kitaro
+    #                             'f3d8c154-208d-4efa-b52d-7e9f16adcdae')
+    # importer.import_entity_uuid('artist',  # Eric Tingstad
+    #                             'e61318db-a4de-4a2b-99b8-b892dba1b03b')
+    # importer.import_entity_uuid('artist',  # Nancy Rumbel
+    #                             '89da72ac-30be-4950-9b59-ecdf2a9e772d')
+    # importer.import_entity_uuid('release_group',  # Woodlands
+    #                             '5bbbeefc-4dae-3c77-82bb-35fc2723b262')
+    # importer.import_entity_uuid('release_group',  # A night at the opera
+    #                             '6b47c9a0-b9e1-3df9-a5e8-50a6ce0dbdbd')
+    # importer.import_entity_uuid('recording',  # A kind of magic
+    #                             '6244adb7-2a77-4e37-a0aa-6a99267bb655')
+    # importer.import_entity_uuid('work',  # A kind of magic
+    #                             '73c55095-fa3d-3a59-aa33-d75538233c08')
     # importer.import_entity_uuid('work',  # We will rock you
     #                             '01058179-a28f-4e0d-96be-0678e3d5e053')
 
@@ -102,12 +108,12 @@ def importData(verbose):
 
 
 def main():
-    main_parser = ArgumentParser(
+    main_parser = argparse.ArgumentParser(
         description='Import data from MusicBrainz DB dumps',
         formatter_class=argparse.RawTextHelpFormatter)
     sps = main_parser.add_subparsers(
         dest='command', metavar='command',
-        help='''The following commands are available:''')
+        help='''The following commands are available: update-dump, import''')
     parser = sps.add_parser('update-dump',
                             description='Download the latest '
                             'MusicBrainz DB dump')
@@ -115,8 +121,8 @@ def main():
                         help='Be verbose')
     parser = sps.add_parser('import',
                             description='Import data from the MB DB dump')
-    parser.add_argument('--verbose', dest='verbose', action='store_true',
-                        help='Be verbose')
+    parser.add_argument('--verbose', dest='verbose',
+                        action='store_true', help='Be verbose')
     options = main_parser.parse_args()
     if options.command == 'update-dump':
         updateMusicBrainzDBDump(options.verbose)
