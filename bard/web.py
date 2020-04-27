@@ -216,6 +216,8 @@ def album_properties_to_string(prop):
 def api_v1_song_search():
     plman = app.bard.playlist_manager
     sq = SearchQuery.from_request(request, current_user.userID, plman)
+    if not sq:
+        raise ValueError('No SearchQuery!')
     pl = plman.get_search_result_playlist(sq)
     if not pl:
         pl = SearchPlaylist(sq)
