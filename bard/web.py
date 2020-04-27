@@ -21,6 +21,7 @@ import mimetypes
 import base64
 import os.path
 import re
+import werkzeug
 
 
 app = Flask(__name__, static_url_path='/kakaka')
@@ -697,3 +698,9 @@ def song_set_ratings():
     song.setUserRating(rating, current_user.userID)
 
     return ''
+
+
+@app.errorhandler(werkzeug.exceptions.BadRequest)
+def handle_bad_request(e):
+    print('Bad Request:', e)
+    return '', 400
