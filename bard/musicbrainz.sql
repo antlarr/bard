@@ -23,6 +23,11 @@ CREATE TABLE musicbrainz.enum_event_type_values (
        name TEXT
 );
 
+CREATE TABLE musicbrainz.enum_recording_alias_type_values (
+       id_value SERIAL PRIMARY KEY,
+       name TEXT
+);
+
 CREATE TABLE musicbrainz.enum_release_group_type_values (
        id_value SERIAL PRIMARY KEY,
        name TEXT
@@ -455,6 +460,24 @@ CREATE TABLE musicbrainz.artist_alias (
 );
 
 CREATE INDEX ON musicbrainz.artist_alias(artist_id);
+
+CREATE TABLE musicbrainz.recording_alias (
+       id SERIAL PRIMARY KEY,
+       recording_id INTEGER,
+
+       name TEXT,
+       sort_name TEXT,
+       locale TEXT,
+       recording_alias_type INTEGER,
+       primary_for_locale BOOLEAN NOT NULL DEFAULT false,
+
+       FOREIGN KEY(recording_id)
+         REFERENCES recording(id),
+       FOREIGN KEY(recording_alias_type)
+         REFERENCES enum_recording_alias_type_values(id_value)
+);
+
+CREATE INDEX ON musicbrainz.recording_alias(recording_id);
 
 -- Relations
 -- Do not edit this section. It's generated automatically by the generate_l_tables.py script
