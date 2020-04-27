@@ -145,6 +145,7 @@ function formatRatings(jq, song, playlistInfo)
         {
             var div = $( event.currentTarget )
             div.empty();
+            div.removeClass('avg-ratings no-ratings');
             addStarRatings(div, rating);
         });
         event.preventDefault();

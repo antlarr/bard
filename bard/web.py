@@ -228,9 +228,13 @@ def api_v1_song_search():
                                                        sq.offset,
                                                        sq.page_size)
 
-    for song in songs:
-        pl.append_song(song['song_id'])
-    songs = [dict(song) for song in songs]
+    song_ids = [song['song_id'] for song in songs]
+    for song_id in song_ids:
+        pl.append_song(song_id)
+
+    ratings = MusicDatabase.get_songs_ratings(song_ids, current_user.userID)
+    songs = [{'rating': ratings[song['song_id']],
+              **dict(song)} for song in songs]
     result = {'search_playlist_id': pl.searchPlaylistID,
               'search_query': sq.as_dict(),
               'songs': songs}
@@ -535,7 +539,12 @@ def album_tracks():
     all_tracks = MusicBrainzDatabase.get_album_tracks(albumID)
     existing_tracks = MusicBrainzDatabase. \
         get_album_songs_information_for_webui(albumID)
-    existing_tracks = {x['track_mbid']: dict(x) for x in existing_tracks}
+
+    song_ids = [track['song_id'] for track in existing_tracks]
+    ratings = MusicDatabase.get_songs_ratings(song_ids, current_user.userID)
+
+    existing_tracks = {x['track_mbid']: {'rating': ratings[x['song_id']],
+                                         **dict(x)} for x in existing_tracks}
     result = []
     medium = {'number': None, 'tracks': []}
     current_medium_number = None
@@ -557,6 +566,7 @@ def album_tracks():
         except KeyError:
             trk = dict(track)
             trk['song_id'] = None
+            trk['rating'] = (5, None)
             medium['tracks'].append(trk)
 
     result.append(medium)

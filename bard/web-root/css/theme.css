@@ -248,7 +248,9 @@ button:focus {
   opacity: 0.3;
 }
 
-#playlistTracks .ratings img {
+#playlistTracks .ratings img,
+.playlist .ratings img,
+#albumTracks .ratings img {
     width: 16px;
     height: 16px;
 }
