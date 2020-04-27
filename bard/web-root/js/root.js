@@ -104,9 +104,57 @@ function formatDuration(jq, song, playlistInfo)
    jq.html(formatDurationValue(song['duration']));
 }
 
+function addStarRatings(jq, rating)
+{
+   var stars = 0;
+   while (rating >= 2)
+   {
+       jq.append($('<img id="star-' + stars + '" class="ratings" src="/static/images/star-full.png" width="18">'));
+       rating -= 2;
+       stars++;
+   }
+   if (rating >= 1)
+   {
+       jq.append($('<img id="star-' + stars + '" class="ratings" src="/static/images/star-half.png" width="18">'));
+       stars++;
+   }
+   while (stars < 5)
+   {
+       jq.append($('<img id="star-' + stars + '" class="ratings" src="/static/images/star-empty.png" width="18">'));
+       stars++;
+   }
+}
+
+function formatRatings(jq, song, playlistInfo)
+{
+   var rating = song['rating'];
+   var div=$('<div class="ratings"/>');
+   if (rating[1] == 'avg')
+       div.addClass('avg-ratings')
+   else if (rating[1] == null)
+       div.addClass('no-ratings')
+
+   addStarRatings(div, rating[0]);
+   jq.append(div);
+   div.on( "click", { song_id: song['song_id'] }, function( event ) {
+        var rect = event.currentTarget.getBoundingClientRect();
+        var x = rect.left + (window.pageXOffset || document.documentElement.scrollLeft);
+        var percentage = (event.pageX - x)/(event.target.width*5);
+        new_rating = Math.round(percentage * 10);
+        bard.metadataManager.set_song_ratings(event.data.song_id, new_rating, function(rating)
+        {
+            var div = $( event.currentTarget )
+            div.empty();
+            addStarRatings(div, rating);
+        });
+        event.preventDefault();
+   });
+}
+
 const columns_base = [['#', ['position', 'track_position']],
            ['Name', formatSongName],
            ['Artist', formatArtist],
+           ['Ratings', formatRatings],
            ['Length', formatDuration ]];
 
 function append_rows_to_table_of_songs(songs, table, uniquesuffix='0', playlistInfo=null, release_column=false, add_header_row=true)

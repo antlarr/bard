@@ -235,3 +235,20 @@ tr.unavailableSong {
 button:focus {
   outline: none;
 }
+
+.ratings {
+  display: flex;
+}
+
+.avg-ratings {
+  opacity: 0.4;
+}
+
+.no-ratings {
+  opacity: 0.3;
+}
+
+#playlistTracks .ratings img {
+    width: 16px;
+    height: 16px;
+}

@@ -647,10 +647,12 @@ def playlist_tracks():
         return None
 
     playlistID = request.args.get('id', type=int)
-    print(id)
     songs = MusicBrainzDatabase.get_playlist_songs_information_for_webui(
         playlistID)
-    result = [dict(song) for song in songs]
+    song_ids = [song['song_id'] for song in songs]
+    ratings = MusicDatabase.get_songs_ratings(song_ids, current_user.userID)
+    result = [{'rating': ratings[song['song_id']],
+               **dict(song)} for song in songs]
     return jsonify(result)
 
 
@@ -678,3 +680,18 @@ def playlist_current_next_song():
 
     print(nextSongInfo)
     return jsonify(nextSongInfo.as_dict())
+
+
+@app.route('/api/v1/song/set_ratings')
+def song_set_ratings():
+    if request.method != 'GET':
+        return None
+    song_id = request.args.get('id', type=int)
+    rating = request.args.get('rating', type=int)
+    song = getSongs(songID=song_id)
+    if not song:
+        return ''
+    song = song[0]
+    song.setUserRating(rating, current_user.userID)
+
+    return ''

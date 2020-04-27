@@ -96,4 +96,19 @@ function MetadataManager()
             }
         });
     }
+
+    this.set_song_ratings = function(song_id, rating, callback)
+    {
+        $.ajax({
+            url: "/api/v1/song/set_ratings",
+            data: {id: song_id,
+                   rating: rating},
+            success: function( data, textStatus, jqXHR) {
+                callback(rating);
+            },
+            error: function( jqXHR, textStatus, errorThrown) {
+                alert(textStatus + "\n" + errorThrown);
+            }
+        });
+    }
 }

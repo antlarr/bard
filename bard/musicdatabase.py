@@ -1801,6 +1801,37 @@ or name {like} '%%MusicBrainz/Track Id'""")
         MusicDatabase.refreshMaterializedView('album_properties')
         MusicDatabase.refreshMaterializedView('album_release')
 
+    @staticmethod
+    def get_songs_ratings(song_ids, user_id):
+        c = MusicDatabase.getCursor()
+        sql = text('SELECT song_id, userrating '
+                   '  FROM ratings '
+                   ' WHERE user_id = :user_id '
+                   '   AND song_id in :song_ids')
+
+        r = c.execute(sql.bindparams(user_id=user_id,
+                                     song_ids=tuple(song_ids)))
+
+        result = {row['song_id']: (row['userrating'], 'user') for row in r.fetchall()}
+        sql = text('SELECT song_id, AVG(userrating) avgrating'
+                   '  FROM ratings '
+                   ' WHERE user_id != :user_id '
+                   '   AND song_id in :song_ids'
+                   ' GROUP BY song_id')
+
+        rem_song_ids = tuple(x for x in song_ids if x not in result.keys())
+        r = c.execute(sql.bindparams(user_id=user_id,
+                                     song_ids=rem_song_ids))
+
+        result.update({row['song_id']: (float(row['avgrating']), 'avg')
+                       for row in r.fetchall()})
+
+        rem_song_ids = tuple(x for x in rem_song_ids if x not in result.keys())
+
+        result.update({song_id: (5, None) for song_id in rem_song_ids})
+
+        return result
+
 
 table = MusicDatabase.table
 view = MusicDatabase.view
