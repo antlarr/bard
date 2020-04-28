@@ -5,7 +5,7 @@ from bard.normalizetags import normalizeTagValues
 from bard.utils import DecodedAudioPropertiesTuple, DecodeMessageRecord
 from bard.album import albumPath
 import sqlalchemy
-from sqlalchemy import create_engine, text, Table
+from sqlalchemy import create_engine, text, Table, select
 from sqlalchemy.orm import Session
 from functools import lru_cache
 import sqlite3
@@ -172,6 +172,17 @@ def extractTagsList(song):
                          'pos': None
                          })
     return tags
+
+
+def extractCueSheetTracks(song):
+    tracks = []
+    for track in song.cuesheet:
+        tracks.append({'id': song.id,
+                       'idx': track.idx,
+                       'sample_position': track.sample_position,
+                       'time_position': track.time_position,
+                       'title': track.title})
+    return tracks
 
 
 class MusicDatabase:
@@ -596,6 +607,17 @@ CREATE TABLE similarities(
                   )''')
         c.execute('CREATE INDEX playlist_songs_playlist_id_song_id_idx '
                   ' ON playlist_songs (playlist_id, song_id)')
+        c.execute('''
+CREATE TABLE cuesheets(
+                  song_id INTEGER NOT NULL,
+                  idx INTEGER NOT NULL,
+                  sample_position INTEGER NOT NULL,
+                  time_position REAL NOT NULL,
+                  title TEXT,
+                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
+                  )''')
+        c.execute('CREATE INDEX cuesheets_song_id_idx '
+                  ' ON cuesheets (song_id)')
 
     @staticmethod  # noqa
     def addSong(song):
@@ -737,6 +759,22 @@ CREATE TABLE similarities(
                     c.rollback()
                     print(sql, tags)
                     raise
+
+            sql = 'DELETE from cuesheets where song_id = :id'
+            c.execute(text(sql).bindparams(**values))
+
+            cuesheettracks = extractCueSheetTracks(song)
+
+            if cuesheettracks:
+                sql = ('INSERT INTO cuesheets(song_id, idx, sample_position, '
+                       'time_position, title) '
+                       'VALUES (:id,:idx,:sample_position,:time_position,:title)')
+                try:
+                    c.execute(text(sql), cuesheettracks)
+                except ValueError:
+                    c.rollback()
+                    print(sql, cuesheettracks)
+                    raise
         else:
             # print('Adding song to database')
             values['path'] = song.path()
@@ -841,6 +879,19 @@ CREATE TABLE similarities(
                     raise
             albumID = MusicDatabase.getAlbumID(albumPath(song.path()))
             MusicDatabase.setSongInAlbum(song.id, albumID, connection=c)
+
+            cuesheettracks = extractCueSheetTracks(song)
+
+            if cuesheettracks:
+                sql = ('INSERT INTO cuesheets(song_id, idx, sample_position, '
+                       'time_position, title) '
+                       'VALUES (:id,:idx,:sample_position,:time_position,:title)')
+                try:
+                    c.execute(text(sql), cuesheettracks)
+                except ValueError:
+                    c.rollback()
+                    print(sql, cuesheettracks)
+                    raise
 
     @staticmethod
     def removeSong(song=None, byID=None):
@@ -1600,6 +1651,16 @@ or name {like} '%%MusicBrainz/Track Id'""")
         return [(x[0], x[1]) for x in result.fetchall()]
 
     @staticmethod
+    def getRecordingMBID(song_id):
+        mb = MusicDatabase.table('songs_mb')
+        try:
+            return (select([mb.c.recordingid])
+                    .where(mb.c.song_id == song_id)
+                    .execute().fetchone()[0])
+        except (ValueError, KeyError):
+            return None
+
+    @staticmethod
     def getAlbumID(albumPath):
         c = MusicDatabase.getCursor()
         sql = text('SELECT id FROM albums where path = :path')
@@ -1653,6 +1714,25 @@ or name {like} '%%MusicBrainz/Track Id'""")
         return r.fetchall()
 
     @staticmethod
+    def getAlbumPath(albumID, mediumNumber=None):
+        c = MusicDatabase.getCursor()
+        if not mediumNumber:
+            sql = text('select path from albums '
+                       ' where id = :albumID')
+            r = c.execute(sql, {'albumID': albumID}).fetchone()
+            return r[0] if r else None
+        sql = text('select path from songs, album_songs '
+                   ' where id = song_id '
+                   '   and album_id = :albumID '
+                   '   and discnumber = :mediumNumber '
+                   ' LIMIT 1')
+        r = c.execute(sql, {'albumID': albumID,
+                            'mediumNumber': mediumNumber}).fetchone()
+        if not r:
+            return None
+        return os.path.dirname(r[0])
+
+    @staticmethod
     def getPlaylistsForUser(userID, playlistID=None):
         c = MusicDatabase.getCursor()
 
@@ -1686,6 +1766,30 @@ or name {like} '%%MusicBrainz/Track Id'""")
         return result.fetchone()
 
     @staticmethod
+    def get_next_album_song(albumID, mediumNumber, track_position):
+        c = MusicDatabase.getCursor()
+        sql = text('SELECT mb.song_id, mb.recordingid, '
+                   '       m.position medium_number, t.position track_position'
+                   '  FROM musicbrainz.track t, musicbrainz.medium m, '
+                   '       album_release ar, album_songs asongs, songs_mb mb '
+                   ' WHERE m.id = t.medium_id '
+                   '   AND m.release_id = ar.release_id '
+                   '   AND ar.album_id = asongs.album_id '
+                   '   AND asongs.album_id = :albumID '
+                   '   AND mb.song_id = asongs.song_id '
+                   '   AND mb.releasetrackid = t.mbid '
+                   '   AND ((m.position = :mediumNumber '
+                   '         AND t.position > :track_position) '
+                   '        OR m.position > :mediumNumber) '
+                   ' ORDER BY m.position, t.position'
+                   '  LIMIT 1')
+
+        result = c.execute(sql.bindparams(albumID=albumID,
+                                          mediumNumber=mediumNumber,
+                                          track_position=track_position))
+        return result.fetchone()
+
+    @staticmethod
     def refreshMaterializedView(viewName):
         c = MusicDatabase.getCursor()
         sql = text(f'refresh materialized view {viewName}')
@@ -1696,6 +1800,37 @@ or name {like} '%%MusicBrainz/Track Id'""")
     def refreshMaterializedViews():
         MusicDatabase.refreshMaterializedView('album_properties')
         MusicDatabase.refreshMaterializedView('album_release')
+
+    @staticmethod
+    def get_songs_ratings(song_ids, user_id):
+        c = MusicDatabase.getCursor()
+        sql = text('SELECT song_id, userrating '
+                   '  FROM ratings '
+                   ' WHERE user_id = :user_id '
+                   '   AND song_id in :song_ids')
+
+        r = c.execute(sql.bindparams(user_id=user_id,
+                                     song_ids=tuple(song_ids)))
+
+        result = {row['song_id']: (row['userrating'], 'user') for row in r.fetchall()}
+        sql = text('SELECT song_id, AVG(userrating) avgrating'
+                   '  FROM ratings '
+                   ' WHERE user_id != :user_id '
+                   '   AND song_id in :song_ids'
+                   ' GROUP BY song_id')
+
+        rem_song_ids = tuple(x for x in song_ids if x not in result.keys())
+        r = c.execute(sql.bindparams(user_id=user_id,
+                                     song_ids=rem_song_ids))
+
+        result.update({row['song_id']: (float(row['avgrating']), 'avg')
+                       for row in r.fetchall()})
+
+        rem_song_ids = tuple(x for x in rem_song_ids if x not in result.keys())
+
+        result.update({song_id: (5, None) for song_id in rem_song_ids})
+
+        return result
 
 
 table = MusicDatabase.table

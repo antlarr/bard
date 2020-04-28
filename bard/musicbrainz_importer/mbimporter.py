@@ -81,6 +81,8 @@ columns_translations = {
     'recording': {'mbid': 'gid',
                   'disambiguation': 'comment',
                   'artist_credit_id': 'artist_credit'},
+    'recording_alias': {'recording_id': 'recording',
+                        'recording_alias_type': 'type'},
     'release': {'mbid': 'gid',
                 'disambiguation': 'comment',
                 'artist_credit_id': 'artist_credit',
@@ -201,6 +203,7 @@ tables = ['area',
           'medium',
           'place',
           'recording',
+          'recording_alias',
           'release',
           'release_country',
           'release_group',
@@ -238,6 +241,7 @@ table_translations = {
     'enum_language_values': 'language',
     'enum_gender_values': 'gender',
     'enum_medium_format_values': 'medium_format',
+    'enum_recording_alias_type_values': 'recording_alias_type',
     'enum_work_type_values': 'work_type',
     'enum_place_type_values': 'place_type',
     'enum_series_type_values': 'series_type',
@@ -300,6 +304,7 @@ related_entities_to_import = {
 
 
 indexed_columns = {'artist_alias': ['artist'],
+                   'recording_alias': ['recording'],
                    'l_artist_artist': ['entity0', 'entity1'],
                    'artist_credit_name': ['artist_credit'],
                    'l_artist_work': ['entity1'],
@@ -1076,6 +1081,7 @@ class MusicBrainzImporter:
         self.import_enum_table('enum_language_values')
         self.import_enum_table('enum_gender_values')
         self.import_enum_table('enum_medium_format_values')
+        self.import_enum_table('enum_recording_alias_type_values')
         self.import_enum_table('enum_work_type_values')
         self.import_enum_table('enum_place_type_values')
         self.import_enum_table('enum_series_type_values')
@@ -1107,6 +1113,9 @@ class MusicBrainzImporter:
                                         ids=self.ids['release'])
         self.import_table('medium')
         self.import_table('recording')
+        self.import_elements_from_table('recording_alias',
+                                        column='recording',
+                                        ids=self.ids['recording'])
         self.import_table('track')
         self.import_table('work')
         self.import_table('event')

@@ -33,9 +33,12 @@ from bard.config import config, translatePath
 from bard.user import requestNewPassword
 from bard.musicbrainz_database import MusicBrainzDatabase
 from bard.album import albumPath
+from bard.playlistmanager import PlaylistManager
 
 
 ComparisonResult = namedtuple('ComparisonResult', ['offset', 'similarity'])
+
+bard = None
 
 
 class Query (namedtuple('Query', ['root', 'genre'])):
@@ -180,9 +183,10 @@ class Bard:
                                  '.md5', '.gz',
                                  '.fpl', '.wpl', '.accurip', '.db', '.ffp',
                                  '.flv', '.mkv', '.m4v', '.mov', '.mpg',
-                                 '.mpeg', '.avi']
+                                 '.mpeg', '.avi', '.artist_mbid']
 
         self.excludeDirectories = ['covers', 'info']
+        self.playlist_manager = PlaylistManager()
 
     def getCurrentlyPlayingSongs(self):
         bus = dbus.SessionBus()
@@ -209,7 +213,7 @@ class Bard:
             if playbackStatus == 'Playing':
                 playingSongPath = path
                 songs.extend([x for x in newSongs
-                              if x.id not in [y.id for y in songs]]) 
+                              if x.id not in [y.id for y in songs]])
             else:
                 pausedSongs.extend([x for x in newSongs if x.id not in
                                     [y.id for y in pausedSongs]])
@@ -1723,8 +1727,9 @@ cache-musicbrainz-db [-v]
 
 
 def main():
-    app = Bard()
-    return app.parseCommandLine()
+    global bard
+    bard = Bard()
+    return bard.parseCommandLine()
 
 
 if __name__ == "__main__":

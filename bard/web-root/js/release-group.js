@@ -1,7 +1,3 @@
-function openAlbum( id )
-{
-    openComponent('album', {id: id});
-}
 
 function releaseGroupInfoReceived( result )
 {

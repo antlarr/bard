@@ -6,16 +6,26 @@
         <!--<Suggestions results={this.state.results} />-->
     </form>
   </div>
-  <div class="searchContent">
-      <div id="searchResult"></div>
+  <div id="searchResultContainer" class="searchContent playlistContent">
+      <div id="searchResult" class="playlistTracks"></div>
   </div>
 
+  <script type="text/javascript" src="/static/js/search.js"></script>
   <script type="text/javascript">
-$( "#searchForm" ).on( "submit", function( event ) {
-    performSearch();
-    event.preventDefault();
-});
+      searchView = new SearchView();
+
+      $( "#searchForm" ).on( "submit", function( event ) {
+          searchView.performSearch();
+          event.preventDefault();
+      });
+
+      $('#searchResultContainer').on('scroll', function() {
+        if($(this).scrollTop() + $(this).innerHeight() >= $(this)[0].scrollHeight) {
+            searchView.requestMoreSearchResults();
+        }
+      });
 
 
   </script>
   <link href="/static/css/home.css" rel="stylesheet">
+  <link href="/static/css/playlist.css" rel="stylesheet">

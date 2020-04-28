@@ -1,4 +1,4 @@
-from os.path import basename, dirname
+from os.path import basename, dirname, join, exists
 import re
 
 
@@ -15,3 +15,11 @@ def albumPath(songPath):
     if isMediumPath(basename(directory)):
         return dirname(directory)
     return directory
+
+
+def coverAtPath(path):
+    for cover in ['cover.jpg', 'cover.png']:
+        coverfilename = join(path, cover)
+        if exists(coverfilename):
+            return coverfilename
+    return None

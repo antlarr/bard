@@ -12,8 +12,8 @@ MBDataTuple = namedtuple('MBDataTuple',
 
 FullSongsWebQuery = namedtuple('FullSongsWebQuery',
                                ['columns', 'tables', 'where', 'order_by',
-                                'values'])
-FullSongsWebQuery.__new__.__defaults__ = ('', '', '', '', {})
+                                'values', 'limit', 'offset'])
+FullSongsWebQuery.__new__.__defaults__ = ('', '', '', '', {}, None, None)
 
 MediumFormatEnum = DatabaseEnum('medium_format', schema='musicbrainz')
 
@@ -881,10 +881,13 @@ class MusicBrainzDatabase:
         ct = (',' + ','.join(query.tables)) if query.tables else ''
         cw = (' AND ' + ' AND '.join(query.where)) if query.where else ''
         co = ('ORDER BY ' + ','.join(query.order_by)) if query.order_by else ''
+        climit = f'LIMIT {query.limit}' if query.limit else ''
+        coffset = f'OFFSET {query.offset}' if query.offset else ''
         sql = ('select als.album_id, als.song_id, '
                '       m.position as medium_number, '
                '       m.format as medium_format_id, '
                # '       emfv.name as medium_format, '
+               '       r.name as release_name, '
                '       m.name as medium_name, '
                '       t.position as track_position, t.mbid as track_mbid, '
                '       t.recording_id, t.number_text , t.name, '
@@ -893,11 +896,13 @@ class MusicBrainzDatabase:
                f'       p.bits_per_sample, p.sample_rate, p.channels {cq}'
                '  from album_songs als, album_release ar, '
                '       musicbrainz.medium m, '
+               '       musicbrainz.release r, '
                # '       musicbrainz.enum_medium_format_values emfv, '
                '       musicbrainz.track t, '
                '       musicbrainz.artist_credit ac, '
                f'       songs_mb smb, properties p {ct}'
                ' where ar.release_id = m.release_id '
+               '   and ar.release_id = r.id'
                '   and m.id = t.medium_id '
                # '   and m.format = emfv.id_value '
                '   and ar.album_id = als.album_id '
@@ -905,7 +910,7 @@ class MusicBrainzDatabase:
                '   and smb.song_id = als.song_id '
                '   and p.song_id = als.song_id '
                '   and smb.releasetrackid = t.mbid '
-               f'  {cw} {co}')
+               f'  {cw} {co} {climit} {coffset}')
         result = c.execute(text(sql), query.values)
         return result.fetchall()
 
@@ -939,3 +944,16 @@ class MusicBrainzDatabase:
                '  order by position')
         result = c.execute(text(sql), {'artistCreditID': artistCreditID})
         return result.fetchall()
+
+    @staticmethod
+    def search_songs_for_webui(query, offset=None, page_size=200):
+        query = (FullSongsWebQuery(
+                 tables=['songs s'],
+                 where=['s.path ilike :query',
+                        'als.song_id = s.id'],
+                 order_by=['als.album_id', 'm.position', 't.position'],
+                 values={'query': '%' + query + '%'},
+                 limit=page_size,
+                 offset=offset,
+                 ))
+        return MusicBrainzDatabase.get_songs_information_for_webui(query=query)

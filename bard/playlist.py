@@ -1,14 +1,22 @@
 from bard.musicdatabase import MusicDatabase, DatabaseEnum, table
-from bard.musicdatabase_songs import getSongs
 from bard.config import config
-from sqlalchemy import text, exc, select, and_
+from sqlalchemy import text, exc, and_
 import sqlite3
+from sqlalchemy.engine.result import RowProxy
+import enum
+
+
+class PlaylistTypes(enum.Enum):
+    User = 'user'
+    Album = 'album'
+    Search = 'search'
 
 
 class Playlist:
     def __init__(self, x, owner_id=None):
         """Create a Playlist object."""
         self.id = None
+        self.type = PlaylistTypes.User
         self.name = None
         if not owner_id:
             username = config['username']
@@ -18,16 +26,12 @@ class Playlist:
         self.playlist_type = DatabaseEnum('playlist_type').id_value('user')
         self.songs = []
 
-        if type(x) == sqlite3.Row or \
-           hasattr(x, 'keys'):
+        if isinstance(x, (sqlite3.Row, RowProxy, dict)):
             self.id = x['id']
             self.name = x['name']
             self.owner_id = x['owner_id']
-            self.id = x['id']
 
             self.load_playlist_songs()
-        elif not owner_id:
-            owner_id = MusicDatabase.getUserID(config['username'])
 
     @staticmethod
     def load_from_db(where_clause='', where_values=None, tables=[],
@@ -81,7 +85,8 @@ class Playlist:
             song_id, recording_mbid, pos = x
             # song = getSongs(songID=song_id)[0]
             if idx != pos:
-                print('ERROR: playlist items in the database are not correctly positioned')
+                print('ERROR: playlist items in the database are '
+                      'not correctly positioned')
             item = (song_id, recording_mbid)
             self.songs.append(item)
 
@@ -126,19 +131,15 @@ class Playlist:
                                            connection=c)
         c.commit()
 
-    def append_song(self, song_id, *, connection=None):
-        mb = table('songs_mb')
-        try:
-            mbid = (select([mb.c.recordingid])
-                    .where(mb.c.song_id == song_id)
-                    .execute().fetchone()[0])
-        except (ValueError, KeyError):
-            mbid = None
-        pos = len(self.songs)
+    def append_song(self, song_id, mbid=None, *, connection=None):
+        assert song_id, "song_id must be used"
+        if not mbid:
+            mbid = MusicDatabase.getRecordingMBID(song_id)
         item = (song_id, mbid)
         self.songs.append(item)
 
         if self.id:
+            pos = len(self.songs)
             c = connection or MusicDatabase.getCursor()
             entry = {
                 'playlist_id': self.id,
@@ -155,22 +156,16 @@ class Playlist:
             if not connection:
                 c.commit()
 
-    def insert_song(self, position, song_id=None, item=None, *, connection=None):
+    def insert_song(self, position, song_id=None, mbid=None, *,
+                    connection=None):
+        assert song_id, "song_id must be used"
         if position > len(self.songs):
             position = len(self.songs)
 
-        if item:
-            song_id = item[0]
-            mbid = item[1]
-        else:
-            mb = table('songs_mb')
-            try:
-                mbid = (select([mb.c.recordingid])
-                        .where(mb.c.song_id == song_id)
-                        .execute().fetchone()[0])
-            except (ValueError, KeyError):
-                mbid = None
-            item = (song_id, mbid)
+        if not mbid:
+            mbid = MusicDatabase.getRecordingMBID(song_id)
+
+        item = (song_id, mbid)
 
         self.songs.insert(position, item)
 
@@ -193,7 +188,8 @@ class Playlist:
             if not connection:
                 c.commit()
 
-    def _update_positions_in_db(self, from_position, to_position, delta, connection):
+    def _update_positions_in_db(self, from_position, to_position, delta,
+                                connection):
         if delta > 0:
             s_delta = f'+{delta}'
         elif delta < 0:
@@ -233,7 +229,8 @@ class Playlist:
             for z in x:
                 print(z)
 
-            self._update_positions_in_db(position + 1, len(self.songs) + 1, -1, c)
+            self._update_positions_in_db(position + 1, len(self.songs) + 1, -1,
+                                         c)
             if not connection:
                 c.commit()
         return r
@@ -246,3 +243,11 @@ class Playlist:
         self.insert_song(to_position, item=item, connection=c)
         if not connection:
             c.commit()
+
+    @staticmethod
+    def get_next_song(playlistID, index, user_id):
+        r = MusicDatabase.get_next_playlist_song(user_id,
+                                                 playlistID, index)
+        if not r:
+            return None
+        return (r['song_id'], r['pos'])

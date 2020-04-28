@@ -8,16 +8,15 @@ function openComponent(page, data=null, push_to_history=true, callback=null)
         window.history.pushState({page: 'openComponent', component: page, data:data}, "", "/");
     $.ajax({
         url: "/component/" + page,
-        data: data,
-        success: function( result ) {
+        data: data
+    }).done(
+        function( result, textStatus, jqXHR ) {
             $( "#container" ).html( result );
             if (callback) callback();
-        },
-        error: function( jqXHR, textStatus, errorThrown) {
+    }).fail(
+        function( jqXHR, textStatus, errorThrown) {
             alert(textStatus + "\n" + errorThrown);
-        }
     });
-    // $( "#container" ).html("<p>Login!</p>");
 }
 
 /**
@@ -41,53 +40,46 @@ function finalizeFormatArtist(jq, artist_credit)
     jq.append(ac);
 }
 
-function formatArtist(jq, song, playlistInfo)
+function formatArtist(jq, song, playlist_song_info)
 {
-    jq.html(song['artist_name']);
-    $.ajax({
-        url: "/api/v1/artist_credit/info",
-        data: {id: song['artist_credit_id']},
-        success: function( data, textStatus, jqXHR) {
+    bard.metadataManager.get_artist_credit_info(song['artist_credit_id'],
+        function(data) {
             finalizeFormatArtist(jq, data);
         },
-        error: function( jqXHR, textStatus, errorThrown) {
-            alert(textStatus + "\n" + errorThrown);
+        function() {
+            jq.html(song['artist_name']);
         }
-    });
+    );
 }
 
-function playSongFromPlaylist(songID, playlistSongInfo)
-{
-    console.log(playlistSongInfo);
-    /*if (playlistSongInfo.hasOwnProperty('albumID')) {
-        alert('1play song ' + songID +
-              ' from playlist ' + playlistSongInfo['albumID'] +
-              '/' + playlistSongInfo['mediumNumber'] +
-              ' index ' + playlistSongInfo['track_position']);
-    } else {
-        alert('2play song ' + songID +
-              ' from playlist ' + playlistSongInfo['playlistID'] +
-              ' index ' + playlistSongInfo['index']);
-    }*/
-    current_playlist_song_info = playlistSongInfo;
-    playSong(songID);
-}
 
-function formatSongName(jq, song, playlistSongInfo)
+function formatSongName(jq, song, playlist_song_info)
 {
-   console.log(song);
    jq.html('<a>' + song['name'] + '</a>');
-   jq.on('click', { songID: song['song_id'],
-                    playlistSongInfo: playlistSongInfo},
+   jq.on('click', { song_id: song['song_id'],
+                    playlist_song_info: playlist_song_info},
           function(ev) {
-              playSongFromPlaylist(ev.data.songID, ev.data.playlistSongInfo);
+              bard.playSongFromPlaylist(ev.data.song_id, ev.data.playlist_song_info);
           });
 
 }
 
-function formatDuration(jq, song, playlistInfo)
+function formatRelease(jq, song, playlist_song_info)
 {
-   var duration = song['duration']
+   jq.addClass('no-padding');
+   var imgurl = bard.base + '/api/v1/album/image?id=' + song['album_id'] + '&medium_number='+ song['medium_number']
+   jq.html('<div class="horizontal"><img src="' + imgurl + '"><span class="releasename"><a>' + song['release_name'] + '</a></span>');
+   jq.on('click', { song_id: song['song_id'],
+                    album_id: song['album_id'],
+                    playlist_song_info: playlist_song_info},
+          function(ev) {
+                openAlbum(ev.data.album_id);
+          });
+
+}
+
+function formatDurationValue(duration)
+{
    var hours = Math.floor(duration / 3600);
    duration = duration % 3600;
    var minutes = Math.floor(duration / 60);
@@ -98,42 +90,101 @@ function formatDuration(jq, song, playlistInfo)
    if (duration < 10) {
      duration = '0' + duration
    }
-   formatted = minutes + ':' + duration;
+   var formatted = minutes + ':' + duration;
    if (hours > 0)
    {
      formatted = hours + ':' + formatted;
    }
-   jq.html(formatted);
+   return formatted;
 }
 
-columns = [['#', ['position', 'track_position']],
+
+function formatDuration(jq, song, playlistInfo)
+{
+   jq.html(formatDurationValue(song['duration']));
+}
+
+function addStarRatings(jq, rating)
+{
+   var stars = 0;
+   while (rating >= 2)
+   {
+       jq.append($('<img id="star-' + stars + '" class="ratings" src="/static/images/star-full.png" width="18">'));
+       rating -= 2;
+       stars++;
+   }
+   if (rating >= 1)
+   {
+       jq.append($('<img id="star-' + stars + '" class="ratings" src="/static/images/star-half.png" width="18">'));
+       stars++;
+   }
+   while (stars < 5)
+   {
+       jq.append($('<img id="star-' + stars + '" class="ratings" src="/static/images/star-empty.png" width="18">'));
+       stars++;
+   }
+}
+
+function formatRatings(jq, song, playlistInfo)
+{
+   var rating = song['rating'];
+   var div=$('<div class="ratings"/>');
+   if (rating[1] == 'avg')
+       div.addClass('avg-ratings')
+   else if (rating[1] == null)
+       div.addClass('no-ratings')
+
+   addStarRatings(div, rating[0]);
+   jq.append(div);
+   div.on( "click", { song_id: song['song_id'] }, function( event ) {
+        var rect = event.currentTarget.getBoundingClientRect();
+        var x = rect.left + (window.pageXOffset || document.documentElement.scrollLeft);
+        var percentage = (event.pageX - x)/(event.target.width*5);
+        new_rating = Math.round(percentage * 10);
+        bard.metadataManager.set_song_ratings(event.data.song_id, new_rating, function(rating)
+        {
+            var div = $( event.currentTarget )
+            div.empty();
+            div.removeClass('avg-ratings no-ratings');
+            addStarRatings(div, rating);
+        });
+        event.preventDefault();
+   });
+}
+
+const columns_base = [['#', ['position', 'track_position']],
            ['Name', formatSongName],
            ['Artist', formatArtist],
+           ['Ratings', formatRatings],
            ['Length', formatDuration ]];
 
-function add_table_of_songs(songs, appendToObj, uniquesuffix='0', playlistInfo=null)
+function append_rows_to_table_of_songs(songs, table, uniquesuffix='0', playlistInfo=null, release_column=false, add_header_row=true)
 {
-    table = $("<table/>", { appendTo: appendToObj });
     var i, j, col;
 
-    var r = "";
-    columns.forEach((col,i) => {
-        r+= '<th>' + col[0] + '</th>';
-    });
-    var trh = $("<tr/>").append(r);
-    table.append(trh);
+    var columns = [...columns_base];
+    if (release_column) {
+        columns.splice(2, 0, ['Release', formatRelease])
+    }
+
+    if (add_header_row) {
+        var r = "";
+        columns.forEach((col,i) => {
+            r+= '<th>' + col[0] + '</th>';
+        });
+        var trh = $("<tr/>").append(r);
+        table.append(trh);
+    }
 
     songs.forEach((song,i) => {
         var songid = 'song-'+i+'-'+uniquesuffix;
         var tmpPlaylistInfo = $.extend({index: i, track_position: song['track_position']},playlistInfo);
-        console.log(song);
         var tr = $("<tr/>");
         if (song['song_id'] == null)
         {
             tr.addClass('unavailableSong');
         };
         columns.forEach((col,j) => {
-            //console.log(col);
             var td = $("<td/>", { appendTo: tr})
             if (typeof(col[1]) =="function")
             {
@@ -157,13 +208,18 @@ function add_table_of_songs(songs, appendToObj, uniquesuffix='0', playlistInfo=n
             }
         });
 
-        console.log('out of songs loop');
         table.append(tr);
 
         setDraggable(tr, {'application/x-bard': JSON.stringify({'songID': song['song_id']})});
     });
 
     return table;
+}
+
+function add_table_of_songs(songs, appendToObj, uniquesuffix='0', playlistInfo=null, release_column=false, add_header_row=true)
+{
+    table = $("<table/>", { appendTo: appendToObj });
+    return append_rows_to_table_of_songs(songs, table, uniquesuffix, playlistInfo, release_column, add_header_row);
 }
 
 /**
@@ -202,28 +258,6 @@ function dateTuplesRangeToString(begin, end)
     return null;
 }
 
-function performSearch(push_to_history=true)
-{
-    searchText=$("#searchBar").val();
-    if (push_to_history)
-        window.history.pushState({page: 'performSearch', query: searchText}, "", "/");
-    $.ajax({
-      url: "/api/v1/search",
-      data: {
-        query: searchText
-      },
-      success: function( result ) {
-        r="";
-        for (i=0 ; i< result.length; i++)
-        {
-            r+="<br><a onclick=\"playSong(" + result[i].id + ")\">" + result[i].path + "</a>";
-        };
-        $( "#searchResult" ).html( r );
-        set_song_metadata_cache( result );
-      }
-    });
-}
-
 function setCurrentSongInfo(id, metadata)
 {
     if (id == current_song_id)
@@ -233,38 +267,16 @@ function setCurrentSongInfo(id, metadata)
     }
 }
 
+function openAlbum( id )
+{
+    openComponent('album', {id: id});
+}
+
 function openArtist( id )
 {
     openComponent('artist', {id: id});
 }
 
-function playSong(id)
-{
-    current_song_id = id;
-    base=window.location.protocol + '//' + window.location.host;
-    $( "#current-song-cover" ).attr("src", base + "/api/v1/coverart/song/" + id)
-    var metadata = get_song_metadata( id, setCurrentSongInfo );
-    if (metadata)
-    {
-        setCurrentSongInfo(id, metadata);
-    }
-    $( "#player" ).attr("src", base + "/api/v1/audio/song/" + id)
-}
-
-function requestNextSong()
-{
-    console.log('next_song');
-    $.ajax({
-      type: "POST",
-      url: "/api/v1/playlist/current/next_song",
-      data: current_playlist_song_info,
-      success: function( result ) {
-          console.log(result);
-          console.log(result.songID);
-          playSongFromPlaylist(result.songID, result.playlistSongInfo);
-      }
-    });
-}
 
 function submitLogin()
 {
@@ -299,15 +311,15 @@ window.onpopstate = function( event ) {
             break;
        case 'performSearch':
             openComponent('home', null, push_to_history=false, callback= function() {
-               $("#searchBar").val(event.state['query']);
-               performSearch(false);
+               $("#searchBar").val(event.state['search_query']['query']);
+               searchView.performSearch(false);
              });
             break;
     }
 }
 
 
-function initBardConstructor()
+function Bard()
 {
     $( "#nav-home" ).on( "click", function( event ) {
         openComponent('home');
@@ -331,8 +343,53 @@ function initBardConstructor()
 
     fillPlaylists();
     //document.requestFullScreen();
+    this.base = window.location.protocol + '//' + window.location.host;
+
+    $.when(
+        $.getScript("/static/js/player-controls.js"),
+        $.getScript("/static/js/webplayer.js").fail(function(jqxhr, settings, exception) { alert('error' + exception); }),
+        $.Deferred(function( deferred ){
+            $( deferred.resolve );
+        })
+    ).done(function(){
+        this.player = new WebPlayer();
+        this.controls = new PlayerControls();
+        this.controls.player = this.player;
+        this.player.ui = this.controls;
+        console.log('loaded ' + this.player + this.controls );
+    }.bind(this));
+
+    this.playSongFromPlaylist = function(song_id, playlist_song_info)
+    {
+        current_playlist_song_info = playlist_song_info;
+        this.playSong(song_id);
+    }
+
+    this.playSong = function(id)
+    {
+        current_song_id = id;
+        $( "#current-song-cover" ).attr("src", this.base + "/api/v1/coverart/song/" + id)
+        var metadata = this.metadataManager.get_song_metadata( id, setCurrentSongInfo );
+        $( "#player" ).attr("src", this.base + "/api/v1/audio/song/" + id)
+        bard.controls.setEnable(true);
+    }
+
+    this.requestPrevSong = function()
+    {
+    };
+
+    this.requestNextSong = function()
+    {
+        $.ajax({
+          type: "POST",
+          url: "/api/v1/playlist/current/next_song",
+          data: current_playlist_song_info,
+          success: function( result ) {
+              bard.playSongFromPlaylist(result.song_id, result);
+          }
+        });
+    }
+
+    this.metadataManager = new MetadataManager();
 };
 
-var bard = new Object();
-
-bard.initBard = initBardConstructor

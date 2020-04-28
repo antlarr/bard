@@ -4,22 +4,23 @@ function playlistInfoReceived( result )
 }
 
 
-function playlistTracksReceived( result, playlistID )
+function playlistTracksReceived( result, playlist_id )
 {
     console.log(result);
     var playlistInfo = {
-        playlistID: playlistID
+        playlist_type: 'user',
+        playlist_id: playlist_id
     };
     jq_table = add_table_of_songs(result, $( "#playlistTracks" ), 0, playlistInfo );
     jq_table.addClass('playlist');
 }
 
 
-function requestPlaylistInfo(id)
+function requestPlaylistInfo(playlist_id)
 {
     $.ajax({
         url: "/api/v1/playlist/info",
-        data: {id: id},
+        data: {id: playlist_id},
         success: playlistInfoReceived,
         error: function( jqXHR, textStatus, errorThrown) {
             alert(textStatus + "\n" + errorThrown);
@@ -27,20 +28,20 @@ function requestPlaylistInfo(id)
     });
 }
 
-function requestPlaylistTracks(id)
+function requestPlaylistTracks(playlist_id)
 {
     $.ajax({
         url: "/api/v1/playlist/tracks",
-        data: {id: id},
-        success: function(result) { playlistTracksReceived(result, id); },
+        data: {id: playlist_id},
+        success: function(result) { playlistTracksReceived(result, playlist_id); },
         error: function( jqXHR, textStatus, errorThrown) {
             alert(textStatus + "\n" + errorThrown);
         }
     });
 }
 
-function fillPlaylistPage(id)
+function fillPlaylistPage(playlist_id)
 {
-    requestPlaylistInfo(id);
-    requestPlaylistTracks(id);
+    requestPlaylistInfo(playlist_id);
+    requestPlaylistTracks(playlist_id);
 }

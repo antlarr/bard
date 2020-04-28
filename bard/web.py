@@ -12,11 +12,16 @@ from bard.musicdatabase_songs import getSongs
 from bard.musicbrainz_database import MusicBrainzDatabase, MediumFormatEnum
 from bard.musicdatabase import MusicDatabase
 from bard.playlist import Playlist
+from bard.album import coverAtPath
+from bard.searchquery import SearchQuery
+from bard.searchplaylist import SearchPlaylist
+from bard.playlistsonginfo import PlaylistSongInfo
 
 import mimetypes
 import base64
 import os.path
 import re
+import werkzeug
 
 
 app = Flask(__name__, static_url_path='/kakaka')
@@ -88,6 +93,7 @@ def load_user_from_request(request):
     # finally, return None if both methods did not login the user
     return None
 
+
 def base_href():
     use_ssl = config['use_ssl']
     hostname = config['hostname']
@@ -147,7 +153,6 @@ def structFromArtistAlias(aliasRow):
 
 def structFromArtist(artistRow, aliasesRows=[]):
     r = {}
-    print(artistRow)
     r['id'] = artistRow.id
     r['mbid'] = artistRow.mbid
     r['name'] = artistRow.name
@@ -166,7 +171,6 @@ def structFromArtist(artistRow, aliasesRows=[]):
 
 def structFromReleaseGroup(rg):
     r = {}
-    print(rg)
     r['id'] = rg.id
     r['mbid'] = rg.mbid
     r['name'] = rg.name
@@ -209,23 +213,41 @@ def album_properties_to_string(prop):
     return r
 
 
-@app.route('/api/v1/search')
-def api_v1_search():
-    print(request.method)
-    print(request.args)
-    print(request.args['query'])
-    result = []
-    for song in getSongs(request.args['query'], metadata=True):
-        result.append(structFromSong(song))
+@app.route('/api/v1/song/search')
+def api_v1_song_search():
+    plman = app.bard.playlist_manager
+    sq = SearchQuery.from_request(request, current_user.userID, plman)
+    if not sq:
+        raise ValueError('No SearchQuery!')
+    pl = plman.get_search_result_playlist(sq)
+    if not pl:
+        pl = SearchPlaylist(sq)
+        plman.add_search_playlist(pl)
+
+    songs = MusicBrainzDatabase.search_songs_for_webui(sq.query,
+                                                       sq.offset,
+                                                       sq.page_size)
+
+    song_ids = [song['song_id'] for song in songs]
+    for song_id in song_ids:
+        pl.append_song(song_id)
+
+    ratings = MusicDatabase.get_songs_ratings(song_ids, current_user.userID)
+    songs = [{'rating': ratings[song['song_id']],
+              **dict(song)} for song in songs]
+    result = {'search_playlist_id': pl.searchPlaylistID,
+              'search_query': sq.as_dict(),
+              'songs': songs}
     return jsonify(result)
 
 
 @app.route('/api/v1/metadata/song/<songID>')
 def api_v1_metadata_song(songID):
-    result = []
-    for song in getSongs(songID=songID, metadata=True):
-        result.append(structFromSong(song))
-    return jsonify(result)
+    song = getSongs(songID=songID, metadata=True)
+    if not song:
+        return ''
+    song = song[0]
+    return jsonify(structFromSong(song))
 
 
 @app.after_request
@@ -517,7 +539,12 @@ def album_tracks():
     all_tracks = MusicBrainzDatabase.get_album_tracks(albumID)
     existing_tracks = MusicBrainzDatabase. \
         get_album_songs_information_for_webui(albumID)
-    existing_tracks = {x['track_mbid']: dict(x) for x in existing_tracks}
+
+    song_ids = [track['song_id'] for track in existing_tracks]
+    ratings = MusicDatabase.get_songs_ratings(song_ids, current_user.userID)
+
+    existing_tracks = {x['track_mbid']: {'rating': ratings[x['song_id']],
+                                         **dict(x)} for x in existing_tracks}
     result = []
     medium = {'number': None, 'tracks': []}
     current_medium_number = None
@@ -539,10 +566,34 @@ def album_tracks():
         except KeyError:
             trk = dict(track)
             trk['song_id'] = None
+            trk['rating'] = (5, None)
             medium['tracks'].append(trk)
 
     result.append(medium)
     return jsonify(result)
+
+
+@app.route('/api/v1/album/image')
+def album_cover():
+    if request.method != 'GET':
+        return None
+    album_id = request.args.get('id', type=int)
+    medium_number = request.args.get('medium_number', type=int, default=None)
+    print(f'Delivering coverart of album {album_id} medium {medium_number}')
+
+    path = MusicDatabase.getAlbumPath(album_id, medium_number)
+    if not path:
+        print('ERROR getting album image for album'
+              f'{album_id}/{medium_number}')
+        return ''
+    coverfilename = coverAtPath(path)
+
+    if coverfilename:
+        return send_file(coverfilename)
+    else:
+        print(f'Error cover not found at {path}')
+
+    return ''
 
 
 @app.route('/api/v1/playlist/list')
@@ -609,10 +660,12 @@ def playlist_tracks():
         return None
 
     playlistID = request.args.get('id', type=int)
-    print(id)
     songs = MusicBrainzDatabase.get_playlist_songs_information_for_webui(
         playlistID)
-    result = [dict(song) for song in songs]
+    song_ids = [song['song_id'] for song in songs]
+    ratings = MusicDatabase.get_songs_ratings(song_ids, current_user.userID)
+    result = [{'rating': ratings[song['song_id']],
+               **dict(song)} for song in songs]
     return jsonify(result)
 
 
@@ -631,37 +684,33 @@ def artist_credit_info():
 
 @app.route('/api/v1/playlist/current/next_song', methods=['POST'])
 def playlist_current_next_song():
-    print(request.method, request.data)
     if request.method != 'POST':
         return None
-    print(current_user.username, current_user.userID)
-    print(dir(request))
     print(request.form)
-    # playlistSongInfo= {'albumID': 1,
-    #                    'mediumNumber': 2,
-    #                    'track_position': 3}
-    # playlistSongInfo= {'playlistID': 1,
-    #                    'index': 2}
-    playlistID = None
-    albumID = None
-    try:
-        playlistID = int(request.form['playlistID'])
-    except KeyError:
-        albumID = int(request.form['albumID'])
-    if playlistID:
-        # TODO: Check that the user has access to the playlist!
-        index = int(request.form['index'])
-        r = MusicDatabase.get_next_playlist_song(current_user.userID, playlistID, index)
-        result = {'songID': r['song_id'],
-                  'playlistSongInfo': {'playlistID': playlistID,
-                                       'index': r['pos']}}
-    elif albumID:
-        mediumNumber = int(request.form['mediumNumber'])
-        track_position = int(request.form['track_position'])
-        r = MusicDatabase.get_next_album_song(albumID, mediumNumber, track_position)
-        result = {'songID': r['song_id'],
-                  'playlistSongInfo': {'albumID': albumID,
-                                       'mediumNumber': r['mediumNumber']}}
+    playlistSongInfo = PlaylistSongInfo.from_request(request)
+    playlistSongInfo.set_current_user(current_user.userID)
+    nextSongInfo = playlistSongInfo.next_song()
 
-    print(result)
-    return jsonify(result)
+    print(nextSongInfo)
+    return jsonify(nextSongInfo.as_dict())
+
+
+@app.route('/api/v1/song/set_ratings')
+def song_set_ratings():
+    if request.method != 'GET':
+        return None
+    song_id = request.args.get('id', type=int)
+    rating = request.args.get('rating', type=int)
+    song = getSongs(songID=song_id)
+    if not song:
+        return ''
+    song = song[0]
+    song.setUserRating(rating, current_user.userID)
+
+    return ''
+
+
+@app.errorhandler(werkzeug.exceptions.BadRequest)
+def handle_bad_request(e):
+    print('Bad Request:', e)
+    return '', 400
