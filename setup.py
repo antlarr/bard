@@ -1,5 +1,9 @@
+import os
 from setuptools import setup, Extension
 from bard import __version__
+
+
+BOOST_PYTHON_LIB = os.getenv('BOOST_PYTHON_LIB', 'boost_python-py3')
 
 
 bard_ext = Extension('bard.bard_ext',
@@ -7,7 +11,7 @@ bard_ext = Extension('bard.bard_ext',
                                     ('MINOR_VERSION', '0'),
                                     ('_GLIBCXX_PARALLEL', None)],
                      include_dirs=['/usr/include/boost'],
-                     libraries=['boost_python-py3', 'gomp'],
+                     libraries=[BOOST_PYTHON_LIB, 'gomp'],
                      sources=['bard/bard_ext.cpp'],
                      extra_compile_args=['-std=gnu++17', '-fopenmp', '-Ofast',
                                          '-march=native', '-mtune=native',
@@ -20,7 +24,7 @@ bard_audiofile = Extension('bard.bard_audiofile',
                                           ('_GLIBCXX_PARALLEL', None)],
                            include_dirs=['/usr/include/boost',
                                          '/usr/include/ffmpeg'],
-                           libraries=['boost_python-py3', 'avcodec',
+                           libraries=[BOOST_PYTHON_LIB, 'avcodec',
                                       'avformat', 'avutil', 'swresample'],
                            sources=['bard/audiofile/audiofile.cpp',
                                     'bard/audiofile/bufferaviocontext.cpp',
@@ -62,7 +66,8 @@ setup(
         "Flask-Cors",
         "Flask-Login",
         "Jinja2",
-        "bcrypt"
+        "bcrypt",
+        "paramiko"
     ],
     data_files=[('share/doc/packages/bard/',
                  ['config/bard', 'README.md'])],

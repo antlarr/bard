@@ -12,7 +12,8 @@ MBDataTuple = namedtuple('MBDataTuple',
 
 FullSongsWebQuery = namedtuple('FullSongsWebQuery',
                                ['columns', 'tables', 'where', 'order_by',
-                                'values'], defaults=('', '', '', '', {}))
+                                'values'])
+FullSongsWebQuery.__new__.__defaults__ = ('', '', '', '', {})
 
 MediumFormatEnum = DatabaseEnum('medium_format', schema='musicbrainz')
 
