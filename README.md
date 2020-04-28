@@ -10,7 +10,7 @@ sudo zypper in libboost_python3-devel "pkgconfig(libavcodec)" "pkgconfig(libavfo
 ```
 
 ```
-sudo apt-get install libavcodec-dev libavformat-dev libswresample-dev libavutil-dev python3-acoustid python3-mutagen python3-pillow python3-numpy python3-sqlalchemy
+sudo apt-get install build-essential python3-dev libavcodec-dev libavformat-dev libswresample-dev libavutil-dev python3-acoustid python3-mutagen python3-numpy python3-sqlalchemy python3-setuptools libboost-python3-dev
 ```
 
 If you want to use the web interface (which is still in very early stages of development, and thus not ready for real usage):
