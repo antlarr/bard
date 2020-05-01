@@ -344,7 +344,7 @@ def component(page):
     print('component!')
     if request.method != 'GET':
         return None
-    if page in ('home', 'albums', 'genres', 'about'):
+    if page in ('search', 'albums', 'genres', 'about'):
         return render_template('%s.html' % page)
     elif page in ('artists',):
         letter = request.args.get('letter', default='0', type=str)

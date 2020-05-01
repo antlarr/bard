@@ -299,6 +299,13 @@ function submitLogin()
     });
 }
 
+function openSearchQuery(search_query)
+{
+    openComponent('search', null, push_to_history=false, callback= function() {
+            $("#searchBar").val(search_query['query']);
+            searchView.performSearch(false);
+        });
+}
 
 window.onpopstate = function( event ) {
     switch (event.state['page'])
@@ -310,10 +317,7 @@ window.onpopstate = function( event ) {
             openAbout(false);
             break;
        case 'performSearch':
-            openComponent('home', null, push_to_history=false, callback= function() {
-               $("#searchBar").val(event.state['search_query']['query']);
-               searchView.performSearch(false);
-             });
+            openSearchQuery(event.state['search_query']);
             break;
     }
 }
@@ -321,8 +325,8 @@ window.onpopstate = function( event ) {
 
 function Bard()
 {
-    $( "#nav-home" ).on( "click", function( event ) {
-        openComponent('home');
+    $( "#nav-search" ).on( "click", function( event ) {
+        openComponent('search');
         event.preventDefault();
     });
 
