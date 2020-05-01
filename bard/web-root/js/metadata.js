@@ -27,7 +27,7 @@ function MetadataManager()
         info = this.song_metadata_cache.get(song_id);
         if (info != null)
         {
-            callback(info);
+            callback(song_id, info);
             return;
         }
 
