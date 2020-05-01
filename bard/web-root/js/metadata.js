@@ -51,6 +51,9 @@ function MetadataManager()
                 delete meta.song_metadata_callbacks[song_id];
             },
             error: function( jqXHR, textStatus, errorThrown) {
+                meta = bard.metadataManager;
+                delete meta.song_metadata_cache[song_id];
+                delete meta.song_metadata_callbacks[song_id];
                 alert(textStatus + "\n" + errorThrown);
             }
         });
