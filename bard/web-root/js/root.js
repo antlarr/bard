@@ -218,7 +218,7 @@ function append_rows_to_table_of_songs(songs, table, uniquesuffix='0', playlistI
 
 function add_table_of_songs(songs, appendToObj, uniquesuffix='0', playlistInfo=null, release_column=false, add_header_row=true)
 {
-    table = $("<table/>", { appendTo: appendToObj });
+    var table = $("<table/>", { appendTo: appendToObj });
     return append_rows_to_table_of_songs(songs, table, uniquesuffix, playlistInfo, release_column, add_header_row);
 }
 
@@ -346,6 +346,7 @@ function Bard()
     });
 
     fillPlaylists();
+    this.metadataManager = new MetadataManager();
     //document.requestFullScreen();
     this.base = window.location.protocol + '//' + window.location.host;
 
@@ -394,6 +395,5 @@ function Bard()
         });
     }
 
-    this.metadataManager = new MetadataManager();
 };
 
