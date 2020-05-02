@@ -91,6 +91,7 @@ columns_translations = {
     'release_group_secondary_type_join': {'release_group_id': 'release_group'},
     'release_country': {'release_id': 'release',
                         'country_id': 'country'},
+    'release_unknown_country': {'release_id': 'release'},
     'release_label': {'release_id': 'release',
                       'label_id': 'label'},
     'label': {'mbid': 'gid',
@@ -206,6 +207,7 @@ tables = ['area',
           'recording_alias',
           'release',
           'release_country',
+          'release_unknown_country',
           'release_group',
           'release_label',
           'series',
@@ -314,6 +316,7 @@ indexed_columns = {'artist_alias': ['artist'],
                    'link_attribute': ['link'],
                    'l_artist_release': ['entity1'],
                    'release_country': ['release'],
+                   'release_unknown_country': ['release'],
                    'release_label': ['release'],
                    'medium': ['release'],
                    'l_artist_label': ['entity1'],
@@ -476,6 +479,7 @@ class MusicBrainzImporter:
                         'release_group': MBTableCached,
                         'l_artist_url': MBTableCached,
                         'release_country': MBTableFromDisk,
+                        'release_unknown_country': MBTableFromDisk,
                         'release_label': MBTableFromDisk,
                         'l_artist_release': MBTableFromDisk}
 
@@ -644,6 +648,9 @@ class MusicBrainzImporter:
             MusicDatabase.insert_or_update(dbtable, record,
                 and_(dbtable.c.release_id == record['release_id'],  # noqa
                      dbtable.c.country_id == record['country_id']))
+        elif entity == 'release_unknown_country':
+            MusicDatabase.insert_or_update(dbtable, record,
+                dbtable.c.release_id == record['release_id']) # noqa
         elif entity == 'release_group_secondary_type_join':
             MusicDatabase.insert_or_update(dbtable, record,
                 dbtable.c.release_group_id == record['release_group_id'])  # noqa
@@ -1105,6 +1112,9 @@ class MusicBrainzImporter:
 
         self.import_table('release')
         self.import_elements_from_table('release_country',
+                                        column='release',
+                                        ids=self.ids['release'])
+        self.import_elements_from_table('release_unknown_country',
                                         column='release',
                                         ids=self.ids['release'])
         self.import_table('label')

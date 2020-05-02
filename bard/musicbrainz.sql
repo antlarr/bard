@@ -353,6 +353,20 @@ CREATE TABLE musicbrainz.release_country (
 
 CREATE INDEX ON musicbrainz.release_country(release_id);
 
+CREATE TABLE musicbrainz.release_unknown_country (
+       release_id    INTEGER NOT NULL,
+       date_year  SMALLINT,
+       date_month SMALLINT,
+       date_day   SMALLINT,
+
+       PRIMARY KEY(release_id),
+
+       FOREIGN KEY(release_id)
+         REFERENCES musicbrainz.release(id)
+);
+
+CREATE INDEX ON musicbrainz.release_unknown_country(release_id);
+
 CREATE TABLE musicbrainz.release_label (
        id                  INTEGER PRIMARY KEY,
        release_id          INTEGER NOT NULL,
