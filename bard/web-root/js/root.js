@@ -1,11 +1,49 @@
 var current_song_id = 0;
 var current_playlist_song_info = null;
 
+function parse_query(query_string)
+{
+    var query = {};
+    var pairs = (query_string[0] === '?' ? query_string.substr(1) : query_string).split('&');
+    for (var i = 0; i < pairs.length; i++)
+    {
+        var pair = pairs[i].split('=');
+        query[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1] || '');
+    }
+    return query;
+}
+
+function path_for_component(page, data)
+{
+    if (data && data.hasOwnProperty('id'))
+    {
+        return '/' + page + '?id=' + data['id']
+    }
+    else if (page == 'search' && data)
+    {
+        return '/search?query=' + encodeURIComponent(data['query'])+ '&context=' + data['context'];
+    }
+    else if (page == 'artists' && data)
+    {
+        return '/artists?letter=' + data['letter'];
+    }
+    else
+    {
+        return '/' + page
+    }
+}
 
 function openComponent(page, data=null, push_to_history=true, callback=null)
 {
+    if (page[0] == '/')
+        page = page.slice(1);
+
     if (push_to_history)
-        window.history.pushState({page: 'openComponent', component: page, data:data}, "", "/");
+    {
+        var path = path_for_component(page, data);
+        window.history.pushState({path: path}, "", path);
+    }
+
     $.ajax({
         url: "/component/" + page,
         data: data
@@ -229,7 +267,10 @@ function add_table_of_songs(songs, appendToObj, uniquesuffix='0', playlistInfo=n
 function openAbout(push_to_history=true)
 {
     if (push_to_history)
-        window.history.pushState({page: 'openAbout'}, "", "/");
+    {
+        var path = "/about"
+        window.history.pushState({path: path}, "", path);
+    }
     $( "#container" ).html("<p>About Bard</p>");
 }
 
@@ -299,26 +340,21 @@ function submitLogin()
     });
 }
 
-function openSearchQuery(search_query)
+function openSearchQuery(search_query, push_to_history=false)
 {
-    openComponent('search', null, push_to_history=false, callback= function() {
+    openComponent('search', search_query, push_to_history=push_to_history, callback=function() {
             $("#searchBar").val(search_query['query']);
             searchView.performSearch(false);
         });
 }
 
 window.onpopstate = function( event ) {
-    switch (event.state['page'])
+    if (event.state)
+        bard.openPath(event.state['path'], push_to_history=false);
+    else
     {
-       case 'openComponent':
-            openComponent(event.state['component'], event.state['data'], false, null);
-            break;
-       case 'openAbout':
-            openAbout(false);
-            break;
-       case 'performSearch':
-            openSearchQuery(event.state['search_query']);
-            break;
+        var path = window.location.pathname + window.location.search;
+        bard.openPath(path, push_to_history=false);
     }
 }
 
@@ -394,6 +430,30 @@ function Bard()
           }
         });
     }
+
+    this.openPath = function(path, push_to_history=false)
+    {
+        if (path == '')
+            return;
+        var sep_pos = path.indexOf('?');
+        if (sep_pos == -1)
+        {
+            var page = path;
+            var query = null;
+        }
+        else
+        {
+            var page = path.slice(0, sep_pos);
+            var query = parse_query(path.slice(sep_pos+1));
+        }
+        if (page[0] == '/' && page.length > 1)
+            page = page.slice(1);
+
+        if (page == 'search' && query)
+            openSearchQuery(query, push_to_history);
+        else
+            openComponent(page, query, push_to_history);
+    };
 
 };
 

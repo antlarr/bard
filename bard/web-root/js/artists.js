@@ -88,7 +88,10 @@ function letterOffsetReceived( result )
 function goToLetter(letter, push_to_history=true)
 {
     if (push_to_history)
-        window.history.pushState({page: 'openComponent', component: 'artists', data: {letter: letter}}, "", "/");
+    {
+        path = '/artists?letter=' + letter;
+        window.history.pushState({path: path}, "", path);
+    }
 
     $.ajax({
         url: "/api/v1/artists/letterOffset",

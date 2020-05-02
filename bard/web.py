@@ -102,10 +102,13 @@ def base_href():
     return f'{protocol}://{hostname}:{port}'
 
 
-@app.route('/')
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
 @login_required
-def index():
-    return render_template('index.html', base_href=base_href())
+def catch_all(path):
+    if request.query_string:
+        path = path + '?' + request.query_string.decode('utf-8')
+    return render_template('index.html', base_href=base_href(), path=path)
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -117,8 +120,7 @@ def login():
         user.validate(password)
         if user.is_authenticated:
             login_user(user)
-            print('url_for_index', url_for('index'))
-            next_target = get_redirect_target('index')
+            next_target = get_redirect_target()
             print('redirecting to', next_target)
             return redirect(next_target)
 
@@ -339,9 +341,10 @@ def profile(username):
     return '{}\'s profile'.format(username)
 
 
+@app.route('/component/', defaults={'page': ''})
 @app.route('/component/<page>')
 def component(page):
-    print('component!')
+    print('component!', page)
     if request.method != 'GET':
         return None
     if page in ('search', 'albums', 'genres', 'about'):
@@ -353,7 +356,7 @@ def component(page):
         _id = request.args.get('id', default=0, type=int)
         print('artist page', _id)
         return render_template('%s.html' % page, _id=_id)
-    return '<p>Unknown page</p>'
+    return f'<!-- Unknown component "{page}" -->'
 
 
 @app.route('/hello')

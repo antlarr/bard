@@ -9,7 +9,7 @@ def is_safe_url(target):
         ref_url.netloc == test_url.netloc
 
 
-def get_redirect_target(default='index', use_referrer=False):
+def get_redirect_target(default='', use_referrer=False):
     print('args:', request.args)
     print('default:', default)
     urls = [request.args.get('next')]
@@ -23,4 +23,4 @@ def get_redirect_target(default='index', use_referrer=False):
             print('NEXT', target)
             return target
     print('default', default)
-    return url_for(default)
+    return url_for('catch_all', path=default)

@@ -33,10 +33,14 @@ function SearchView()
 
     this.performSearch = function(push_to_history=true)
     {
+
         search_query = {query: $("#searchBar").val(),
                         context: ''}
         if (push_to_history)
-            window.history.pushState({page: 'performSearch', search_query: search_query}, "", "/");
+        {
+            path = "/search?query=" + encodeURIComponent(search_query['query'])+ "&context=" + search_query['context'];
+            window.history.pushState({path: path}, "", path);
+        }
         $.ajax({
           url: "/api/v1/song/search",
           data: search_query,
