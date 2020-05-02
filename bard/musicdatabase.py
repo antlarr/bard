@@ -1803,6 +1803,8 @@ or name {like} '%%MusicBrainz/Track Id'""")
 
     @staticmethod
     def get_songs_ratings(song_ids, user_id):
+        if not song_ids:
+            return {}
         c = MusicDatabase.getCursor()
         sql = text('SELECT song_id, userrating '
                    '  FROM ratings '
