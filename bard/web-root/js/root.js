@@ -49,6 +49,7 @@ function openComponent(page, data=null, push_to_history=true, callback=null)
         data: data
     }).done(
         function( result, textStatus, jqXHR ) {
+            bard.setTitle(page[0].toUpperCase() + page.slice(1));
             $( "#container" ).html( result );
             if (callback) callback();
     }).fail(
@@ -434,7 +435,10 @@ function Bard()
     this.openPath = function(path, push_to_history=false)
     {
         if (path == '')
+        {
+            bard.setTitle('');
             return;
+        }
         var sep_pos = path.indexOf('?');
         if (sep_pos == -1)
         {
@@ -455,5 +459,13 @@ function Bard()
             openComponent(page, query, push_to_history);
     };
 
+    this.setTitle = function(title, context=null)
+    {
+        if (title)
+            document.title = 'Bard - ' + title;
+        else
+            document.title = 'Bard';
+
+    }
 };
 

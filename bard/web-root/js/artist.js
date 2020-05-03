@@ -32,13 +32,7 @@ function artistInfoReceived( result )
 {
     var r="";
 
-    /*for (i=0 ; i< result.length; i++)
-    {
-        r+="<li><a onclick=\"openArtist('" + result[i].mbid + "')\"><img src=\"artist.jpg\"><p class=\"name\">" + result[i].locale_name + "</p></a></li>";
-    };
-    $( "#artistsList" ).append( r );
-    artistsOffset += result.length;
-    */
+    bard.setTitle(result.name, 'Artist');
     $( "#artistInfo" ).html( "<p>" + result.name + "</p>" );
     r = ""
     for (i=0 ; i<result.aliases.length; i++)

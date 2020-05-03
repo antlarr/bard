@@ -1,5 +1,6 @@
 function playlistInfoReceived( result )
 {
+   bard.setTitle('Playlist ' + result.name);
    $( "#playlistInfo" ).html( "<p>" + result.name + "</p>" );
 }
 

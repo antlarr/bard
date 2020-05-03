@@ -1,7 +1,7 @@
 
 function releaseGroupInfoReceived( result )
 {
-    var r="";
+    bard.setTitle(result.name, 'Release Group');
 
     $( "#releaseGroupInfo" ).html( "<p>" + result.name + "</p>" );
     $( "#releaseGroupArtists" ).html( "<p>" + result.artist_name + "</p>" );

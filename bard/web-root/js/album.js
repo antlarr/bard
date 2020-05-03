@@ -1,5 +1,7 @@
 function albumInfoReceived( result )
 {
+    bard.setTitle(result.name, 'Album');
+
     var r="";
     $( "#artistInfo" ).html( "<p>" + result.name + "</p>" );
     for (i=0 ; i<result.aliases.length; i++)

@@ -93,6 +93,11 @@ function goToLetter(letter, push_to_history=true)
         window.history.pushState({path: path}, "", path);
     }
 
+    if (letter != '0')
+        bard.setTitle('Artists (' + letter + ')', 'Artists');
+    else
+        bard.setTitle('Artists', 'Artists');
+
     $.ajax({
         url: "/api/v1/artists/letterOffset",
         data: {

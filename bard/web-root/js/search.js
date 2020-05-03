@@ -4,6 +4,7 @@ function SearchView()
 {
     this.search_result_offset = 0;
     this.page_size = 100;
+    bard.setTitle('Search');
 
     this.clearResults = function( result )
     {
@@ -13,6 +14,7 @@ function SearchView()
 
     this.songsSearchResultReceived = function( result )
     {
+        bard.setTitle('Search: ' + result.search_query.query);
         var playlistInfo = {
             playlist_type: 'search',
             search_playlist_id: result.search_playlist_id,
