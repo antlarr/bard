@@ -254,3 +254,46 @@ button:focus {
     width: 16px;
     height: 16px;
 }
+
+.album-info {
+    display: flex;
+}
+.album-main-metadata {
+    padding: 2em;
+}
+
+#album-cover {
+    width: 200px;
+}
+
+.medium-header {
+    display: flex;
+    align-items: center;
+}
+
+.medium-signature {
+    flex-grow: 1;
+}
+
+.flag {
+    width: 20px;
+    margin-right: 0.7em;
+}
+
+.release-country {
+    margin-right: 1em;
+}
+
+#album-title {
+    font-size: 130%;
+    font-weight: bold;
+}
+
+#album-artist {
+    font-size: 110%;
+}
+
+#album-status {
+    color: #777;
+    margin-top: 0.4em;
+}

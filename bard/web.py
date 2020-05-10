@@ -1,4 +1,4 @@
-from flask import Flask, request, Response, render_template, url_for, \
+from flask import Flask, request, Response, render_template, \
     jsonify, abort, redirect, send_file
 from jinja2 import FileSystemLoader
 from flask_cors import CORS
@@ -9,7 +9,8 @@ from bard.web_utils import get_redirect_target
 from bard.config import config
 from PIL import Image
 from bard.musicdatabase_songs import getSongs
-from bard.musicbrainz_database import MusicBrainzDatabase, MediumFormatEnum
+from bard.musicbrainz_database import MusicBrainzDatabase, MediumFormatEnum, \
+    LanguageEnum, ReleaseStatusEnum, ReleaseGroupTypeEnum
 from bard.musicdatabase import MusicDatabase
 from bard.playlist import Playlist
 from bard.album import coverAtPath
@@ -573,6 +574,34 @@ def album_tracks():
             medium['tracks'].append(trk)
 
     result.append(medium)
+    return jsonify(result)
+
+
+@app.route('/api/v1/album/info')
+def album_info():
+    if request.method != 'GET':
+        return None
+    MBD = MusicBrainzDatabase
+    albumID = request.args.get('id', type=int)
+    album_info = MBD.get_album_info(albumID)
+    releaseID = album_info['release_id']
+    rgID = album_info['release_group_id']
+    release_group_info = MBD.get_release_group_info(rgID)
+    secondary_types = MBD.get_release_group_secondary_types(rgID)
+    release_events = MBD.get_release_events(releaseID)
+    result = dict(album_info)
+    result['covers_count'] = MusicDatabase.getAlbumCoversCount(albumID)
+    if result['language']:
+        result['language'] = LanguageEnum.name(result['language'])
+    if result['release_status']:
+        result['release_status'] = ReleaseStatusEnum.name(result['release_status'])
+    result['release_group'] = dict(release_group_info)
+    rg_type = result['release_group']['release_group_type']
+    if rg_type:
+        rg_type = ReleaseGroupTypeEnum.name(rg_type)
+        result['release_group']['release_group_type'] = rg_type
+    result['release_group_secondary_types'] = secondary_types
+    result['release_events'] = [dict(x) for x in release_events]
     return jsonify(result)
 
 

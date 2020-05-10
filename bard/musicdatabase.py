@@ -1716,6 +1716,16 @@ or name {like} '%%MusicBrainz/Track Id'""")
         return r.fetchall()
 
     @staticmethod
+    def getAlbumCoversCount(albumID):
+        c = MusicDatabase.getCursor()
+        sql = text('select count(distinct covermd5) '
+                   '  from songs, album_songs '
+                   ' where id = song_id '
+                   '   and album_id = :albumID')
+        r = c.execute(sql, {'albumID': albumID})
+        return r.fetchone()[0]
+
+    @staticmethod
     def getAlbumPath(albumID, mediumNumber=None, any_medium=False):
         """Return the path of an album."""
         """mediumNumber can be a medium number or None. If None, then"""

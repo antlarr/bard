@@ -16,6 +16,9 @@ FullSongsWebQuery = namedtuple('FullSongsWebQuery',
 FullSongsWebQuery.__new__.__defaults__ = ('', '', '', '', {}, None, None)
 
 MediumFormatEnum = DatabaseEnum('medium_format', schema='musicbrainz')
+ReleaseStatusEnum = DatabaseEnum('release_status', schema='musicbrainz')
+LanguageEnum = DatabaseEnum('language', schema='musicbrainz')
+ReleaseGroupTypeEnum = DatabaseEnum('release_group_type', schema='musicbrainz')
 
 # https://picard.musicbrainz.org/docs/mappings/
 convert_tag = {
@@ -832,6 +835,40 @@ class MusicBrainzDatabase:
                               release_label['catalog_number'])
 
         return ','.join(result)
+
+    @staticmethod
+    def get_album_info(albumID):
+        c = MusicDatabase.getCursor()
+        sql = text('select album_id, r.id release_id, mbid release_mbid, '
+                   '       r.name, disambiguation, '
+                   '       release_status, language, barcode, '
+                   '       artist_credit_id, ac.name artist_credit_name, '
+                   '       r.release_group_id '
+                   '  from musicbrainz.release r, '
+                   '       musicbrainz.artist_credit ac, '
+                   '       album_release ar'
+                   ' where ar.release_id = r.id '
+                   '   and r.artist_credit_id = ac.id '
+                   '   and ar.album_id = :albumID ')
+        result = c.execute(sql, {'albumID': albumID})
+        return result.fetchone()
+
+    @staticmethod
+    def get_release_events(releaseID):
+        c = MusicDatabase.getCursor()
+        sql = text('select a.name country, date_year, date_month, date_day '
+                   '  from musicbrainz.release_country rc, '
+                   '       musicbrainz.area a '
+                   ' where rc.release_id = :releaseID '
+                   '   and rc.country_id = a.id')
+        result = c.execute(sql, {'releaseID': releaseID})
+        r = result.fetchall()
+        sql = text('select NULL country, date_year, date_month, date_day '
+                   '  from musicbrainz.release_unknown_country rc '
+                   ' where rc.release_id = :releaseID')
+        result = c.execute(sql, {'releaseID': releaseID})
+        r.extend(result.fetchall())
+        return r
 
     @staticmethod
     def get_album_tracks(albumID):

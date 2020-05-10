@@ -79,16 +79,21 @@ function finalizeFormatArtist(jq, artist_credit)
     jq.append(ac);
 }
 
-function formatArtist(jq, song, playlist_song_info)
+function formatArtist(jq, artist_credit_id, artist_name)
 {
-    bard.metadataManager.get_artist_credit_info(song['artist_credit_id'],
+    bard.metadataManager.get_artist_credit_info(artist_credit_id,
         function(data) {
             finalizeFormatArtist(jq, data);
         },
         function() {
-            jq.html(song['artist_name']);
+            jq.html(artist_name);
         }
     );
+}
+
+function formatArtist_from_song(jq, song, playlist_song_info)
+{
+    formatArtist(jq, song['artist_credit_id'], song['artist_name']);
 }
 
 
@@ -193,7 +198,7 @@ function formatRatings(jq, song, playlistInfo)
 
 const columns_base = [['#', ['position', 'track_position']],
            ['Name', formatSongName],
-           ['Artist', formatArtist],
+           ['Artist', formatArtist_from_song],
            ['Ratings', formatRatings],
            ['Length', formatDuration ]];
 

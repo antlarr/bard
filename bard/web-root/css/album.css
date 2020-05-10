@@ -14,8 +14,8 @@
   padding: 2em;
 }
 
+/*
 #albumTracks {
-  list-style-type:none;
   min-height: -webkit-min-content;
   display: flex;
   flex-flow: row wrap;
@@ -23,20 +23,11 @@
   align-items: flex-start;
   align-content: flex-start;
 }
-
-#albumTracks li {
-/*  height: 12em;*/
-  text-align: left;
-  margin:0 1em;
-}
-
-#albumTracks img {
-  width: 10em;
-  height: 10em;
-}
+*/
 
 div.medium {
   width:100%;
+  margin-top: 1em;
 }
 
 .medium table {
