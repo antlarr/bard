@@ -768,7 +768,8 @@ CREATE TABLE cuesheets(
             if cuesheettracks:
                 sql = ('INSERT INTO cuesheets(song_id, idx, sample_position, '
                        'time_position, title) '
-                       'VALUES (:id,:idx,:sample_position,:time_position,:title)')
+                       'VALUES (:id,:idx,:sample_position,:time_position, '
+                       '        :title)')
                 try:
                     c.execute(text(sql), cuesheettracks)
                 except ValueError:
@@ -885,7 +886,8 @@ CREATE TABLE cuesheets(
             if cuesheettracks:
                 sql = ('INSERT INTO cuesheets(song_id, idx, sample_position, '
                        'time_position, title) '
-                       'VALUES (:id,:idx,:sample_position,:time_position,:title)')
+                       'VALUES (:id,:idx,:sample_position,:time_position,'
+                       '        :title)')
                 try:
                     c.execute(text(sql), cuesheettracks)
                 except ValueError:
@@ -1814,7 +1816,8 @@ or name {like} '%%MusicBrainz/Track Id'""")
         r = c.execute(sql.bindparams(user_id=user_id,
                                      song_ids=tuple(song_ids)))
 
-        result = {row['song_id']: (row['userrating'], 'user') for row in r.fetchall()}
+        result = {row['song_id']: (row['userrating'], 'user')
+                  for row in r.fetchall()}
         sql = text('SELECT song_id, AVG(userrating) avgrating'
                    '  FROM ratings '
                    ' WHERE user_id != :user_id '
