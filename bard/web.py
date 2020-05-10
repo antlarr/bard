@@ -590,6 +590,13 @@ def album_cover():
               f'{album_id}/{medium_number}')
         return ''
     coverfilename = coverAtPath(path)
+    if not coverfilename and not medium_number:
+        path = MusicDatabase.getAlbumPath(album_id, any_medium=True)
+        if not path:
+            print('ERROR getting album image for album'
+                  f'{album_id}/{medium_number}')
+            return ''
+        coverfilename = coverAtPath(path)
 
     if coverfilename:
         return send_file(coverfilename)

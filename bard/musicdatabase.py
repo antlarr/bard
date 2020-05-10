@@ -1716,13 +1716,26 @@ or name {like} '%%MusicBrainz/Track Id'""")
         return r.fetchall()
 
     @staticmethod
-    def getAlbumPath(albumID, mediumNumber=None):
+    def getAlbumPath(albumID, mediumNumber=None, any_medium=False):
+        """Return the path of an album."""
+        """mediumNumber can be a medium number or None. If None, then"""
+        """any existing medium path is returned if any is True, or"""
+        """the root album path is returned if any is False"""
         c = MusicDatabase.getCursor()
-        if not mediumNumber:
+        if not mediumNumber and not any_medium:
             sql = text('select path from albums '
                        ' where id = :albumID')
             r = c.execute(sql, {'albumID': albumID}).fetchone()
-            return r[0] if r else None
+            if r:
+                return r[0]
+        if not mediumNumber:
+            sql = text('select path from songs, album_songs '
+                       ' where id = song_id '
+                       '   and album_id = :albumID '
+                       '   order by discnumber '
+                       ' LIMIT 1')
+            r = c.execute(sql, {'albumID': albumID}).fetchone()
+            return os.path.dirname(r[0]) if r else None
         sql = text('select path from songs, album_songs '
                    ' where id = song_id '
                    '   and album_id = :albumID '
