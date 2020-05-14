@@ -1,6 +1,11 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 
+# Original script from
+# https://gist.githubusercontent.com/lw/3340802/raw/1a078a259fa93f6a20488086927fa4f48392bc6a/get_flags.py
+#
 # Copyright 2013 Luca Wehrstedt
+# Copyright 2020 Antonio Larrosa (small modifications to use it to download
+# flags for bard)
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -28,11 +33,19 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from bard.musicdatabase import MusicDatabase
+from sqlalchemy import text
+import subprocess
+import time
 import argparse
 import re
 import json
 from urllib.parse import quote
 from urllib.request import urlopen, Request
+
+
+def clean(s):
+    return re.sub(' *<!--.*-->', '', s)
 
 
 def get_contents(l):
@@ -50,8 +63,12 @@ def get_contents(l):
     if "redirects" in data["query"]:
         redirects.update({r["from"]: r["to"]
                           for r in data["query"]["redirects"]})
-    contents = {p["title"]: p["revisions"][0]["*"]
-                for p in data["query"]["pages"].values()}
+    try:
+        contents = {p["title"]: p["revisions"][0]["*"]
+                    for p in data["query"]["pages"].values()}
+    except KeyError:
+        print(data['query']['pages'].values())
+        raise
 
     return {i: contents[redirects[normalized[i]]] for i in l}
 
@@ -62,7 +79,8 @@ def get_flag_pages(l):
     result = dict()
     pat = r"\|[ \t\r\n]*flag alias[ \t\r\n]*=[ \t\r\n]*(.*?)[ \t\r\n]*\|"
     for k, v in d.items():
-        result[k[22:]] = re.findall(pat, v)[0]
+        v = clean(v)
+        result[k[22:]] = clean(re.findall(pat, v)[0])
 
     return result
 
@@ -89,20 +107,64 @@ def get_download_urls(l):
 
 
 def do(l):
+    if l[0] in ['Saint Vincent and The Grenadines']:
+        print(f'No flag for {l}')
+        return [(None, None)]
     d = get_flag_pages(l)
     urls = get_download_urls(["File:%s" % i for i in d.values()])
 
+    result = []
     for k, v in {k: urls["File:%s" % v] for k, v in d.items()}.items():
         s = urlopen(Request(v, headers={'User-agent': 'Mozilla/5.0'})).read()
         name = "%s%s" % (k, v[v.rindex('.'):])
         open(name, "wb").write(s)
+        result.append((k, v[v.rindex('.'):]))
+
+    return result
+
+
+def get_country_names():
+    _ = MusicDatabase()
+    c = MusicDatabase.getCursor()
+
+    sql = text('SELECT name '
+               '  FROM musicbrainz.area '
+               ' WHERE area_type = 1 '
+               '   ORDER BY name')
+
+    r = c.execute(sql)
+    return [x[0] for x in r.fetchall()]
+
+
+def download_all_countries():
+    countries = get_country_names()
+    for country in countries:
+        print(country)
+        filenames = do([country])
+        print('country: ', filenames)
+        for basename, extension in filenames:
+            if extension == '.png':
+                print('Already in png. Skipping')
+                continue
+            filename = f'{basename}{extension}'
+            output = f'{basename}.png'
+            subprocess.run(['convert', filename, '-resize', '32', output])
+        time.sleep(3)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Retrieve country flags from '
                                      'Wikipedia.')
-    parser.add_argument('code', nargs='+',
+    parser.add_argument('code', nargs='*',
                         help='a country name or code (either ISO, IOC, etc.)')
+    parser.add_argument('--all', dest='all',
+                        action='store_true', help='Download all countries '
+                        'in db')
     args = parser.parse_args()
-    for i in range(0, len(args.code), 50):
-        do(args.code[i:i + 50])
+    if args.all:
+        download_all_countries()
+    elif args.code:
+        for i in range(0, len(args.code), 50):
+            do(args.code[i:i + 50])
+    else:
+        parser.print_help()
