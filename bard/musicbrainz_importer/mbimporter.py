@@ -1078,6 +1078,72 @@ class MusicBrainzImporter:
 
         self.import_elements_from_table(tablename, ids=self.ids[tablename])
 
+    def get_song_id_for_recordings_dict(self):
+        c = MusicDatabase.getCursor()
+        sql = text('SELECT mr.id recording_id, song_id '
+                   '  FROM songs_mb, musicbrainz.recording mr '
+                   ' WHERE mr.mbid = songs_mb.recordingid ORDER BY 1')
+        pairs = c.execute(sql)
+        recording_id, song_id = pairs.fetchone()
+        last_recording_id = recording_id
+        songs = [song_id]
+        result = {}
+        for recording_id, song_id in pairs.fetchall():
+            if recording_id != last_recording_id:
+                result[last_recording_id] = songs
+                songs = [song_id]
+                last_recording_id = recording_id
+            else:
+                songs.append(song_id)
+        result[last_recording_id] = songs
+        return result
+
+    def import_ratings_from_table(self, entity, musicbrainzUserID):
+        self.load_musicbrainz_schema_importer_names()
+        if entity == 'recording':
+            tablename = 'recording_meta'
+            tgt_tablename = 'songs_ratings'
+            tgt_column = 'song_id'
+            conversion = self.get_song_id_for_recordings_dict()
+            ids = self.ids['recording']
+        table = self.get_mbdump_tableiter(tablename)
+        print(f'Importing ratings from table {tablename}...')
+
+        sqlupdate = text(f'UPDATE {tgt_tablename} '
+                         f'   SET userrating=:rating '
+                         f' WHERE user_id={musicbrainzUserID} '
+                         f'   AND {tgt_column}=:tgt_entity')
+
+        sqlinsert = text(f'INSERT INTO {tgt_tablename} '
+                         f'(user_id, {tgt_column}, userrating) '
+                         f'VALUES ({musicbrainzUserID}, :tgt_entity, :rating)')
+        c = MusicDatabase.getCursor()
+        for item in table.getlines_matching_values('id', ids):
+            if item['rating'] is None:
+                continue
+            try:
+                tgt_entity_ids = conversion[item['id']]
+            except KeyError:
+                print(f'Missing {entity} id {item["id"]}')
+                continue
+
+            for tgt_entity_id in tgt_entity_ids:
+                r = c.execute(sqlupdate.bindparams(tgt_entity=tgt_entity_id,
+                                                   rating=item['rating'] / 10))
+
+                if r.rowcount == 0:
+                    c.execute(sqlinsert.bindparams(tgt_entity=tgt_entity_id,
+                                                   rating=item['rating'] / 10))
+        c.commit()
+
+    def import_ratings(self):
+        musicbrainzUserID = MusicDatabase.getUserID('_musicbrainz',
+                                                    create=True)
+        MusicDatabase.setUserActive(musicbrainzUserID, False)
+
+        self.import_ratings_from_table('recording',
+                                       musicbrainzUserID=musicbrainzUserID)
+
     def import_everything(self):
         self.import_enum_table('enum_area_type_values')
         self.import_enum_table('enum_artist_alias_type_values')
@@ -1144,3 +1210,5 @@ class MusicBrainzImporter:
         for entity, relations in related_entities_to_import.items():
             for rel, event_pos, both_checked in relations:
                 self.import_relationship_table(entity, rel, event_pos)
+
+        self.import_ratings()

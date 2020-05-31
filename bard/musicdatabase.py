@@ -1525,6 +1525,18 @@ or name {like} '%%MusicBrainz/Track Id'""")
         return None
 
     @staticmethod
+    def setUserActive(userID, active):
+        c = MusicDatabase.getCursor()
+        sql = 'UPDATE users SET active=:active WHERE id = :id'
+        result = c.execute(text(sql).bindparams(active=active,
+                                                id=userID))
+        if result.rowcount == 0:
+            return False
+        MusicDatabase.commit()
+
+        return True
+
+    @staticmethod
     def lastSongID():
         sql = 'select max(id) from songs'
         c = MusicDatabase.getCursor()
