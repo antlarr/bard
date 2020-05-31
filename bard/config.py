@@ -29,7 +29,7 @@ def addDefaultValues(config):
     defaults = {
         'immutableDatabase': False,
         'matchThreshold': 0.8,
-        'storeThreshold': 0.58,
+        'storeThreshold': 0.60,
         'shortSongStoreThreshold': 0.68,
         'shortSongLength': 53,
         'port': 5000,
