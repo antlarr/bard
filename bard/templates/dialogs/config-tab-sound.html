@@ -1,0 +1,40 @@
+<div id="tab-sound">
+  <h2>Sound Tab</h2>
+  <p>Select where music is played</p>
+  Play on: <select id="output-device">
+  </select>
+  <button id="refresh-devices">&#x21bb;</button>
+</div>
+
+<script type="text/javascript">
+    function reload_devices(refresh=false)
+    {
+        $.ajax({
+            url: "/api/v1/devices/list",
+            data: {refresh: refresh}
+        }).done(
+            function( result, textStatus, jqXHR ) {
+                bard.fillSelectOptions($('#output-device'), result['devices'], result['active']);
+        }).fail(
+            function( jqXHR, textStatus, errorThrown) {
+                alert(textStatus + "\n" + errorThrown);
+        });
+    }
+
+    reload_devices(false);
+
+    $('#output-device').on('change', function(event) {
+        console.log(event.currentTarget.value);
+        $.ajax({
+            url: "/api/v1/devices/set_player",
+            data: {device: event.currentTarget.value}
+        }).fail(
+            function( jqXHR, textStatus, errorThrown) {
+                alert(textStatus + "\n" + errorThrown);
+        });
+    });
+
+    $('#refresh-devices').on('click', function(event) {
+        reload_devices(true);
+    });
+</script>

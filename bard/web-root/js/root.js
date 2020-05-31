@@ -387,6 +387,12 @@ function Bard()
         event.preventDefault();
     });
 
+    $( "#nav-configuration" ).on( "click", function( event ) {
+        if ( !$('[data-dialog-name=configuration]').length )
+            bard.openDialog('configuration');
+        event.preventDefault();
+    });
+
     fillPlaylists();
     this.metadataManager = new MetadataManager();
     //document.requestFullScreen();
@@ -471,6 +477,45 @@ function Bard()
         else
             document.title = 'Bard';
 
+    }
+
+    this.openDialog = function(dialog_name)
+    {
+        $.ajax({
+            url: "/dialog/" + dialog_name
+        }).done(
+            function( result, textStatus, jqXHR ) {
+                var dialog = $('<div/>', {'data-dialog-name': dialog_name});
+                $(document.body).append(dialog);
+                dialog.dialog({
+                    title: dialog_name,
+                    width: 500,
+                    height: 500,
+                });
+                dialog.html(result);
+                console.log('dialog_name: ' + dialog_name);
+                dialog.on('dialogclose', function(event, ui) {
+                    console.log(event);
+                    console.log(ui);
+                    $(event.target).remove();
+                });
+        }).fail(
+            function( jqXHR, textStatus, errorThrown) {
+                alert(textStatus + "\n" + errorThrown);
+        });
+    }
+
+    this.fillSelectOptions = function(object, options, selected_idx)
+    {
+        object.empty();
+        for (var i = 0; i < options.length; i++)
+        {
+            $('<option/>', {
+                selected: i == selected_idx? true: false,
+                text: options[i],
+                appendTo: object
+            });
+        }
     }
 };
 

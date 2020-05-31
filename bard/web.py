@@ -1,6 +1,7 @@
 from flask import Flask, request, Response, render_template, \
     jsonify, abort, redirect, send_file
 from jinja2 import FileSystemLoader
+import jinja2.exceptions
 from flask_cors import CORS
 from flask_login import LoginManager, login_required, login_user, \
     logout_user, current_user
@@ -746,6 +747,41 @@ def song_set_ratings():
     song = song[0]
     song.setUserRating(rating, current_user.userID)
 
+    return ''
+
+
+@app.route('/dialog/<dialogname>')
+def dialog(dialogname):
+    print('dialog', dialogname)
+    if request.method != 'GET':
+        return None
+
+    dialogname = ''.join(x for x in dialogname if x not in (' ', '/', '.'))
+    try:
+        return render_template(f'dialogs/{dialogname}.html')
+    except jinja2.exceptions.TemplateNotFound:
+        return f'<!-- Unknown dialog "{dialogname}" -->'
+
+
+@login_required
+@app.route('/api/v1/devices/list')
+def devices_list():
+    if request.method != 'GET':
+        return None
+    refresh = request.args.get('refresh', default="false") == 'true'
+    if refresh:
+        print('Refreshing available devices...')
+    devices = ['Web browser', 'Sonos: Living Room', 'Chromecast: Kitchen']
+    return jsonify({'devices': devices, 'active': 'Web browser'})
+
+
+@login_required
+@app.route('/api/v1/devices/set_player')
+def set_player():
+    if request.method != 'GET':
+        return None
+    device = request.args.get('device', type=str)
+    print(f'Setting active device: {device}')
     return ''
 
 
