@@ -486,6 +486,7 @@ class MusicBrainzDatabase:
                     artist.c.sort_name, artist.c.artist_type, artist.c.area_id,
                     artist.c.gender, artist.c.disambiguation])
         locales = ['es', 'en']
+        c = MusicDatabase.getCursor()
         for a in MusicDatabase.execute(s).fetchall():
             s2 = (select([aa.c.name, aa.c.sort_name, aa.c.locale,
                          aa.c.artist_alias_type, aa.c.primary_for_locale])
@@ -505,7 +506,8 @@ class MusicBrainzDatabase:
                            'artist_alias_type': None}
 
             current['id'] = a['id']
-            MusicDatabase.insert_or_update('artists_mb', current)
+            MusicDatabase.insert_or_update('artists_mb', current, connection=c)
+        MusicDatabase.commit()
 
     @staticmethod
     def get_letter_offset_for_artist(letter):
