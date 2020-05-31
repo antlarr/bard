@@ -474,18 +474,37 @@ CREATE TABLE similarities(
  CREATE TABLE users (
                   id {serial_primary_key},
                   name TEXT,
-                  password BYTEA
+                  password BYTEA,
+                  active BOOLEAN DEFAULT TRUE,
                   )''')
         c.execute('''
- CREATE TABLE ratings (
+ CREATE TABLE songs_ratings (
                   user_id INTEGER,
                   song_id INTEGER,
-                  userrating INTEGER,
-                  autorating INTEGER,
+                  rating INTEGER,
                   UNIQUE(user_id, song_id),
-                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE,
+                  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
+                  )''')
+        c.execute(f'''
+ CREATE TABLE albums_ratings (
+                  user_id INTEGER,
+                  album_id INTEGER,
+                  rating INTEGER,
+                  UNIQUE(user_id, album_id),
+                  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+                  FOREIGN KEY(album_id) REFERENCES albums(id) ON DELETE CASCADE
+                  )''')
+        c.execute(f'''
+ CREATE TABLE artists_ratings (
+                  user_id INTEGER,
+                  artist_id INTEGER,
+                  rating INTEGER,
+                  UNIQUE(user_id, artist_id),
                   FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
                   )''')
+        # The foreign key for artist_id will be created after the
+        # artists_mb table is created.
         c.execute(f'''
  CREATE TABLE songs_history (
                   id {serial_primary_key},
@@ -914,7 +933,7 @@ CREATE TABLE cuesheets(
         c.execute('DELETE FROM fingerprints where song_id=:id', params)
         c.execute('DELETE FROM tags where song_id=:id', params)
         c.execute('DELETE FROM properties where song_id=:id', params)
-        c.execute('DELETE FROM ratings where song_id=:id', params)
+        c.execute('DELETE FROM songs_ratings where song_id=:id', params)
         c.execute('DELETE FROM album_songs where song_id=:id', params)
         c.execute('DELETE FROM songs where id=:id', params)
         MusicDatabase.commit()
@@ -1832,7 +1851,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
             return {}
         c = MusicDatabase.getCursor()
         sql = text('SELECT song_id, userrating '
-                   '  FROM ratings '
+                   '  FROM songs_ratings '
                    ' WHERE user_id = :user_id '
                    '   AND song_id in :song_ids')
 
@@ -1842,7 +1861,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
         result = {row['song_id']: (row['userrating'], 'user')
                   for row in r.fetchall()}
         sql = text('SELECT song_id, AVG(userrating) avgrating'
-                   '  FROM ratings '
+                   '  FROM songs_ratings '
                    ' WHERE user_id != :user_id '
                    '   AND song_id in :song_ids'
                    ' GROUP BY song_id')

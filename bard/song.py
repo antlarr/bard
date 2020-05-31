@@ -47,32 +47,23 @@ class Ratings:
     def __init__(self):
         """Create a Ratings object with ALL ratings from all users/songs."""
         c = MusicDatabase.getCursor()
-        sql = 'SELECT user_id, song_id, autorating, userrating FROM ratings'
+        sql = 'SELECT user_id, song_id, userrating FROM songs_ratings'
         result = c.execute(sql)
         self.user_ratings = {}
-        self.auto_ratings = {}
-        for user_id, song_id, autorating, userrating in result.fetchall():
+        for user_id, song_id, userrating in result.fetchall():
             if userrating:
                 try:
                     self.user_ratings[user_id][song_id] = userrating
                 except KeyError:
                     self.user_ratings[user_id] = {}
                     self.user_ratings[user_id][song_id] = userrating
-            if autorating:
-                try:
-                    self.auto_ratings[user_id][song_id] = autorating
-                except KeyError:
-                    self.auto_ratings[user_id] = {}
-                    self.auto_ratings[user_id][song_id] = autorating
 
     def getSongRatings(self, user_id, song_id):
         try:
             return self.user_ratings[user_id][song_id]
         except KeyError:
-            try:
-                return self.auto_ratings[user_id][song_id]
-            except KeyError:
-                return 5
+            # Should we return the average ratings for the rest of users?
+            return 5
 
     def setSongUserRating(self, user_id, song_id, rating):
         try:
@@ -82,13 +73,13 @@ class Ratings:
             self.user_ratings[user_id][song_id] = rating
 
         c = MusicDatabase.getCursor()
-        sql = ('UPDATE ratings set userrating = :rating '
+        sql = ('UPDATE songs_ratings set userrating = :rating '
                'WHERE user_id = :user_id AND song_id = :song_id')
         sql = text(sql).bindparams(rating=rating, user_id=user_id,
                                    song_id=song_id)
         result = c.execute(sql)
         if result.rowcount == 0:
-            sql = ('INSERT INTO ratings '
+            sql = ('INSERT INTO songs_ratings '
                    '(user_id, song_id, userrating) '
                    'VALUES (:user_id,:song_id,:rating)')
             sql = text(sql).bindparams(rating=rating, user_id=user_id,

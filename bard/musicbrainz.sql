@@ -1635,6 +1635,8 @@ CREATE TABLE artists_mb (
           REFERENCES musicbrainz.artist(id)
 );
 
+ALTER TABLE artists_ratings ADD CONSTRAINT artists_ratings_artist_id_fkey FOREIGN KEY(artist_id) REFERENCES artists_mb(id);
+
 -- CREATE TABLE album_release (
 --        album_id INTEGER,
 --        release_id INTEGER,
