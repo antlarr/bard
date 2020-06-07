@@ -47,16 +47,16 @@ class Ratings:
     def __init__(self):
         """Create a Ratings object with ALL ratings from all users/songs."""
         c = MusicDatabase.getCursor()
-        sql = 'SELECT user_id, song_id, userrating FROM songs_ratings'
+        sql = 'SELECT user_id, song_id, rating FROM songs_ratings'
         result = c.execute(sql)
         self.user_ratings = {}
-        for user_id, song_id, userrating in result.fetchall():
-            if userrating:
+        for user_id, song_id, rating in result.fetchall():
+            if rating:
                 try:
-                    self.user_ratings[user_id][song_id] = userrating
+                    self.user_ratings[user_id][song_id] = rating
                 except KeyError:
                     self.user_ratings[user_id] = {}
-                    self.user_ratings[user_id][song_id] = userrating
+                    self.user_ratings[user_id][song_id] = rating
 
     def getSongRatings(self, user_id, song_id):
         try:
@@ -73,14 +73,14 @@ class Ratings:
             self.user_ratings[user_id][song_id] = rating
 
         c = MusicDatabase.getCursor()
-        sql = ('UPDATE songs_ratings set userrating = :rating '
+        sql = ('UPDATE songs_ratings set rating = :rating '
                'WHERE user_id = :user_id AND song_id = :song_id')
         sql = text(sql).bindparams(rating=rating, user_id=user_id,
                                    song_id=song_id)
         result = c.execute(sql)
         if result.rowcount == 0:
             sql = ('INSERT INTO songs_ratings '
-                   '(user_id, song_id, userrating) '
+                   '(user_id, song_id, rating) '
                    'VALUES (:user_id,:song_id,:rating)')
             sql = text(sql).bindparams(rating=rating, user_id=user_id,
                                        song_id=song_id)

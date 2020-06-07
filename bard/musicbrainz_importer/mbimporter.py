@@ -1110,12 +1110,12 @@ class MusicBrainzImporter:
         print(f'Importing ratings from table {tablename}...')
 
         sqlupdate = text(f'UPDATE {tgt_tablename} '
-                         f'   SET userrating=:rating '
+                         f'   SET rating=:rating '
                          f' WHERE user_id={musicbrainzUserID} '
                          f'   AND {tgt_column}=:tgt_entity')
 
         sqlinsert = text(f'INSERT INTO {tgt_tablename} '
-                         f'(user_id, {tgt_column}, userrating) '
+                         f'(user_id, {tgt_column}, rating) '
                          f'VALUES ({musicbrainzUserID}, :tgt_entity, :rating)')
         c = MusicDatabase.getCursor()
         for item in table.getlines_matching_values('id', ids):

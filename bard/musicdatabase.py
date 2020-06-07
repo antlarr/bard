@@ -1862,7 +1862,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
         if not song_ids:
             return {}
         c = MusicDatabase.getCursor()
-        sql = text('SELECT song_id, userrating '
+        sql = text('SELECT song_id, rating '
                    '  FROM songs_ratings '
                    ' WHERE user_id = :user_id '
                    '   AND song_id in :song_ids')
@@ -1870,9 +1870,9 @@ or name {like} '%%MusicBrainz/Track Id'""")
         r = c.execute(sql.bindparams(user_id=user_id,
                                      song_ids=tuple(song_ids)))
 
-        result = {row['song_id']: (row['userrating'], 'user')
+        result = {row['song_id']: (row['rating'], 'user')
                   for row in r.fetchall()}
-        sql = text('SELECT song_id, AVG(userrating) avgrating'
+        sql = text('SELECT song_id, AVG(rating) avgrating'
                    '  FROM songs_ratings '
                    ' WHERE user_id != :user_id '
                    '   AND song_id in :song_ids'
