@@ -7,6 +7,7 @@ import enum
 import sys
 import fcntl
 import os
+import readline
 
 
 class TerminalKey(enum.Enum):
@@ -85,7 +86,7 @@ class Chooser:
         self.options = options
         self.msg = msg
 
-    def choose(self):
+    def choose(self, key_callbacks={}):
         print(self.msg)
         self.print_options()
         key = None
@@ -97,6 +98,12 @@ class Chooser:
                 self.selected = min(len(self.options) - 1, self.selected + 1)
             elif key == TerminalKey.KEY_ESC:
                 return None
+            elif key in key_callbacks:
+                callback = key_callbacks[key]
+                r = callback(self)
+                if r is not None:
+                    return r
+
             self.go_back_to_beginning_of_list()
             self.print_options()
         return self.selected
@@ -108,9 +115,29 @@ class Chooser:
         sys.stdout.write('\033[1D' * (max([len(x) for x in self.options]) + 3))
         sys.stdout.flush()
 
-    def print_options(self):
+    def edit_option(self, idx):
+        # Go up
+        sys.stdout.write('\033[1A' * (len(self.options) - idx))
+        # Go left to the beginning of the line
+        sys.stdout.write('\033[1D' * (max([len(x) for x in self.options]) + 3))
+        sys.stdout.flush()
+        prev_value = self.options[idx]
+        readline.set_startup_hook(lambda: readline.insert_text(prev_value))
+        try:
+            new_value = input('E: ')
+        finally:
+            readline.set_startup_hook()
+
+        self.options[idx] = new_value
+        sys.stdout.write('\033[1A' * (idx + 1))
+        sys.stdout.write('\033[1D' * (max([len(x) for x in self.options]) + 3))
+        sys.stdout.flush()
+        self.print_options()
+        return prev_value, new_value
+
+    def print_options(self, highlight_selected=True):
         for idx, item in enumerate(self.options):
-            if idx == self.selected:
+            if highlight_selected and idx == self.selected:
                 print(TerminalColors.White + '->', item + TerminalColors.ENDC)
             else:
                 print('  ', item)
