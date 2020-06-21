@@ -1078,7 +1078,7 @@ class MusicBrainzImporter:
 
         self.import_elements_from_table(tablename, ids=self.ids[tablename])
 
-    def get_song_id_for_recordings_dict(self):
+    def get_song_ids_for_recordings_dict(self):
         c = MusicDatabase.getCursor()
         sql = text('SELECT mr.id recording_id, song_id '
                    '  FROM songs_mb, musicbrainz.recording mr '
@@ -1098,14 +1098,47 @@ class MusicBrainzImporter:
         result[last_recording_id] = songs
         return result
 
+    def get_album_ids_for_release_groups_dict(self):
+        c = MusicDatabase.getCursor()
+        sql = text('SELECT mr.release_group_id , album_id '
+                   '  FROM album_release, musicbrainz.release mr'
+                   ' WHERE release_id = mr.id '
+                   '  ORDER BY 1')
+        pairs = c.execute(sql)
+        rg_id, album_id = pairs.fetchone()
+        last_rg_id = rg_id
+        albums = [album_id]
+        result = {}
+        for rg_id, album_id in pairs.fetchall():
+            if rg_id != last_rg_id:
+                result[last_rg_id] = albums
+                albums = [album_id]
+                last_rg_id = rg_id
+            else:
+                albums.append(album_id)
+        result[last_rg_id] = albums
+        return result
+
     def import_ratings_from_table(self, entity, musicbrainzUserID):
         self.load_musicbrainz_schema_importer_names()
         if entity == 'recording':
             tablename = 'recording_meta'
             tgt_tablename = 'songs_ratings'
             tgt_column = 'song_id'
-            conversion = self.get_song_id_for_recordings_dict()
+            conversion = self.get_song_ids_for_recordings_dict()
             ids = self.ids['recording']
+        elif entity == 'release-group':
+            tablename = 'release_group_meta'
+            tgt_tablename = 'albums_ratings'
+            tgt_column = 'album_id'
+            conversion = self.get_album_ids_for_release_groups_dict()
+            ids = self.ids['release_group']
+        elif entity == 'artist':
+            tablename = 'artist_meta'
+            tgt_tablename = 'artists_ratings'
+            tgt_column = 'artist_id'
+            conversion = None
+            ids = self.ids['artist']
         table = self.get_mbdump_tableiter(tablename)
         print(f'Importing ratings from table {tablename}...')
 
@@ -1121,11 +1154,14 @@ class MusicBrainzImporter:
         for item in table.getlines_matching_values('id', ids):
             if item['rating'] is None:
                 continue
-            try:
-                tgt_entity_ids = conversion[item['id']]
-            except KeyError:
-                print(f'Missing {entity} id {item["id"]}')
-                continue
+            if conversion:
+                try:
+                    tgt_entity_ids = conversion[item['id']]
+                except KeyError:
+                    print(f'{entity} id {item["id"]} cannot be converted to {tgt_column}')
+                    continue
+            else:
+                tgt_entity_ids = [item['id']]
 
             for tgt_entity_id in tgt_entity_ids:
                 r = c.execute(sqlupdate.bindparams(tgt_entity=tgt_entity_id,
@@ -1142,6 +1178,10 @@ class MusicBrainzImporter:
         MusicDatabase.setUserActive(musicbrainzUserID, False)
 
         self.import_ratings_from_table('recording',
+                                       musicbrainzUserID=musicbrainzUserID)
+        self.import_ratings_from_table('release-group',
+                                       musicbrainzUserID=musicbrainzUserID)
+        self.import_ratings_from_table('artist',
                                        musicbrainzUserID=musicbrainzUserID)
 
     def import_everything(self):
