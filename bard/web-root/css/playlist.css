@@ -37,11 +37,6 @@ table.playlist {
   padding: 1em 0.5em;
 }
 
-.horizontal {
-  display: flex;
-  flex-flow: horizontal;
-  align-items: center;
-}
 .playlist td.no-padding {
   padding: 0 0.5em;
 }

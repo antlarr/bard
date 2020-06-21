@@ -114,4 +114,34 @@ function MetadataManager()
             }
         });
     }
+
+    this.set_album_ratings = function(album_id, rating, callback)
+    {
+        $.ajax({
+            url: "/api/v1/album/set_ratings",
+            data: {id: album_id,
+                   rating: rating},
+            success: function( data, textStatus, jqXHR) {
+                callback(rating);
+            },
+            error: function( jqXHR, textStatus, errorThrown) {
+                alert(textStatus + "\n" + errorThrown);
+            }
+        });
+    }
+
+    this.set_release_group_ratings = function(release_group_id, rating, callback)
+    {
+        $.ajax({
+            url: "/api/v1/release_group/set_ratings",
+            data: {id: release_group_id,
+                   rating: rating},
+            success: function( data, textStatus, jqXHR) {
+                callback(rating);
+            },
+            error: function( jqXHR, textStatus, errorThrown) {
+                alert(textStatus + "\n" + errorThrown);
+            }
+        });
+    }
 }

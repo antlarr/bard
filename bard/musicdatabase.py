@@ -638,8 +638,8 @@ CREATE TABLE cuesheets(
         c.execute('CREATE INDEX cuesheets_song_id_idx '
                   ' ON cuesheets (song_id)')
 
-    @staticmethod  # noqa
-    def addSong(song):
+    @staticmethod
+    def addSong(song):  # noqa
         if config['immutableDatabase']:
             print("Error: Can't add song to DB: "
                   "The database is configured as immutable")
@@ -1890,6 +1890,79 @@ or name {like} '%%MusicBrainz/Track Id'""")
         result.update({song_id: (5, None) for song_id in rem_song_ids})
 
         return result
+
+    @staticmethod
+    def get_albums_ratings(album_ids, user_id):
+        if not album_ids:
+            return {}
+        c = MusicDatabase.getCursor()
+        sql = text('SELECT album_id, rating '
+                   '  FROM albums_ratings '
+                   ' WHERE user_id = :user_id '
+                   '   AND album_id in :album_ids')
+
+        r = c.execute(sql.bindparams(user_id=user_id,
+                                     album_ids=tuple(album_ids)))
+
+        result = {row['album_id']: (row['rating'], 'user')
+                  for row in r.fetchall()}
+
+        rem_album_ids = tuple(x for x in album_ids if x not in result.keys())
+        if not rem_album_ids:
+            return result
+
+        sql = text('SELECT album_id, AVG(rating) avgrating'
+                   '  FROM albums_ratings '
+                   ' WHERE user_id != :user_id '
+                   '   AND album_id in :album_ids'
+                   ' GROUP BY album_id')
+
+        r = c.execute(sql.bindparams(user_id=user_id,
+                                     album_ids=rem_album_ids))
+
+        result.update({row['album_id']: (float(row['avgrating']), 'avg')
+                       for row in r.fetchall()})
+
+        rem_album_ids = tuple(x for x in rem_album_ids
+                              if x not in result.keys())
+
+        result.update({album_id: (5, None) for album_id in rem_album_ids})
+
+        return result
+
+    @staticmethod
+    def set_album_rating(album_id, rating, user_id):
+        c = MusicDatabase.getCursor()
+        sql = ('UPDATE albums_ratings set rating = :rating '
+               'WHERE user_id = :user_id AND album_id = :album_id')
+        sql = text(sql).bindparams(rating=rating, user_id=user_id,
+                                   album_id=album_id)
+        result = c.execute(sql)
+        if result.rowcount == 0:
+            sql = ('INSERT INTO albums_ratings '
+                   '(user_id, album_id, rating) '
+                   'VALUES (:user_id,:album_id,:rating)')
+            sql = text(sql).bindparams(rating=rating, user_id=user_id,
+                                       album_id=album_id)
+            c.execute(sql)
+        MusicDatabase.commit()
+
+    @staticmethod
+    def set_artist_rating(artist_id, rating, user_id):
+        c = MusicDatabase.getCursor()
+        sql = ('UPDATE artists_ratings set rating = :rating '
+               'WHERE user_id = :user_id AND artist_id = :artist_id')
+        sql = text(sql).bindparams(rating=rating, user_id=user_id,
+                                   artist_id=artist_id)
+        result = c.execute(sql)
+        if result.rowcount == 0:
+            sql = ('INSERT INTO artists_ratings '
+                   '(user_id, artist_id, rating) '
+                   'VALUES (:user_id,:artist_id,:rating)')
+            sql = text(sql).bindparams(rating=rating, user_id=user_id,
+                                       artist_id=artist_id)
+            c.execute(sql)
+        MusicDatabase.commit()
 
 
 table = MusicDatabase.table

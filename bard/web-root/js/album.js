@@ -6,6 +6,7 @@ function albumInfoReceived( result )
     bard.setTitle(result.name, 'Album');
 
     $( "#album-title" ).html( "<p>" + result.name + "</p>" );
+    formatAlbumRatings( $( "#album-title" ), result);
     formatArtist($( "#album-artist" ), result.artist_credit_id, result.artist_credit_name);
     var s = [result.status, result.release_group.release_group_type].concat(result.release_group_secondary_types);
     s = s.filter(function (x) { return x; });

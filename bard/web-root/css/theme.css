@@ -250,21 +250,12 @@ button:focus {
 
 #playlistTracks .ratings img,
 .playlist .ratings img,
-#albumTracks .ratings img {
+#albumTracks .ratings img,
+#artistReleaseGroupsList .ratings img {
     width: 16px;
     height: 16px;
 }
 
-.album-info {
-    display: flex;
-}
-.album-main-metadata {
-    padding: 2em;
-}
-
-#album-cover {
-    width: 200px;
-}
 
 .medium-header {
     display: flex;
@@ -284,16 +275,9 @@ button:focus {
     margin-right: 1em;
 }
 
-#album-title {
-    font-size: 130%;
-    font-weight: bold;
-}
-
-#album-artist {
-    font-size: 110%;
-}
-
-#album-status {
-    color: #777;
-    margin-top: 0.4em;
+.horizontal {
+  display: flex;
+  flex-flow: horizontal;
+  align-items: center;
+  white-space: nowrap;
 }

@@ -174,6 +174,7 @@ def structFromArtist(artistRow, aliasesRows=[]):
 
 
 def structFromReleaseGroup(rg):
+    MBD = MusicBrainzDatabase
     r = {}
     r['id'] = rg.id
     r['mbid'] = rg.mbid
@@ -182,8 +183,10 @@ def structFromReleaseGroup(rg):
     r['release_group_type'] = rg.release_group_type
     r['artist_credit_id'] = rg.artist_credit_id
     r['artist_credit_name'] = rg.artist_credit_name
-    r['secondary_types'] = \
-        MusicBrainzDatabase.get_release_group_secondary_types(rg.id)
+    r['year'] = MBD.get_release_group_date(rg.id)
+    r['album_count'] = MBD.get_release_group_album_count(rg.id)
+    r['rating'] = MBD.get_release_group_ratings(rg.id, current_user.userID)
+    r['secondary_types'] = MBD.get_release_group_secondary_types(rg.id)
     return r
 
 
@@ -514,6 +517,21 @@ def release_group_releases():
     return jsonify(result)
 
 
+@app.route('/api/v1/release_group/set_ratings')
+@login_required
+def release_group_set_ratings():
+    if request.method != 'GET':
+        return None
+    rgID = request.args.get('id', type=int)
+    rating = request.args.get('rating', type=int)
+
+    album_ids = MusicBrainzDatabase.get_release_group_albums(rgID)
+    for album_id in album_ids:
+        MusicDatabase.set_album_rating(album_id, rating, current_user.userID)
+
+    return ''
+
+
 @app.route('/api/v1/release/image')
 def release_get_image():
     release_mbid = request.args.get('mbid', type=str)
@@ -596,7 +614,8 @@ def album_info():
     if result['language']:
         result['language'] = LanguageEnum.name(result['language'])
     if result['release_status']:
-        result['release_status'] = ReleaseStatusEnum.name(result['release_status'])
+        result['release_status'] = ReleaseStatusEnum.name(
+            result['release_status'])
     result['release_group'] = dict(release_group_info)
     rg_type = result['release_group']['release_group_type']
     if rg_type:
@@ -604,7 +623,21 @@ def album_info():
         result['release_group']['release_group_type'] = rg_type
     result['release_group_secondary_types'] = secondary_types
     result['release_events'] = [dict(x) for x in release_events]
+    ratings = MusicDatabase.get_albums_ratings([albumID], current_user.userID)
+    result['rating'] = ratings[albumID]
     return jsonify(result)
+
+
+@app.route('/api/v1/album/set_ratings')
+@login_required
+def album_set_ratings():
+    if request.method != 'GET':
+        return None
+    album_id = request.args.get('id', type=int)
+    rating = request.args.get('rating', type=int)
+    MusicDatabase.set_album_rating(album_id, rating, current_user.userID)
+
+    return ''
 
 
 @app.route('/api/v1/album/image')
@@ -641,7 +674,6 @@ def album_cover():
 def playlist_list():
     if request.method != 'GET':
         return None
-    print(current_user.username, current_user.userID)
     result = []
     for x in MusicDatabase.getPlaylistsForUser(current_user.userID):
         result.append({'id': x['id'],

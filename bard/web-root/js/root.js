@@ -169,7 +169,7 @@ function addStarRatings(jq, rating)
    }
 }
 
-function formatRatings(jq, song, playlistInfo)
+function formatSongRatings(jq, song, playlistInfo)
 {
    var rating = song['rating'];
    var div=$('<div class="ratings"/>');
@@ -196,10 +196,64 @@ function formatRatings(jq, song, playlistInfo)
    });
 }
 
+function formatAlbumRatings(jq, album)
+{
+   var rating = album['rating'];
+   var div=$('<div class="ratings"/>');
+   if (rating[1] == 'avg')
+       div.addClass('avg-ratings')
+   else if (rating[1] == null)
+       div.addClass('no-ratings')
+
+   addStarRatings(div, rating[0]);
+   jq.append(div);
+   div.on( "click", { album_id: album['album_id'] }, function( event ) {
+        var rect = event.currentTarget.getBoundingClientRect();
+        var x = rect.left + (window.pageXOffset || document.documentElement.scrollLeft);
+        var percentage = (event.pageX - x)/(event.target.width*5);
+        new_rating = Math.round(percentage * 10);
+        bard.metadataManager.set_album_ratings(event.data.album_id, new_rating, function(rating)
+        {
+            var div = $( event.currentTarget )
+            div.empty();
+            div.removeClass('avg-ratings no-ratings');
+            addStarRatings(div, rating);
+        });
+        event.preventDefault();
+   });
+}
+
+function formatReleaseGroupRatings(jq, rg)
+{
+   var rating = rg['rating'];
+   var div=$('<div class="ratings"/>');
+   if (rating[1] == 'avg')
+       div.addClass('avg-ratings')
+   else if (rating[1] == null)
+       div.addClass('no-ratings')
+
+   addStarRatings(div, rating[0]);
+   jq.append(div);
+   div.on( "click", { release_group_id: rg['id'] }, function( event ) {
+        var rect = event.currentTarget.getBoundingClientRect();
+        var x = rect.left + (window.pageXOffset || document.documentElement.scrollLeft);
+        var percentage = (event.pageX - x)/(event.target.width*5);
+        new_rating = Math.round(percentage * 10);
+        bard.metadataManager.set_release_group_ratings(event.data.release_group_id, new_rating, function(rating)
+        {
+            var div = $( event.currentTarget )
+            div.empty();
+            div.removeClass('avg-ratings no-ratings');
+            addStarRatings(div, rating);
+        });
+        event.preventDefault();
+   });
+}
+
 const columns_base = [['#', ['position', 'track_position']],
            ['Name', formatSongName],
            ['Artist', formatArtist_from_song],
-           ['Ratings', formatRatings],
+           ['Ratings', formatSongRatings],
            ['Length', formatDuration ]];
 
 function append_rows_to_table_of_songs(songs, table, uniquesuffix='0', playlistInfo=null, release_column=false, add_header_row=true)

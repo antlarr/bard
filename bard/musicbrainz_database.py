@@ -740,6 +740,28 @@ class MusicBrainzDatabase:
         return r.fetchall()
 
     @staticmethod
+    def get_release_group_album_count(rgID):
+        c = MusicDatabase.getCursor()
+        sql = text('select count(*) '
+                   '  from album_release ar, musicbrainz.release r '
+                   ' where ar.release_id = r.id '
+                   '   and r.release_group_id = :rgID')
+        r = c.execute(sql, {'rgID': rgID}).fetchone()
+        if not r or not r[0]:
+            return 0
+        return r[0]
+
+    @staticmethod
+    def get_release_group_albums(rgID):
+        c = MusicDatabase.getCursor()
+        sql = text('select ar.album_id'
+                   '  from album_release ar, musicbrainz.release r '
+                   ' where ar.release_id = r.id '
+                   '   and r.release_group_id = :rgID')
+        r = c.execute(sql, {'rgID': rgID}).fetchall()
+        return [x[0] for x in r]
+
+    @staticmethod
     def get_release_mediums(releaseID):
         m = table('musicbrainz.medium')
         emfv = table('musicbrainz.enum_medium_format_values')
@@ -996,3 +1018,38 @@ class MusicBrainzDatabase:
                  offset=offset,
                  ))
         return MusicBrainzDatabase.get_songs_information_for_webui(query=query)
+
+    @staticmethod
+    def get_release_group_date(releaseGroupID):
+        c = MusicDatabase.getCursor()
+        sql = ('select min(date_year)'
+               '  from musicbrainz.release_country rc,'
+               '       musicbrainz.release r'
+               ' WHERE r.id = rc.release_id '
+               '   AND r.release_group_id = :releaseGroupID ')
+        r = c.execute(text(sql), {'releaseGroupID': releaseGroupID}).fetchone()
+        if r and r[0]:
+            return r[0]
+
+        sql = ('select min(s.date)'
+               '  from songs s, album_songs aso, album_release ar, '
+               '       musicbrainz.release r'
+               ' WHERE r.release_group_id = :releaseGroupID '
+               '   AND ar.release_id = r.id '
+               '   AND aso.album_id = ar.album_id '
+               '   AND s.id = aso.song_id ')
+        r = c.execute(text(sql), {'releaseGroupID': releaseGroupID}).fetchone()
+        if not r or not r[0]:
+            return None
+        return r[0]
+
+    @staticmethod
+    def get_release_group_ratings(release_group_id, user_id):
+        album_ids = MusicBrainzDatabase.get_release_group_albums(
+            release_group_id)
+        ratings = MusicDatabase.get_albums_ratings(album_ids, user_id)
+        if any(x[1] == 'user' for x in ratings.values()):
+            return (max(x[0] for x in ratings.values() if x[1] == 'user'),
+                    'user')
+        kind = 'avg' if any(x[1] == 'avg' for x in ratings.values()) else None
+        return (sum(x[0] for x in ratings.values()) / len(ratings), kind)

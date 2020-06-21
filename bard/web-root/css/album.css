@@ -42,3 +42,28 @@ div.medium {
 .medium tr {
    border-bottom: 1px solid #bbb;
 }
+
+.album-info {
+    display: flex;
+}
+.album-main-metadata {
+    padding: 2em;
+}
+
+#album-cover {
+    width: 200px;
+}
+
+#album-title {
+    font-size: 130%;
+    font-weight: bold;
+}
+
+#album-artist {
+    font-size: 110%;
+}
+
+#album-status {
+    color: #777;
+    margin-top: 0.4em;
+}
