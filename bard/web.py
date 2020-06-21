@@ -386,6 +386,7 @@ def static_file(filename):
 
 
 @app.route('/api/v1/artists/list')
+@login_required
 def artists_list():
     if request.method != 'GET':
         return None
@@ -667,6 +668,7 @@ def playlist_info():
 
 
 @app.route('/api/v1/playlist/new')
+@login_required
 def playlist_new():
     if request.method != 'GET':
         return None
@@ -723,6 +725,7 @@ def artist_credit_info():
 
 
 @app.route('/api/v1/playlist/current/next_song', methods=['POST'])
+@login_required
 def playlist_current_next_song():
     if request.method != 'POST':
         return None
@@ -736,6 +739,7 @@ def playlist_current_next_song():
 
 
 @app.route('/api/v1/song/set_ratings')
+@login_required
 def song_set_ratings():
     if request.method != 'GET':
         return None
@@ -763,8 +767,8 @@ def dialog(dialogname):
         return f'<!-- Unknown dialog "{dialogname}" -->'
 
 
-@login_required
 @app.route('/api/v1/devices/list')
+@login_required
 def devices_list():
     if request.method != 'GET':
         return None
@@ -775,8 +779,8 @@ def devices_list():
     return jsonify({'devices': devices, 'active': 'Web browser'})
 
 
-@login_required
 @app.route('/api/v1/devices/set_player')
+@login_required
 def set_player():
     if request.method != 'GET':
         return None

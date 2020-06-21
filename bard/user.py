@@ -5,13 +5,14 @@ import getpass
 
 
 class User:
-    def __init__(self, username=None):
+    def __init__(self, username=''):
         """Create a User object that can be used with Flask-Login."""
         self.username = username
         self.userID = MusicDatabase.getUserID(username)
         self.is_authenticated = True
         self.is_active = True
         self.is_anonymous = False
+        self.is_admin = False
 
     def get_id(self):
         return self.username
