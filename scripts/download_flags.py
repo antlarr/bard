@@ -138,6 +138,7 @@ def get_country_names():
 
 def download_all_countries():
     countries = get_country_names()
+    countries += ['Europe']
     for country in countries:
         print(country)
         filenames = do([country])
