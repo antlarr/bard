@@ -767,6 +767,9 @@ def playlist_current_next_song():
     nextSongInfo = playlistSongInfo.next_song()
 
     print(nextSongInfo)
+    if not nextSongInfo:
+        return ''
+
     return jsonify(nextSongInfo.as_dict())
 
 
