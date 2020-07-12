@@ -84,26 +84,35 @@ function add_table_of_release_groups(add_header_row=true)
 function artistMemberRelationsReceived( result )
 {
     var r="";
+    var jq = $( "#artistMemberRelations" );
+    
     for (i=0 ; i< result.members.length; i++)
     {
-        artist = result.members[i][0];
-        date_range = dateTuplesRangeToString(result.members[i][1], result.members[i][2]);
-        date_range_str = date_range ? ("<span class=\"date_range\">(" + date_range + ")</span>") : "";
-        attrs = result.members[i][3];
-        attrs_str = attrs ? ("<span class=\"attributes\">(" + attrs + ")</span>") : "";
-        r+="<li><a onclick=\"openArtist('" + artist.id + "')\"><span class=\"artist_name\">^ " + artist.name + "</span></a> " + attrs_str + " " + date_range_str + "</li>";
+        var artist = result.members[i][0];
+        var date_range = dateTuplesRangeToString(result.members[i][1], result.members[i][2]);
+        var date_range_str = date_range ? ("<span class=\"date_range\">(" + date_range + ")</span>") : "";
+        var attrs = result.members[i][3];
+        var attrs_str = attrs ? ("<span class=\"attributes\">(" + attrs + ")</span>") : "";
+        r+="<li><a onclick=\"openArtist('" + artist.id + "')\"><span class=\"artist_name\">" + artist.name + "</span></a> " + attrs_str + " " + date_range_str + "</li>";
     };
-
+    if (r) {
+        var members = $( "<ul/>" );
+        members.html(r);
+        jq.append($("<span>Members:</span>"), members);
+    }
+    var memberof = [];
     for (i=0 ; i< result.memberOf.length; i++)
     {
-        artist = result.memberOf[i][0];
-        date_range = dateTuplesRangeToString(result.memberOf[i][1], result.memberOf[i][2]);
-        date_range_str = date_range ? ("<span class=\"date_range\">(" + date_range + ")</span>") : "";
-        attrs = result.memberOf[i][3];
-        attrs_str = attrs ? ("<span class=\"attributes\">(" + attrs + ")</span>") : "";
-        r+="<li><a onclick=\"openArtist('" + artist.id + "')\"><span class=\"artist_name\">: " + artist.name + "</span></a> " + attrs_str + " " + date_range_str + "</li>";
+        var artist = result.memberOf[i][0];
+        var date_range = dateTuplesRangeToString(result.memberOf[i][1], result.memberOf[i][2]);
+        var date_range_str = date_range ? ("<span class=\"date_range\">(" + date_range + ")</span>") : "";
+        var attrs = result.memberOf[i][3];
+        var attrs_str = attrs ? ("<span class=\"attributes\">(" + attrs + ")</span>") : "";
+        memberof.push("<a onclick=\"openArtist('" + artist.id + "')\"><span class=\"artist_name\">" + artist.name + "</span></a> " + attrs_str + " " + date_range_str);
     };
-    $( "#artistMemberRelations" ).html( "<ul>"+r+"</ul>" );
+    if (memberof.length > 0) {
+        jq.append($("<span>Member of: </span>"), memberof.join(', '));
+    }
 }
 
 function artistInfoReceived( result )
