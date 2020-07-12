@@ -1057,4 +1057,6 @@ class MusicBrainzDatabase:
             return (max(x[0] for x in ratings.values() if x[1] == 'user'),
                     'user')
         kind = 'avg' if any(x[1] == 'avg' for x in ratings.values()) else None
-        return (sum(x[0] for x in ratings.values()) / len(ratings), kind)
+        if ratings:
+            return (sum(x[0] for x in ratings.values()) / len(ratings), kind)
+        return (5, None)
