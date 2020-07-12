@@ -816,7 +816,7 @@ class MusicBrainzDatabase:
         return MusicDatabase.execute(s).fetchall()
 
     @staticmethod
-    def getAlbumDisambiguation(release):
+    def getAlbumDisambiguation(release, use_uselabel=False):
         c = MusicDatabase.getCursor()
         sql = text('select name, value '
                    '  from tags, album_songs '
@@ -833,11 +833,6 @@ class MusicBrainzDatabase:
         except KeyError:
             usereleasecomment = 1
 
-        try:
-            uselabel = int(album['uselabel'])
-        except KeyError:
-            uselabel = 0
-
         result = []
         if usereleasecomment == 2:
             result.append(album['comment'])
@@ -850,17 +845,23 @@ class MusicBrainzDatabase:
             if rg['disambiguation']:
                 result.append(rg['disambiguation'])
 
-        if uselabel > 0:
-            release_label = \
-                MusicBrainzDatabase.get_release_label(release['id'])[0]
-            if uselabel == 1:
-                result.append(release_label['label_name'])
-            else:
-                print(release_label)
-                print(release_label['label_name'])
-                print(release_label['catalog_number'])
-                result.append(release_label['label_name'] + ':' +
-                              release_label['catalog_number'])
+        if use_uselabel:
+            try:
+                uselabel = int(album['uselabel'])
+            except KeyError:
+                uselabel = 0
+
+            if uselabel > 0:
+                release_label = \
+                    MusicBrainzDatabase.get_release_label(release['id'])[0]
+                if uselabel == 1:
+                    result.append(release_label['label_name'])
+                else:
+                    print(release_label)
+                    print(release_label['label_name'])
+                    print(release_label['catalog_number'])
+                    result.append(release_label['label_name'] + ':' +
+                                  release_label['catalog_number'])
 
         return ','.join(result)
 
