@@ -486,7 +486,7 @@ CREATE TABLE similarities(
                   FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
                   FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
                   )''')
-        c.execute(f'''
+        c.execute('''
  CREATE TABLE albums_ratings (
                   user_id INTEGER,
                   album_id INTEGER,
@@ -495,7 +495,7 @@ CREATE TABLE similarities(
                   FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
                   FOREIGN KEY(album_id) REFERENCES albums(id) ON DELETE CASCADE
                   )''')
-        c.execute(f'''
+        c.execute('''
  CREATE TABLE artists_ratings (
                   user_id INTEGER,
                   artist_id INTEGER,
@@ -526,7 +526,7 @@ CREATE TABLE similarities(
         c.execute('CREATE INDEX songs_history_path_idx '
                   ' ON songs_history (path)')
 
-        c.execute(f'''
+        c.execute('''
  CREATE TABLE songs_mb_artistids (
                   song_id INTEGER,
                   artistid TEXT,
@@ -537,7 +537,7 @@ CREATE TABLE similarities(
         c.execute('CREATE INDEX songs_mb_artistids_artistid_idx '
                   ' ON songs_mb_artistids (artistid)')
 
-        c.execute(f'''
+        c.execute('''
  CREATE TABLE songs_mb_albumartistids (
                   song_id INTEGER,
                   albumartistid TEXT,
@@ -548,7 +548,7 @@ CREATE TABLE similarities(
         c.execute('CREATE INDEX songs_mb_albumartistids_albumartistid_idx '
                   ' ON songs_mb_albumartistids (albumartistid)')
 
-        c.execute(f'''
+        c.execute('''
  CREATE TABLE songs_mb_workids (
                   song_id INTEGER,
                   workid TEXT,
@@ -559,7 +559,7 @@ CREATE TABLE similarities(
         c.execute('CREATE INDEX songs_mb_workids_workid_idx '
                   ' ON songs_mb_workids (workid)')
 
-        c.execute(f'''
+        c.execute('''
  CREATE TABLE songs_mb (
                   song_id INTEGER PRIMARY KEY,
                   releasegroupid TEXT,
@@ -576,11 +576,11 @@ CREATE TABLE similarities(
 
         c.execute(f'''
  CREATE TABLE albums (
-                  id SERIAL PRIMARY KEY,
+                  id {serial_primary_key},
                   path TEXT UNIQUE
                   )''')
 
-        c.execute(f'''
+        c.execute('''
  CREATE TABLE album_songs (
                   song_id INTEGER,
                   album_id INTEGER,
@@ -612,7 +612,7 @@ CREATE TABLE similarities(
                       REFERENCES enum_playlist_type_values(id_value)
                   )''')
 
-        c.execute(f'''
+        c.execute('''
  CREATE TABLE playlist_songs (
                   playlist_id INTEGER,
                   song_id INTEGER,
