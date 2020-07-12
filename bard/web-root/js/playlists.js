@@ -67,7 +67,7 @@ function addPlaylist()
 {
    name = prompt('Enter the name of the playlist to create');
 
-   if (name)
+   if (name && name != "null")
    {
      $.ajax({
         url: "/api/v1/playlist/new",
