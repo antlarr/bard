@@ -780,14 +780,18 @@ class MusicBrainzDatabase:
         num = 0
         for medium in mediumlist:
             if medium['format_name'] != format_name:
-                if num != 0:
+                if num > 1:
                     r.append(f'{num}x{format_name}')
+                elif num == 1:
+                    r.append(format_name)
                 num = 0
                 format_name = medium['format_name']
             num += 1
 
-        if num != 0:
+        if num > 1:
             r.append(f'{num}x{format_name}')
+        elif num == 1:
+            r.append(format_name)
 
         return '+'.join(r)
 
