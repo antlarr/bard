@@ -216,7 +216,7 @@ def album_properties_to_string(prop):
     elif prop['min_channels'] != 2:
         s.append(f"{prop['min_channels']}ch")
 
-    r['string'] = prop['format'].upper() + ((':' + ','.join(s)) if s else '')
+    r['string'] = ','.join(s) if s else ''
     return r
 
 
@@ -500,18 +500,37 @@ def release_group_releases():
         return None
     rgID = request.args.get('id', type=int)
     print('id', rgID)
-    releases = MusicBrainzDatabase.get_release_group_releases(rgID)
+    MBD = MusicBrainzDatabase
+    releases = MBD.get_release_group_releases(rgID)
+    release_group_info = MBD.get_release_group_info(rgID)
+    secondary_types = MBD.get_release_group_secondary_types(rgID)
     result = []
     for release in releases:
-        mediums = MusicBrainzDatabase.get_release_mediums(release['id'])
+        mediums = MBD.get_release_mediums(release['id'])
         rel = dict(release)
-        rel['mediums_desc'] = MusicBrainzDatabase.mediumlist_to_string(mediums)
+        album_id = rel['album_id']
+        rel['mediums_desc'] = MBD.mediumlist_to_string(mediums)
         rel['audio_properties'] = [album_properties_to_string(x)
                                    for x in MusicDatabase.getAlbumProperties(
                                        release['album_id'])]
-        rel['album_disambiguation'] = \
-            MusicBrainzDatabase.getAlbumDisambiguation(release)
-
+        rel['album_disambiguation'] = MBD.getAlbumDisambiguation(release)
+        rel['tracks_count'] = MBD.get_release_tracks_count(release['id'])
+        release_events = MBD.get_release_events(rel['id'])
+        if rel['language']:
+            rel['language'] = LanguageEnum.name(rel['language'])
+        if rel['release_status']:
+            rel['release_status'] = ReleaseStatusEnum.name(
+                rel['release_status'])
+        rel['release_group'] = dict(release_group_info)
+        rg_type = rel['release_group']['release_group_type']
+        if rg_type:
+            rg_type = ReleaseGroupTypeEnum.name(rg_type)
+            rel['release_group']['release_group_type'] = rg_type
+        rel['release_group_secondary_types'] = secondary_types
+        rel['release_events'] = [dict(x) for x in release_events]
+        ratings = MusicDatabase.get_albums_ratings([album_id],
+                                                   current_user.userID)
+        rel['rating'] = ratings[album_id]
         result.append(rel)
 
     return jsonify(result)

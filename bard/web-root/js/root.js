@@ -112,7 +112,7 @@ function formatRelease(jq, song, playlist_song_info)
 {
    jq.addClass('no-padding');
    var imgurl = bard.base + '/api/v1/album/image?id=' + song['album_id'] + '&medium_number='+ song['medium_number']
-   jq.html('<div class="horizontal"><img src="' + imgurl + '"><span class="releasename"><a>' + song['release_name'] + '</a></span>');
+   jq.html('<div class="horizontal"><img src="' + imgurl + '" class="cover-in-list"><span class="releasename"><a>' + song['release_name'] + '</a></span>');
    jq.on('click', { song_id: song['song_id'],
                     album_id: song['album_id'],
                     playlist_song_info: playlist_song_info},
@@ -195,6 +195,22 @@ function formatSongRatings(jq, song, playlistInfo)
         event.preventDefault();
    });
 }
+function formatAlbumReleaseEvents(jq, album_release_events, add_country_name=true)
+{
+    var release_events = ''
+    album_release_events.forEach(event => {
+        if (event.country)
+            if (add_country_name)
+                var flag = '<span class="release-country"><img class="flag" src="' + bard.base + '/static/images/flags/' + event.country + '.png">' + event.country + ' </span>';
+            else
+                var flag = '<span class="release-country"><img class="flag" src="' + bard.base + '/static/images/flags/' + event.country + '.png" title="' + event.country + '"></span>';
+        else
+            var flag = '';
+        var date = '<span class="release-date">' + dateTupleToString([event.date_year, event.date_month, event.date_day])+'</span>';
+        release_events += '<div class="release-event">' + flag + date + '</div>';
+    });
+    jq.html( release_events );
+}
 
 function formatAlbumRatings(jq, album)
 {
@@ -250,7 +266,7 @@ function formatReleaseGroupRatings(jq, rg)
    });
 }
 
-const columns_base = [['#', ['position', 'track_position']],
+var columns_base = [['#', ['position', 'track_position']],
            ['Name', formatSongName],
            ['Artist', formatArtist_from_song],
            ['Ratings', formatSongRatings],
@@ -468,12 +484,22 @@ function Bard()
 
     this.playSongFromPlaylist = function(song_id, playlist_song_info)
     {
+        if (!song_id)
+        {
+            bard.controls.stoppedPlaying();
+            return;
+        }
         current_playlist_song_info = playlist_song_info;
         this.playSong(song_id);
     }
 
     this.playSong = function(id)
     {
+        if (!id)
+        {
+            bard.controls.stoppedPlaying();
+            return;
+        }
         current_song_id = id;
         $( "#current-song-cover" ).attr("src", this.base + "/api/v1/coverart/song/" + id)
         var metadata = this.metadataManager.get_song_metadata( id, setCurrentSongInfo );
@@ -492,6 +518,11 @@ function Bard()
           url: "/api/v1/playlist/current/next_song",
           data: current_playlist_song_info,
           success: function( result ) {
+              if (!result)
+              {
+                  bard.controls.stoppedPlaying();
+                  return;
+              }
               bard.playSongFromPlaylist(result.song_id, result);
           }
         });

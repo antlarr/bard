@@ -3,6 +3,7 @@
     display: flex;
     flex-direction: column;
     width: 100%;
+    background-color: #fafafa;
 }
 
 .releaseGroupContent {
@@ -10,7 +11,7 @@
   display: flex;
   flex-direction: column;
   overflow: auto;
-
+  padding: 2em;
 }
 
 #releasesList {
@@ -28,7 +29,74 @@
   text-align: center;
   margin:0 1em;
 }
-#releasesList img {
+img.cover-in-list {
   width: 10em;
   height: 10em;
+}
+
+.rg-info {
+    display: flex;
+}
+.rg-main-metadata {
+    padding: 2em;
+}
+
+#rg-cover {
+    width: 200px;
+}
+
+#rg-title {
+    font-size: 130%;
+    font-weight: bold;
+}
+
+#rg-artist {
+    font-size: 110%;
+}
+
+#rg-status {
+    color: #777;
+    margin-top: 0.4em;
+}
+
+.rg-section {
+    margin: 4em 0em 2em;
+    font-size: 120%;
+    font-weight: bold;
+    width: 100%;
+    border-bottom: 1px solid black;
+
+}
+
+table.releaselist {
+  width:100%;
+  border: 1px solid black;
+  background-color: #fff;
+  margin-left: 2em;
+}
+
+.releaselist td,.releaselist th {
+  padding: 1em 0.5em;
+}
+
+.releaselist td.no-padding {
+  padding: 0 0.5em 0 0;
+}
+
+.releaselist .releasename {
+  padding: 0 0.5em 0 0.5em;
+}
+
+.releaselist .releaseartist {
+  padding: 0 0.5em 0 0.5em;
+}
+
+.releaselist .disambiguation {
+    font-size: 80%;
+    font-style: italic;
+    color: #666;
+}
+
+.releaselist tr {
+   border-bottom: 1px solid #bbb;
 }

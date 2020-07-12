@@ -7,7 +7,7 @@ function formatReleaseGroupName(jq, rg)
 {
    jq.addClass('no-padding');
    var imgurl = bard.base + '/api/v1/release_group/image?mbid=' + rg.mbid;
-   jq.html('<div class="horizontal"><img src="' + imgurl + '"><span class="releasename"><a>' + rg.name + '</a></span>');
+   jq.html('<div class="horizontal"><img src="' + imgurl + '" class="cover-in-list"><span class="releasename"><a>' + rg.name + '</a></span>');
    jq.on('click', { release_group_id: rg.id },
           function(ev) {
                 openReleaseGroup(ev.data.release_group_id);
@@ -24,7 +24,7 @@ function formatNumberOfReleases(jq, rg)
    jq.html(rg.album_count);
 }
 
-const rg_columns_base = [['Name', formatReleaseGroupName],
+var rg_columns_base = [['Name', formatReleaseGroupName],
            ['Artist', formatArtist_from_releaseGroup],
            ['Ratings', formatReleaseGroupRatings],
            ['Year', 'year'],
@@ -45,9 +45,9 @@ function append_row_to_table_of_release_groups(rg, table)
            columns_to_check = col[1];
            for (var k=0 ; k < columns_to_check.length; k++)
            {
-               if (song.hasOwnProperty(columns_to_check[k]))
+               if (rg.hasOwnProperty(columns_to_check[k]))
                {
-                   td.html(song[columns_to_check[k]]);
+                   td.html(rg[columns_to_check[k]]);
                    break;
                };
            };

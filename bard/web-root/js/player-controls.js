@@ -49,6 +49,14 @@ function PlayerControls(playerBackend)
     };
     this.setEnable(false);
 
+    this.stoppedPlaying = function() {
+        if (this.enabled) {
+            this.setPlayIcon('media-playback-start');
+        } else {
+            this.setPlayIcon('media-playback-stop');
+        };
+    }
+
     this.mouseUpOnProgressBar = function(ev) {
         var width = this.progressBarContainer.offsetWidth;
         var value = ev.pageX / width;

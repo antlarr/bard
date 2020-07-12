@@ -19,13 +19,8 @@
 
 #playlistTracks li {
   width: 10em;
-/*  height: 12em;*/
   text-align: center;
   margin:0 1em;
-}
-#playlistTracks img {
-  width: 10em;
-  height: 10em;
 }
 
 table.playlist {
@@ -46,8 +41,4 @@ table.playlist {
 }
 .playlist tr {
    border-bottom: 1px solid #bbb;
-}
-
-.playlist img {
-   height: 2.8em;
 }

@@ -25,13 +25,8 @@
 }
 #artistReleaseGroupsList li {
   width: 10em;
-/*  height: 12em;*/
   text-align: center;
   margin:0 1em;
-}
-#artistReleaseGroupsList img {
-  width: 10em;
-  height: 10em;
 }
 
 #artist-picture {
@@ -71,8 +66,4 @@ table.releaselist {
 }
 .releaselist tr {
    border-bottom: 1px solid #bbb;
-}
-
-.releaselist img {
-   height: 140px;
 }

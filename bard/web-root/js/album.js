@@ -5,23 +5,19 @@ function albumInfoReceived( result )
 {
     bard.setTitle(result.name, 'Album');
 
-    $( "#album-title" ).html( "<p>" + result.name + "</p>" );
+    console.log(result);
+    if (result.disambiguation)
+        var disambiguation = '  <span class="album-disambiguation">('+ result.disambiguation + ')</span>';
+    else
+        var disambiguation = '';
+    $( "#album-title" ).html( "<p>" + result.name + disambiguation + "</p>" );
     formatAlbumRatings( $( "#album-title" ), result);
     formatArtist($( "#album-artist" ), result.artist_credit_id, result.artist_credit_name);
     var s = [result.status, result.release_group.release_group_type].concat(result.release_group_secondary_types);
     s = s.filter(function (x) { return x; });
 
     $( "#album-status" ).html( "<p>" + s.join(', ') + "</p>" );
-    var release_events = ''
-    result.release_events.forEach(event => {
-        if (event.country)
-            var flag = '<span class="release-country"><img class="flag" src="' + bard.base + '/static/images/flags/' + event.country + '.png">' + event.country + '</span>';
-        else
-            var flag = '';
-        var date = '<span class="release-date">' + dateTupleToString([event.date_year, event.date_month, event.date_day])+'</span>';
-        release_events += '<div>' + flag + date + '</div>';
-    });
-    $( "#album-release-events" ).html( release_events );
+    formatAlbumReleaseEvents($( "#album-release-events" ), result.release_events);
     use_medium_covers.resolve(result.covers_count > 1);
 }
 

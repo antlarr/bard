@@ -248,14 +248,10 @@ button:focus {
   opacity: 0.3;
 }
 
-#playlistTracks .ratings img,
-.playlist .ratings img,
-#albumTracks .ratings img,
-#artistReleaseGroupsList .ratings img {
+.ratings img {
     width: 16px;
     height: 16px;
 }
-
 
 .medium-header {
     display: flex;
@@ -269,10 +265,15 @@ button:focus {
 .flag {
     width: 20px;
     margin-right: 0.7em;
+    vertical-align: baseline;
 }
 
-.release-country {
-    margin-right: 1em;
+.media-format {
+    white-space: nowrap;
+}
+
+.release-event {
+    white-space: nowrap;
 }
 
 .horizontal {
@@ -281,3 +282,27 @@ button:focus {
   align-items: center;
   white-space: nowrap;
 }
+
+.vertical {
+  display: flex;
+  flex-flow: column;
+}
+
+img.cover-in-list {
+  width: 10em;
+  height: 10em;
+}
+
+.audio-format {
+    font-weight: 900;
+}
+
+.audio-properties {
+    display: flex;
+    align-items: center;
+}
+.audio-property-logo {
+   height: 2.2em;
+}
+
+

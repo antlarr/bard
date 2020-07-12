@@ -59,6 +59,12 @@ div.medium {
     font-weight: bold;
 }
 
+.album-disambiguation {
+    font-size: 80%;
+    font-style: italic;
+    color: #666;
+}
+
 #album-artist {
     font-size: 110%;
 }
