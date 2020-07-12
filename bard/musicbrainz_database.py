@@ -752,6 +752,17 @@ class MusicBrainzDatabase:
         return r[0]
 
     @staticmethod
+    def get_release_tracks_count(releaseID):
+        c = MusicDatabase.getCursor()
+        sql = text('select m.position, count(*) '
+                   '  from musicbrainz.medium m, '
+                   '       musicbrainz.track t '
+                   ' where m.release_id=:releaseID '
+                   '   and t.medium_id=m.id group by 1 order by 1')
+        r = c.execute(sql, {'releaseID': releaseID})
+        return [count for pos, count in r.fetchall()]
+
+    @staticmethod
     def get_release_group_albums(rgID):
         c = MusicDatabase.getCursor()
         sql = text('select ar.album_id'
