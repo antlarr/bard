@@ -728,7 +728,7 @@ class MusicBrainzDatabase:
         c = MusicDatabase.getCursor()
         sql = text('select album_id, r.id, mbid, r.name, disambiguation, '
                    '       release_status, language, barcode, '
-                   '       artist_credit_id, ac.name, '
+                   '       artist_credit_id, ac.name artist_name, '
                    '       r.release_group_id '
                    '  from musicbrainz.release r, '
                    '       musicbrainz.artist_credit ac, '
