@@ -90,9 +90,9 @@ class DecodeMessageRecord(namedtuple('DecodeMessageRecord',
         return self.color_for_level(self.level)
 
     def __str__(self):
-        return f'%.3f (%s): %s' % (self.time_position, self.level_color() +
-                                   self.level_as_string() +
-                                   TerminalColors.ENDC, self.msg)
+        return '%.3f (%s): %s' % (self.time_position, self.level_color() +
+                                  self.level_as_string() +
+                                  TerminalColors.ENDC, self.msg)
 
 
 def detect_silence_at_beginning_and_end(audio_segment, min_silence_len=1000,
