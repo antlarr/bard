@@ -52,20 +52,28 @@ class DecodeMessageRecord(namedtuple('DecodeMessageRecord',
                                      ['time_position', 'level', 'msg'])):
     __slots__ = ()
 
+    level_mapping = {0: 'Critical',
+                     1: 'Fatal',
+                     2: 'Error',
+                     3: 'Warning',
+                     4: 'Info',
+                     5: 'Verbose',
+                     6: 'Debug',
+                     7: 'Trace'}
+
     @staticmethod
     def level_to_string(level):
-        mapping = {0: 'Critical',
-                   1: 'Fatal',
-                   2: 'Error',
-                   3: 'Warning',
-                   4: 'Info',
-                   5: 'Verbose',
-                   6: 'Debug',
-                   7: 'Trace'}
         try:
-            return mapping[level]
+            return DecodeMessageRecord.level_mapping[level]
         except KeyError:
             return 'Unknown level'
+
+    @staticmethod
+    def level_value(levelstring):
+        for level, name in DecodeMessageRecord.level_mapping.items():
+            if levelstring == name:
+                return level
+        return None
 
     @staticmethod
     def color_for_level(level):

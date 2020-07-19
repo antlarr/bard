@@ -5,7 +5,7 @@ from bard.utils import extractFrontCover, md5FromData, \
     calculateFileSHA256, manualAudioCmp, \
     calculateSHA256_data, \
     detect_silence_at_beginning_and_end, \
-    audioSegmentFromDataProperties, decodeAudio
+    audioSegmentFromDataProperties, decodeAudio, DecodeMessageRecord
 from bard.musicdatabase import MusicDatabase
 from bard.normalizetags import getTag
 from bard.ffprobemetadata import FFProbeMetadata
@@ -243,9 +243,6 @@ class Song:
 
         self._decode_properties = properties
 
-        if properties.messages:
-            print('\n'.join([str(x) for x in properties.messages]))
-
         if self.metadata:
             if not getattr(self.metadata.info, 'bits_per_sample', None):
                 self.metadata.info.bits_per_sample = \
@@ -254,6 +251,17 @@ class Song:
             if not getattr(self.metadata.info, 'bitrate', None):
                 self.metadata.info.bitrate = (properties.stream_bitrate or
                                               properties.container_bitrate)
+
+            if getattr(self.metadata.info, 'length', 0) == 0:
+                warning_level = DecodeMessageRecord.level_value('Warning')
+                record = (DecodeMessageRecord(0, warning_level,
+                          ('Length cannot be read with mutagen. Using decoded '
+                           'data to obtain length')))
+                self._decode_properties.messages.append(record)
+                self.metadata.info.length = properties.decoded_duration
+
+        if properties.messages:
+            print('\n'.join([str(x) for x in properties.messages]))
 
         if config['enable_internal_checks']:
             ffprobe_metadata = FFProbeMetadata(self.path())
