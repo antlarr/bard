@@ -36,6 +36,7 @@ class TerminalKey(enum.Enum):
     KEY_ESC = '\033'
     KEY_TAB = '\011'
     KEY_ENTER = '\n'
+    KEY_SPACE = ' '
 
 
 TerminalKeyDict = {y.value: y for x, y in TerminalKey.__members__.items()}
@@ -80,16 +81,19 @@ def read_key():
 
 
 class Chooser:
-    def __init__(self, options, msg='Choose one of:'):
+    def __init__(self, options, msg='Choose one of:', multiselection=False):
         """Create a Chooser object."""
         self.selected = 0
         self.options = options
         self.msg = msg
+        self.multiselection = multiselection
+        self.multiselected = []
 
     def choose(self, key_callbacks={}):
         print(self.msg)
         self.print_options()
         key = None
+        self.multiselected = []
         while key != TerminalKey.KEY_ENTER:
             key = read_key()
             if key == TerminalKey.KEY_UP:
@@ -98,6 +102,11 @@ class Chooser:
                 self.selected = min(len(self.options) - 1, self.selected + 1)
             elif key == TerminalKey.KEY_ESC:
                 return None
+            elif self.multiselection and key == TerminalKey.KEY_SPACE:
+                if self.selected in self.multiselected:
+                    self.multiselected.remove(self.selected)
+                else:
+                    self.multiselected.append(self.selected)
             elif key in key_callbacks:
                 callback = key_callbacks[key]
                 r = callback(self)
@@ -106,6 +115,10 @@ class Chooser:
 
             self.go_back_to_beginning_of_list()
             self.print_options()
+        if self.multiselection:
+            if self.multiselected:
+                return self.multiselected
+            return [self.selected]
         return self.selected
 
     def go_back_to_beginning_of_list(self):
@@ -139,6 +152,8 @@ class Chooser:
         for idx, item in enumerate(self.options):
             if highlight_selected and idx == self.selected:
                 print(TerminalColors.White + '->', item + TerminalColors.ENDC)
+            elif highlight_selected and self.multiselection and idx in self.multiselected:
+                print(TerminalColors.Yellow + '  ', item + TerminalColors.ENDC)
             else:
                 print('  ', item)
 
