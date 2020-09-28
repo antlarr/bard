@@ -52,9 +52,9 @@ class PlaylistSongInfo:
     def next_song(self):
         if self.playlist_type == PlaylistTypes.User:
             plman = bard.playlist_manager
-            r = Playlist.get_next_song(self.playlist_id,
-                                       self.index,
-                                       self.user_id)
+            playlist = plman.load_id_from_db(self.playlist_id, self.user_id)
+            print('NEXT', playlist, self.playlist_id)
+            r = playlist.get_next_song(self.index)
             if not r:
                 return None
             song_id, idx = r

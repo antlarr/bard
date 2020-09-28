@@ -65,19 +65,5 @@ function fillPlaylists()
 
 function addPlaylist()
 {
-   name = prompt('Enter the name of the playlist to create');
-
-   if (name && name != "null")
-   {
-     $.ajax({
-        url: "/api/v1/playlist/new",
-        data: {name: name},
-        success: function( data, textStatus, jqXHR) {
-            fillPlaylists();
-        },
-        error: function( jqXHR, textStatus, errorThrown) {
-            alert(textStatus + "\n" + errorThrown);
-        }
-      });
-   };
+    bard.openDialog('add-playlist', 'add-playlist-dialog');
 }

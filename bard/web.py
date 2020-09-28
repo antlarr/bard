@@ -18,6 +18,8 @@ from bard.album import coverAtPath
 from bard.searchquery import SearchQuery
 from bard.searchplaylist import SearchPlaylist
 from bard.playlistsonginfo import PlaylistSongInfo
+from bard.playlistmanager import PlaylistManager
+from bard.generatedplaylist import GeneratedPlaylist
 
 import mimetypes
 import base64
@@ -725,8 +727,13 @@ def playlist_new():
         return None
     print(current_user.username, current_user.userID)
     name = request.args.get('name', type=str)
-    print(f'Request to create playlist with name {name}')
-    pl = Playlist(None, owner_id=current_user.userID)
+    gen = request.args.get('generated', type=int)
+    generated_playlist = bool(request.args.get('generated', type=int))
+    print(f'Request to create playlist with name {name}: {generated_playlist} {gen}')
+    if generated_playlist:
+        pl = GeneratedPlaylist(None, owner_id=current_user.userID)
+    else:
+        pl = Playlist(None, owner_id=current_user.userID)
     pl.set_name(name)
     pl.create_in_db()
     return jsonify([])
@@ -741,7 +748,7 @@ def playlist_add_song():
     playlistID = request.args.get('playlistID', type=int)
     songID = request.args.get('songID', type=int)
     print(playlistID, songID)
-    playlist = Playlist.load_id_from_db(playlistID, current_user.userID)
+    playlist = PlaylistManager.load_id_from_db(playlistID, current_user.userID)
     playlist.append_song(songID)
     print(playlist.songs)
     return ''

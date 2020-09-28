@@ -599,6 +599,12 @@ CREATE TABLE similarities(
                   )''')
         c.execute('INSERT INTO enum_playlist_type_values '
                   '''(name) VALUES ('user')''')
+        c.execute('INSERT INTO enum_playlist_type_values '
+                  '''(name) VALUES ('album')''')
+        c.execute('INSERT INTO enum_playlist_type_values '
+                  '''(name) VALUES ('search')''')
+        c.execute('INSERT INTO enum_playlist_type_values '
+                  '''(name) VALUES ('generated')''')
 
         c.execute(f'''
  CREATE TABLE playlists (
@@ -626,6 +632,15 @@ CREATE TABLE similarities(
                   )''')
         c.execute('CREATE INDEX playlist_songs_playlist_id_song_id_idx '
                   ' ON playlist_songs (playlist_id, song_id)')
+
+        c.execute('''
+ CREATE TABLE playlist_generators (
+                  playlist_id INTEGER,
+                  generator TEXT,
+
+                  FOREIGN KEY(playlist_id)
+                      REFERENCES playlists(id) ON DELETE CASCADE
+                  )''')
         c.execute('''
 CREATE TABLE cuesheets(
                   song_id INTEGER NOT NULL,

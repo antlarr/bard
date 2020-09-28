@@ -564,13 +564,13 @@ function Bard()
 
     }
 
-    this.openDialog = function(dialog_name)
+    this.openDialog = function(dialog_name, use_id='')
     {
         $.ajax({
             url: "/dialog/" + dialog_name
         }).done(
             function( result, textStatus, jqXHR ) {
-                var dialog = $('<div/>', {'data-dialog-name': dialog_name});
+                var dialog = $('<div/>', {'data-dialog-name': dialog_name, id: use_id});
                 $(document.body).append(dialog);
                 dialog.dialog({
                     title: dialog_name,

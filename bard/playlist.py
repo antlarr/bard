@@ -10,13 +10,14 @@ class PlaylistTypes(enum.Enum):
     User = 'user'
     Album = 'album'
     Search = 'search'
+    Generated = 'generated'
 
 
 class Playlist:
-    def __init__(self, x, owner_id=None):
+    def __init__(self, db_row=None, owner_id=None):
         """Create a Playlist object."""
         self.id = None
-        self.type = PlaylistTypes.User
+        self.store_songs_in_db = True
         self.name = None
         if not owner_id:
             username = config['username']
@@ -26,54 +27,15 @@ class Playlist:
         self.playlist_type = DatabaseEnum('playlist_type').id_value('user')
         self.songs = []
 
-        if isinstance(x, (sqlite3.Row, RowProxy, dict)):
-            self.id = x['id']
-            self.name = x['name']
-            self.owner_id = x['owner_id']
+        if isinstance(db_row, (sqlite3.Row, RowProxy, dict)):
+            self.id = db_row['id']
+            self.name = db_row['name']
+            self.owner_id = db_row['owner_id']
 
             self.load_playlist_songs()
 
-    @staticmethod
-    def load_from_db(where_clause='', where_values=None, tables=[],
-                     order_by=None, limit=None):
-        c = MusicDatabase.getCursor()
-
-        if 'playlists' not in tables:
-            tables.insert(0, 'playlists')
-
-        statement = ('SELECT id, name, owner_id, playlist_type FROM %s %s' %
-                     (','.join(tables), where_clause))
-
-        if order_by:
-            statement += ' ORDER BY %s' % order_by
-
-        if limit:
-            statement += ' LIMIT %d' % limit
-
-        if where_values:
-            print(statement)
-            print(where_values)
-            result = c.execute(text(statement).bindparams(**where_values))
-        else:
-            result = c.execute(text(statement))
-
-        r = [Playlist(x) for x in result.fetchall()]
-        return r
-
-    @staticmethod
-    def load_id_from_db(playlistID, ownerID=None):
-        where = ['id = :id']
-        values = {'id': playlistID}
-
-        if ownerID:
-            where.append('owner_id = :owner_id')
-            values['owner_id'] = ownerID
-
-        where = 'WHERE ' + ' AND '.join(where)
-        r = Playlist.load_from_db(where, values)
-        return r[0] if r else None
-
     def load_playlist_songs(self):
+        reenumerate_songs = False
         c = MusicDatabase.getCursor()
         sql = ('SELECT song_id, recording_mbid, pos '
                'FROM playlist_songs '
@@ -87,8 +49,11 @@ class Playlist:
             if idx != pos:
                 print('ERROR: playlist items in the database are '
                       'not correctly positioned')
+                reenumerate_songs = True
             item = (song_id, recording_mbid)
             self.songs.append(item)
+        if reenumerate_songs:
+            self.reenumerate_songs_in_db()
 
     def set_name(self, name):
         self.name = name
@@ -116,30 +81,32 @@ class Playlist:
             result = c.execute(sql)
         self.id = result.fetchone()[0]
 
-        pls = table('playlist_songs')
-        for idx, item in enumerate(self.songs):
-            entry = {
-                'playlist_id': self.id,
-                'song_id': item[0],
-                'recording_mbid': item[1],
-                'pos': idx,
-            }
+        if self.store_songs_in_db:
+            pls = table('playlist_songs')
+            for idx, item in enumerate(self.songs):
+                entry = {
+                    'playlist_id': self.id,
+                    'song_id': item[0],
+                    'recording_mbid': item[1],
+                    'pos': idx,
+                }
 
-            MusicDatabase.insert_or_update(pls, entry,
-                                           and_(pls.c.playlist_id == self.id,
-                                                pls.c.pos == idx),
-                                           connection=c)
+                MusicDatabase.insert_or_update(pls, entry,
+                                               and_(pls.c.playlist_id == self.id,  # noqa
+                                                    pls.c.pos == idx),
+                                               connection=c)
         c.commit()
 
     def append_song(self, song_id, mbid=None, *, connection=None):
         assert song_id, "song_id must be used"
         if not mbid:
+            print(f'Obtaining MBID for song id {song_id}')
             mbid = MusicDatabase.getRecordingMBID(song_id)
         item = (song_id, mbid)
         self.songs.append(item)
 
-        if self.id:
-            pos = len(self.songs)
+        if self.id and self.store_songs_in_db:
+            pos = len(self.songs) - 1
             c = connection or MusicDatabase.getCursor()
             entry = {
                 'playlist_id': self.id,
@@ -169,7 +136,7 @@ class Playlist:
 
         self.songs.insert(position, item)
 
-        if self.id:
+        if self.id and self.store_songs_in_db:
             c = connection or MusicDatabase.getCursor()
             self._update_positions_in_db(len(self.songs) - 1, position, 1, c)
 
@@ -217,17 +184,12 @@ class Playlist:
                              'from the playlist')
 
         r = self.songs.pop(position)
-        if self.id:
+        if self.id and self.store_songs_in_db:
             c = connection or MusicDatabase.getCursor()
             sql = text('DELETE FROM playlist_songs '
                        'WHERE playlist_id = :playlist_id '
                        ' AND pos = :position')
             c.execute(sql.bindparams(playlist_id=self.id, position=position))
-
-            sql = text('SELECT song_id, pos FROM playlist_songs ORDER BY pos')
-            x = c.execute(sql).fetchall()
-            for z in x:
-                print(z)
 
             self._update_positions_in_db(position + 1, len(self.songs) + 1, -1,
                                          c)
@@ -244,10 +206,24 @@ class Playlist:
         if not connection:
             c.commit()
 
-    @staticmethod
-    def get_next_song(playlistID, index, user_id):
-        r = MusicDatabase.get_next_playlist_song(user_id,
-                                                 playlistID, index)
+    def get_next_song(self, index):
+        r = MusicDatabase.get_next_playlist_song(self.owner_id,
+                                                 self.id, index)
         if not r:
             return None
         return (r['song_id'], r['pos'])
+
+    def reenumerate_songs_in_db(self):
+        c = MusicDatabase.getCursor()
+        sql = ('SELECT pos '
+               'FROM playlist_songs '
+               'WHERE playlist_id = :id '
+               'ORDER BY pos')
+        result = c.execute(text(sql).bindparams(id=self.id))
+        for idx, pos in enumerate(result.fetchall()):
+            if pos != idx:
+                sql = text('UPDATE playlist_songs SET pos = :idx '
+                           'WHERE playlist_id = :playlist_id '
+                           ' AND pos = :pos')
+                c.execute(sql.bindparams(playlist_id=self.id, pos=pos, idx=idx))
+        c.commit()
