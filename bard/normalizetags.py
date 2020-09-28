@@ -285,14 +285,15 @@ def normalizeTagValue(obj, mutagenFile, tag, removeBinaryData=False):
     if isinstance(obj, mutagen.mp4.MP4FreeForm):
         try:
             if obj.FORMAT_TEXT == mutagen.mp4.AtomDataType.UTF8:
-                return obj.decode('utf-8').replace('\x00','')
+                return obj.decode('utf-8').replace('\x00', '')
             elif obj.FORMAT_TEXT == mutagen.mp4.AtomDataType.UTF16:
-                return obj.decode('utf-16').replace('\x00','')
+                return obj.decode('utf-16').replace('\x00', '')
         except UnicodeDecodeError:
             print(f'Wrong unicode data found in tag {tag}: {obj}')
             return None
         return str(obj)
 
+    # Allow multiple values (lists) on these id3 tags:
     if isinstance(obj, (mutagen.id3.TCON, mutagen.id3.TPUB, mutagen.id3.TSRC,
                         mutagen.id3.TSOC, mutagen.id3.TCOM, mutagen.id3.TEXT,
                         mutagen.id3.TPE3, mutagen.id3.TPE4, mutagen.id3.TLAN,
@@ -308,6 +309,7 @@ def normalizeTagValue(obj, mutagenFile, tag, removeBinaryData=False):
             text = ','.join(text)
         return text
 
+    # Allow multiple values (lists) on these id3 text tags:
     if (isinstance(obj, mutagen.id3.TXXX) and
         obj.desc.lower() in ['musicbrainz album type',
                              'musicbrainz artist id',
@@ -320,6 +322,7 @@ def normalizeTagValue(obj, mutagenFile, tag, removeBinaryData=False):
                              'performer',
                              'license',
                              'catalognumber',
+                             'style',
                              'comment']):
         return obj.text
 
