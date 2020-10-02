@@ -6,9 +6,7 @@ try:
 except ImportError:
     pass
 from sqlalchemy import text
-import yaml
 import os
-# import time
 import tempfile
 import subprocess
 
@@ -335,30 +333,24 @@ class SongAnalysis:
         self.frames = None
 
     @staticmethod
-    def writeProfileFile(fh):
-        dir = '/usr/share/essentia-extractor-svm_models/'
-        history_files = [os.path.join(dir, x)
-                         for x in os.listdir(dir) if x.endswith('.history')]
-        profile = {'highlevel': {'compute': 1, 'svm_models': history_files}}
-        fh.write(yaml.dump(profile))
-        fh.flush()
-
-    @staticmethod
     def analyze(path):
         analysis = SongAnalysis(path)
 
-        with (tempfile.NamedTemporaryFile(mode='w',
-              prefix='bard_essentia_profile')) as profile_file:
-            SongAnalysis.writeProfileFile(profile_file)
-            extractor = MusicExtractor(profile=profile_file.name)
-            if any(path.lower().endswith(x) for x in essentia_allowed_exts):
-                analysis.stats, analysis.frames = extractor(path)
-            else:
-                with (tempfile.NamedTemporaryFile(mode='w',
-                      prefix='bard_raw_audio', suffix='.wav')) as raw:
-                    args = ['ffmpeg', '-y', '-i', path, '-ac', '2', raw.name]
-                    subprocess.run(args, capture_output=True)
-                    analysis.stats, analysis.frames = extractor(raw.name)
+        dir = '/usr/share/essentia-extractor-svm_models/'
+        history_files = [os.path.join(dir, x)
+                         for x in os.listdir(dir) if x.endswith('.history')]
+
+        extractor = MusicExtractor(highlevel=history_files,
+                                   lowlevelSilentFrames='keep',
+                                   tonalSilentFrames='keep')
+        if any(path.lower().endswith(x) for x in essentia_allowed_exts):
+            analysis.stats, analysis.frames = extractor(path)
+        else:
+            with (tempfile.NamedTemporaryFile(mode='w',
+                  prefix='bard_raw_audio', suffix='.wav')) as raw:
+                args = ['ffmpeg', '-y', '-i', path, '-ac', '2', raw.name]
+                subprocess.run(args, capture_output=True)
+                analysis.stats, analysis.frames = extractor(raw.name)
 
         return analysis
 
@@ -381,24 +373,10 @@ class AnalysisImporter:
             self.connection.execute(t.insert().values(**vars))
 
     def import_keys_with_lists_stats(self):
-        # st_keys = [k for k in stat_variables.keys()]
-        # sql_pat = ('INSERT INTO {0} (song_id, pos, %s) VALUES (%d, :pos, %s)' %
-        #            (','.join(stat_variables[k] for k in st_keys), self.song_id,
-        #             ','.join(':' + k for k in st_keys)))
         for key in keys_with_lists_stats:
             if key in keys_to_ignore:
                 continue
-            # tablename = 'analysis.' + key.replace('.', '__').lower() + '_stats'
-            # sql = text(sql_pat.format(tablename))
-            # lists = [self.stats[key + '.' + st_key] for st_key in st_keys]
 
-            # vars = [{'pos': pos, **{st_key: val.item() for st_key, val in zip(st_keys, values)}}
-            #         for pos, values in enumerate(zip(*lists))]
-
-            # vars = [{'pos': pos, **{st_key: val.item() for st_key, val in zip(st_keys, values)}}
-            #         for pos, values in enumerate(zip(self.stats[key + '.' + st_key] for st_key in st_keys))]
-
-            # self.connection.execute(sql, vars)
             for pos in range(len(self.stats[key + '.var'])):
                 t = table('analysis.' + key.replace('.', '__').lower() +
                           '_stats')
@@ -421,7 +399,6 @@ class AnalysisImporter:
         for key in fkeys_with_lists:
             if key in keys_to_ignore:
                 continue
-            # t = table('analysis.' + key.replace('.', '__').lower())
             tablename = 'analysis.' + key.replace('.', '__').lower()
             sql = text(f'INSERT INTO {tablename} (song_id, pos, value) '
                        f'VALUES ({self.song_id}, :pos, :value)')
@@ -429,11 +406,6 @@ class AnalysisImporter:
                     for pos, val in enumerate(self.frames[key])]
 
             self.connection.execute(sql, vars)
-            # for pos in range(len(self.frames[key])):
-            #    vars = {'value': self.frames[key][pos].item(),
-            #            'song_id': self.song_id,
-            #            'pos': pos}
-            #    self.connection.execute(t.insert(), **vars))
 
     def import_fkeys_with_lists_of_lists(self):
         for key in fkeys_with_lists_of_lists:
@@ -446,13 +418,6 @@ class AnalysisImporter:
                        f'VALUES ({self.song_id}, :pos, :values)')
 
             self.connection.execute(sql, vars)
-            # for pos in range(len(self.frames[key[0]])):
-            #    t = table('analysis.' + key[0].replace('.', '__').lower())
-            #    vars = {'values': list(x.item()
-            #                           for x in self.frames[key[0]][pos]),
-            #            'song_id': self.song_id,
-            #            'pos': pos}
-            #    self.connection.execute(t.insert().values(**vars))
 
     def import_conversion_dict(self):
         tables = set(x[0] for x in conversion_dict.values())
@@ -464,7 +429,6 @@ class AnalysisImporter:
             self.connection.execute(t.insert().values(**vars))
 
     def import_analysis(self, *, connection=None):
-        # time1 = time.time()
         if not self.stats or not self.frames:
             raise ValueError("There's no analysis to import")
 
@@ -486,8 +450,6 @@ class AnalysisImporter:
         if not connection:
             self.connection.commit()
             self.connection = None
-        # time2 = time.time()
-        # print('function took {:.3f} ms'.format((time2 - time1) * 1000.0))
 
     def has_analysis_for_song_id(self, song_id, *, connection=None):
         if not connection:
