@@ -83,77 +83,6 @@ for varname, col_numbers in fkeys_with_lists_of_lists:
                                        allow_value_list=True,
                                        use_array_of_values=True)
 
-highlevel_probability_sets = ['highlevel.genre_dortmund',
-                              'highlevel.genre_electronic',
-                              'highlevel.genre_rosamerica',
-                              'highlevel.genre_tzanetakis',
-                              'highlevel.ismir04_rhythm',
-                              'highlevel.moods_mirex']
-
-highlevel_prob_keys = ['highlevel.genre_dortmund.all.alternative',
-                       'highlevel.genre_dortmund.all.blues',
-                       'highlevel.genre_dortmund.all.electronic',
-                       'highlevel.genre_dortmund.all.folkcountry',
-                       'highlevel.genre_dortmund.all.funksoulrnb',
-                       'highlevel.genre_dortmund.all.jazz',
-                       'highlevel.genre_dortmund.all.pop',
-                       'highlevel.genre_dortmund.all.raphiphop',
-                       'highlevel.genre_dortmund.all.rock',
-                       'highlevel.genre_electronic.all.ambient',
-                       'highlevel.genre_electronic.all.dnb',
-                       'highlevel.genre_electronic.all.house',
-                       'highlevel.genre_electronic.all.techno',
-                       'highlevel.genre_electronic.all.trance',
-                       'highlevel.genre_rosamerica.all.cla',
-                       'highlevel.genre_rosamerica.all.dan',
-                       'highlevel.genre_rosamerica.all.hip',
-                       'highlevel.genre_rosamerica.all.jaz',
-                       'highlevel.genre_rosamerica.all.pop',
-                       'highlevel.genre_rosamerica.all.rhy',
-                       'highlevel.genre_rosamerica.all.roc',
-                       'highlevel.genre_rosamerica.all.spe',
-                       'highlevel.genre_tzanetakis.all.blu',
-                       'highlevel.genre_tzanetakis.all.cla',
-                       'highlevel.genre_tzanetakis.all.cou',
-                       'highlevel.genre_tzanetakis.all.dis',
-                       'highlevel.genre_tzanetakis.all.hip',
-                       'highlevel.genre_tzanetakis.all.jaz',
-                       'highlevel.genre_tzanetakis.all.met',
-                       'highlevel.genre_tzanetakis.all.pop',
-                       'highlevel.genre_tzanetakis.all.reg',
-                       'highlevel.genre_tzanetakis.all.roc',
-                       'highlevel.ismir04_rhythm.all.ChaChaCha',
-                       'highlevel.ismir04_rhythm.all.Jive',
-                       'highlevel.ismir04_rhythm.all.Quickstep',
-                       'highlevel.ismir04_rhythm.all.Rumba-American',
-                       'highlevel.ismir04_rhythm.all.Rumba-International',
-                       'highlevel.ismir04_rhythm.all.Rumba-Misc',
-                       'highlevel.ismir04_rhythm.all.Samba',
-                       'highlevel.ismir04_rhythm.all.Tango',
-                       'highlevel.ismir04_rhythm.all.VienneseWaltz',
-                       'highlevel.ismir04_rhythm.all.Waltz',
-                       'highlevel.moods_mirex.all.Cluster1',
-                       'highlevel.moods_mirex.all.Cluster2',
-                       'highlevel.moods_mirex.all.Cluster3',
-                       'highlevel.moods_mirex.all.Cluster4',
-                       'highlevel.moods_mirex.all.Cluster5']
-
-
-highlevel_probability_sets = list(set(x[:x.find('.all.')]
-                                      for x in highlevel_prob_keys))
-
-for highlevel_set in highlevel_probability_sets:
-    cols = [('song_id', 'INTEGER PRIMARY KEY'),
-            ('value', 'TEXT'), ('probability', 'REAL')]
-    cols += [(x[len(highlevel_set) + len('.all.'):].replace('-', '_'), 'REAL')
-             for x in highlevel_prob_keys if x.startswith(highlevel_set + '.')]
-    table_name = highlevel_set.replace('.', '__')
-    sql = (f'CREATE TABLE {schema}.{table_name} (\n   ' +
-           ',\n   '.join(f'{colname} {coltype}' for colname, coltype in cols) +
-           ''',\n   FOREIGN KEY(song_id)
-              REFERENCES public.songs(id) ON DELETE CASCADE\n)\n''')
-    print(sql)
-
 
 string_columns = ['metadata.version.essentia',
                   'tonal.chords_key',
@@ -163,12 +92,17 @@ string_columns = ['metadata.version.essentia',
                   'tonal.key_krumhansl.key',
                   'tonal.key_krumhansl.scale',
                   'tonal.key_temperley.key',
-                  'tonal.key_temperley.scale']
+                  'tonal.key_temperley.scale',
+                  'highlevel.genre_dortmund.value',
+                  'highlevel.genre_electronic.value',
+                  'highlevel.genre_rosamerica.value',
+                  'highlevel.genre_tzanetakis.value',
+                  'highlevel.ismir04_rhythm.value',
+                  'highlevel.moods_mirex.value']
 
 tables = {}
 for key, value in conversion_dict.items():
     table, col = value
-#    print(key, table, col)
     tables.setdefault(table, []).append((col,
                                          'TEXT' if key in string_columns
                                          else 'REAL'))
@@ -178,6 +112,6 @@ for tablename, columns in tables.items():
                                 for colname, coltype in columns)
     sql = (f'CREATE TABLE {schema}.{tablename} (\n' +
            '   song_id INTEGER PRIMARY KEY,\n   ' + column_defs +
-           ''', FOREIGN KEY(song_id)
+           ''',\n   FOREIGN KEY(song_id)
               REFERENCES public.songs(id) ON DELETE CASCADE\n)\n''')
     print(sql)

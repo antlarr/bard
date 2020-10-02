@@ -67,7 +67,122 @@ conversion_dict = {
         ('tonal', 'tuning_equal_tempered_deviation'),
     'tonal.tuning_frequency': ('tonal', 'tuning_frequency'),
     'tonal.tuning_nontempered_energy_ratio':
-        ('tonal', 'tuning_nontempered_energy_ratio')
+        ('tonal', 'tuning_nontempered_energy_ratio'),
+
+    'highlevel.genre_dortmund.value': ('highlevel__genre_dortmund', 'value'),
+    'highlevel.genre_dortmund.probability':
+        ('highlevel__genre_dortmund', 'probability'),
+    'highlevel.genre_dortmund.all.alternative':
+        ('highlevel__genre_dortmund', 'alternative'),
+    'highlevel.genre_dortmund.all.blues':
+        ('highlevel__genre_dortmund', 'blues'),
+    'highlevel.genre_dortmund.all.electronic':
+        ('highlevel__genre_dortmund', 'electronic'),
+    'highlevel.genre_dortmund.all.folkcountry':
+        ('highlevel__genre_dortmund', 'folkcountry'),
+    'highlevel.genre_dortmund.all.funksoulrnb':
+        ('highlevel__genre_dortmund', 'funksoulrnb'),
+    'highlevel.genre_dortmund.all.jazz': ('highlevel__genre_dortmund', 'jazz'),
+    'highlevel.genre_dortmund.all.pop': ('highlevel__genre_dortmund', 'pop'),
+    'highlevel.genre_dortmund.all.raphiphop':
+        ('highlevel__genre_dortmund', 'raphiphop'),
+    'highlevel.genre_dortmund.all.rock': ('highlevel__genre_dortmund', 'rock'),
+    'highlevel.genre_electronic.value':
+        ('highlevel__genre_electronic', 'value'),
+    'highlevel.genre_electronic.probability':
+        ('highlevel__genre_electronic', 'probability'),
+    'highlevel.genre_electronic.all.ambient':
+        ('highlevel__genre_electronic', 'ambient'),
+    'highlevel.genre_electronic.all.dnb':
+        ('highlevel__genre_electronic', 'dnb'),
+    'highlevel.genre_electronic.all.house':
+        ('highlevel__genre_electronic', 'house'),
+    'highlevel.genre_electronic.all.techno':
+        ('highlevel__genre_electronic', 'techno'),
+    'highlevel.genre_electronic.all.trance':
+        ('highlevel__genre_electronic', 'trance'),
+    'highlevel.genre_rosamerica.value':
+        ('highlevel__genre_rosamerica', 'value'),
+    'highlevel.genre_rosamerica.probability':
+        ('highlevel__genre_rosamerica', 'probability'),
+    'highlevel.genre_rosamerica.all.cla':
+        ('highlevel__genre_rosamerica', 'cla'),
+    'highlevel.genre_rosamerica.all.dan':
+        ('highlevel__genre_rosamerica', 'dan'),
+    'highlevel.genre_rosamerica.all.hip':
+        ('highlevel__genre_rosamerica', 'hip'),
+    'highlevel.genre_rosamerica.all.jaz':
+        ('highlevel__genre_rosamerica', 'jaz'),
+    'highlevel.genre_rosamerica.all.pop':
+        ('highlevel__genre_rosamerica', 'pop'),
+    'highlevel.genre_rosamerica.all.rhy':
+        ('highlevel__genre_rosamerica', 'rhy'),
+    'highlevel.genre_rosamerica.all.roc':
+        ('highlevel__genre_rosamerica', 'roc'),
+    'highlevel.genre_rosamerica.all.spe':
+        ('highlevel__genre_rosamerica', 'spe'),
+    'highlevel.genre_tzanetakis.value':
+        ('highlevel__genre_tzanetakis', 'value'),
+    'highlevel.genre_tzanetakis.probability':
+        ('highlevel__genre_tzanetakis', 'probability'),
+    'highlevel.genre_tzanetakis.all.blu':
+        ('highlevel__genre_tzanetakis', 'blu'),
+    'highlevel.genre_tzanetakis.all.cla':
+        ('highlevel__genre_tzanetakis', 'cla'),
+    'highlevel.genre_tzanetakis.all.cou':
+        ('highlevel__genre_tzanetakis', 'cou'),
+    'highlevel.genre_tzanetakis.all.dis':
+        ('highlevel__genre_tzanetakis', 'dis'),
+    'highlevel.genre_tzanetakis.all.hip':
+        ('highlevel__genre_tzanetakis', 'hip'),
+    'highlevel.genre_tzanetakis.all.jaz':
+        ('highlevel__genre_tzanetakis', 'jaz'),
+    'highlevel.genre_tzanetakis.all.met':
+        ('highlevel__genre_tzanetakis', 'met'),
+    'highlevel.genre_tzanetakis.all.pop':
+        ('highlevel__genre_tzanetakis', 'pop'),
+    'highlevel.genre_tzanetakis.all.reg':
+        ('highlevel__genre_tzanetakis', 'reg'),
+    'highlevel.genre_tzanetakis.all.roc':
+        ('highlevel__genre_tzanetakis', 'roc'),
+    'highlevel.ismir04_rhythm.value':
+        ('highlevel__ismir04_rhythm', 'value'),
+    'highlevel.ismir04_rhythm.probability':
+        ('highlevel__ismir04_rhythm', 'probability'),
+    'highlevel.ismir04_rhythm.all.ChaChaCha':
+        ('highlevel__ismir04_rhythm', 'chachacha'),
+    'highlevel.ismir04_rhythm.all.Jive':
+        ('highlevel__ismir04_rhythm', 'jive'),
+    'highlevel.ismir04_rhythm.all.Quickstep':
+        ('highlevel__ismir04_rhythm', 'quickstep'),
+    'highlevel.ismir04_rhythm.all.Rumba-American':
+        ('highlevel__ismir04_rhythm', 'rumba_american'),
+    'highlevel.ismir04_rhythm.all.Rumba-International':
+        ('highlevel__ismir04_rhythm', 'rumba_international'),
+    'highlevel.ismir04_rhythm.all.Rumba-Misc':
+        ('highlevel__ismir04_rhythm', 'rumba_misc'),
+    'highlevel.ismir04_rhythm.all.Samba':
+        ('highlevel__ismir04_rhythm', 'samba'),
+    'highlevel.ismir04_rhythm.all.Tango':
+        ('highlevel__ismir04_rhythm', 'tango'),
+    'highlevel.ismir04_rhythm.all.VienneseWaltz':
+        ('highlevel__ismir04_rhythm', 'viennesewaltz'),
+    'highlevel.ismir04_rhythm.all.Waltz':
+        ('highlevel__ismir04_rhythm', 'waltz'),
+    'highlevel.moods_mirex.value':
+        ('highlevel__moods_mirex', 'value'),
+    'highlevel.moods_mirex.probability':
+        ('highlevel__moods_mirex', 'probability'),
+    'highlevel.moods_mirex.all.Cluster1':
+        ('highlevel__moods_mirex', 'cluster1'),
+    'highlevel.moods_mirex.all.Cluster2':
+        ('highlevel__moods_mirex', 'cluster2'),
+    'highlevel.moods_mirex.all.Cluster3':
+        ('highlevel__moods_mirex', 'cluster3'),
+    'highlevel.moods_mirex.all.Cluster4':
+        ('highlevel__moods_mirex', 'cluster4'),
+    'highlevel.moods_mirex.all.Cluster5':
+        ('highlevel__moods_mirex', 'cluster5')
 }
 
 keys_with_stats = ['lowlevel.barkbands_crest',
