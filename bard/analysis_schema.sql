@@ -1,0 +1,345 @@
+CREATE SCHEMA analysis
+CREATE TABLE analysis.lowlevel__silence_rate_20dB_stats (
+        song_id INTEGER PRIMARY KEY,
+        mean REAL,
+        minimum REAL,
+        maximum REAL,
+        stdev REAL,
+        var REAL,
+        median REAL,
+        dmean REAL,
+        dmean2 REAL,
+        dvar REAL,
+        dvar2 REAL,
+        FOREIGN KEY(song_id)
+            REFERENCES public.songs(id) ON DELETE CASCADE
+)
+CREATE TABLE analysis.lowlevel__silence_rate_30dB_stats (
+        song_id INTEGER PRIMARY KEY,
+        mean REAL,
+        minimum REAL,
+        maximum REAL,
+        stdev REAL,
+        var REAL,
+        median REAL,
+        dmean REAL,
+        dmean2 REAL,
+        dvar REAL,
+        dvar2 REAL,
+        FOREIGN KEY(song_id)
+            REFERENCES public.songs(id) ON DELETE CASCADE
+)
+CREATE TABLE analysis.lowlevel__silence_rate_60dB_stats (
+        song_id INTEGER PRIMARY KEY,
+        mean REAL,
+        minimum REAL,
+        maximum REAL,
+        stdev REAL,
+        var REAL,
+        median REAL,
+        dmean REAL,
+        dmean2 REAL,
+        dvar REAL,
+        dvar2 REAL,
+        FOREIGN KEY(song_id)
+            REFERENCES public.songs(id) ON DELETE CASCADE
+)
+CREATE TABLE analysis.rhythm__beats_loudness_stats (
+        song_id INTEGER PRIMARY KEY,
+        mean REAL,
+        minimum REAL,
+        maximum REAL,
+        stdev REAL,
+        var REAL,
+        median REAL,
+        dmean REAL,
+        dmean2 REAL,
+        dvar REAL,
+        dvar2 REAL,
+        FOREIGN KEY(song_id)
+            REFERENCES public.songs(id) ON DELETE CASCADE
+)
+CREATE TABLE analysis.lowlevel__gfcc__mean (
+        song_id INTEGER PRIMARY KEY,
+        values REAL[],
+        FOREIGN KEY(song_id)
+            REFERENCES public.songs(id) ON DELETE CASCADE
+)
+CREATE TABLE analysis.lowlevel__mfcc__mean (
+        song_id INTEGER PRIMARY KEY,
+        values REAL[],
+        FOREIGN KEY(song_id)
+            REFERENCES public.songs(id) ON DELETE CASCADE
+)
+CREATE TABLE analysis.rhythm__beats_loudness_band_ratio_stats (
+        song_id INTEGER, pos INTEGER,
+        mean REAL,
+        minimum REAL,
+        maximum REAL,
+        stdev REAL,
+        var REAL,
+        median REAL,
+        dmean REAL,
+        dmean2 REAL,
+        dvar REAL,
+        dvar2 REAL,
+        UNIQUE(song_id, pos),
+        FOREIGN KEY(song_id)
+            REFERENCES public.songs(id) ON DELETE CASCADE
+)
+CREATE INDEX rhythm__beats_loudness_band_ratio_stats_song_id_idx
+                  ON rhythm__beats_loudness_band_ratio_stats (song_id)
+
+CREATE TABLE analysis.lowlevel__silence_rate_20dB (
+        song_id INTEGER, pos INTEGER,
+        value REAL,
+        UNIQUE(song_id, pos),
+        FOREIGN KEY(song_id)
+            REFERENCES public.songs(id) ON DELETE CASCADE
+)
+CREATE INDEX lowlevel__silence_rate_20dB_song_id_idx
+                  ON lowlevel__silence_rate_20dB (song_id)
+
+CREATE TABLE analysis.lowlevel__silence_rate_30dB (
+        song_id INTEGER, pos INTEGER,
+        value REAL,
+        UNIQUE(song_id, pos),
+        FOREIGN KEY(song_id)
+            REFERENCES public.songs(id) ON DELETE CASCADE
+)
+CREATE INDEX lowlevel__silence_rate_30dB_song_id_idx
+                  ON lowlevel__silence_rate_30dB (song_id)
+
+CREATE TABLE analysis.lowlevel__silence_rate_60dB (
+        song_id INTEGER, pos INTEGER,
+        value REAL,
+        UNIQUE(song_id, pos),
+        FOREIGN KEY(song_id)
+            REFERENCES public.songs(id) ON DELETE CASCADE
+)
+CREATE INDEX lowlevel__silence_rate_60dB_song_id_idx
+                  ON lowlevel__silence_rate_60dB (song_id)
+
+CREATE TABLE analysis.rhythm__beats_loudness (
+        song_id INTEGER, pos INTEGER,
+        value REAL,
+        UNIQUE(song_id, pos),
+        FOREIGN KEY(song_id)
+            REFERENCES public.songs(id) ON DELETE CASCADE
+)
+CREATE INDEX rhythm__beats_loudness_song_id_idx
+                  ON rhythm__beats_loudness (song_id)
+
+CREATE TABLE analysis.rhythm__beats_position (
+        song_id INTEGER, pos INTEGER,
+        value REAL,
+        UNIQUE(song_id, pos),
+        FOREIGN KEY(song_id)
+            REFERENCES public.songs(id) ON DELETE CASCADE
+)
+CREATE INDEX rhythm__beats_position_song_id_idx
+                  ON rhythm__beats_position (song_id)
+
+CREATE TABLE analysis.rhythm__bpm_histogram (
+        song_id INTEGER, pos INTEGER,
+        value REAL,
+        UNIQUE(song_id, pos),
+        FOREIGN KEY(song_id)
+            REFERENCES public.songs(id) ON DELETE CASCADE
+)
+CREATE INDEX rhythm__bpm_histogram_song_id_idx
+                  ON rhythm__bpm_histogram (song_id)
+
+CREATE TABLE analysis.tonal__chords_histogram (
+        song_id INTEGER, pos INTEGER,
+        value REAL,
+        UNIQUE(song_id, pos),
+        FOREIGN KEY(song_id)
+            REFERENCES public.songs(id) ON DELETE CASCADE
+)
+CREATE INDEX tonal__chords_histogram_song_id_idx
+                  ON tonal__chords_histogram (song_id)
+
+CREATE TABLE analysis.tonal__thpcp (
+        song_id INTEGER, pos INTEGER,
+        value REAL,
+        UNIQUE(song_id, pos),
+        FOREIGN KEY(song_id)
+            REFERENCES public.songs(id) ON DELETE CASCADE
+)
+CREATE INDEX tonal__thpcp_song_id_idx
+                  ON tonal__thpcp (song_id)
+
+CREATE TABLE analysis.rhythm__beats_loudness_band_ratio (
+        song_id INTEGER, pos INTEGER,
+        values REAL[],
+        UNIQUE(song_id, pos),
+        FOREIGN KEY(song_id)
+            REFERENCES public.songs(id) ON DELETE CASCADE
+)
+CREATE INDEX rhythm__beats_loudness_band_ratio_song_id_idx
+                  ON rhythm__beats_loudness_band_ratio (song_id)
+
+CREATE TABLE analysis.highlevel__genre_rosamerica (
+   song_id INTEGER PRIMARY KEY,
+   value TEXT,
+   probability REAL,
+   cla REAL,
+   dan REAL,
+   hip REAL,
+   jaz REAL,
+   pop REAL,
+   rhy REAL,
+   roc REAL,
+   spe REAL,
+   FOREIGN KEY(song_id)
+              REFERENCES public.songs(id) ON DELETE CASCADE
+)
+
+CREATE TABLE analysis.highlevel__genre_dortmund (
+   song_id INTEGER PRIMARY KEY,
+   value TEXT,
+   probability REAL,
+   alternative REAL,
+   blues REAL,
+   electronic REAL,
+   folkcountry REAL,
+   funksoulrnb REAL,
+   jazz REAL,
+   pop REAL,
+   raphiphop REAL,
+   rock REAL,
+   FOREIGN KEY(song_id)
+              REFERENCES public.songs(id) ON DELETE CASCADE
+)
+
+CREATE TABLE analysis.highlevel__genre_tzanetakis (
+   song_id INTEGER PRIMARY KEY,
+   value TEXT,
+   probability REAL,
+   blu REAL,
+   cla REAL,
+   cou REAL,
+   dis REAL,
+   hip REAL,
+   jaz REAL,
+   met REAL,
+   pop REAL,
+   reg REAL,
+   roc REAL,
+   FOREIGN KEY(song_id)
+              REFERENCES public.songs(id) ON DELETE CASCADE
+)
+
+CREATE TABLE analysis.highlevel__ismir04_rhythm (
+   song_id INTEGER PRIMARY KEY,
+   value TEXT,
+   probability REAL,
+   ChaChaCha REAL,
+   Jive REAL,
+   Quickstep REAL,
+   Rumba_American REAL,
+   Rumba_International REAL,
+   Rumba_Misc REAL,
+   Samba REAL,
+   Tango REAL,
+   VienneseWaltz REAL,
+   Waltz REAL,
+   FOREIGN KEY(song_id)
+              REFERENCES public.songs(id) ON DELETE CASCADE
+)
+
+CREATE TABLE analysis.highlevel__moods_mirex (
+   song_id INTEGER PRIMARY KEY,
+   value TEXT,
+   probability REAL,
+   Cluster1 REAL,
+   Cluster2 REAL,
+   Cluster3 REAL,
+   Cluster4 REAL,
+   Cluster5 REAL,
+   FOREIGN KEY(song_id)
+              REFERENCES public.songs(id) ON DELETE CASCADE
+)
+
+CREATE TABLE analysis.highlevel__genre_electronic (
+   song_id INTEGER PRIMARY KEY,
+   value TEXT,
+   probability REAL,
+   ambient REAL,
+   dnb REAL,
+   house REAL,
+   techno REAL,
+   trance REAL,
+   FOREIGN KEY(song_id)
+              REFERENCES public.songs(id) ON DELETE CASCADE
+)
+
+CREATE TABLE analysis.highlevel (
+   song_id INTEGER PRIMARY KEY,
+   danceable REAL,
+   gender_female REAL,
+   acoustic REAL,
+   aggressive REAL,
+   electronic REAL,
+   happy REAL,
+   party REAL,
+   relaxed REAL,
+   sad REAL,
+   bright REAL,
+   atonal REAL,
+   instrumental REAL, FOREIGN KEY(song_id)
+              REFERENCES public.songs(id) ON DELETE CASCADE
+)
+
+CREATE TABLE analysis.lowlevel (
+   song_id INTEGER PRIMARY KEY,
+   average_loudness REAL,
+   dynamic_complexity REAL,
+   loudness_ebu128_integrated REAL,
+   loudness_ebu128_loudness_range REAL, FOREIGN KEY(song_id)
+              REFERENCES public.songs(id) ON DELETE CASCADE
+)
+
+CREATE TABLE analysis.version (
+   song_id INTEGER PRIMARY KEY,
+   essentia TEXT, FOREIGN KEY(song_id)
+              REFERENCES public.songs(id) ON DELETE CASCADE
+)
+
+CREATE TABLE analysis.rhythm (
+   song_id INTEGER PRIMARY KEY,
+   beats_count REAL,
+   bpm REAL,
+   bpm_histogram_first_peak_bpm REAL,
+   bpm_histogram_first_peak_weight REAL,
+   bpm_histogram_second_peak_bpm REAL,
+   bpm_histogram_second_peak_spread REAL,
+   bpm_histogram_second_peak_weight REAL,
+   danceability REAL,
+   onset_rate REAL, FOREIGN KEY(song_id)
+              REFERENCES public.songs(id) ON DELETE CASCADE
+)
+
+CREATE TABLE analysis.tonal (
+   song_id INTEGER PRIMARY KEY,
+   chords_changes_rate REAL,
+   chords_key TEXT,
+   chords_number_rate REAL,
+   chords_scale TEXT,
+   key_edma_key TEXT,
+   key_edma_scale TEXT,
+   key_edma_strength REAL,
+   key_krumhansl_key TEXT,
+   key_krumhansl_scale TEXT,
+   key_krumhansl_strength REAL,
+   key_temperley_key TEXT,
+   key_temperley_scale TEXT,
+   key_temperley_strength REAL,
+   tuning_diatonic_strength REAL,
+   tuning_equal_tempered_deviation REAL,
+   tuning_frequency REAL,
+   tuning_nontempered_energy_ratio REAL, FOREIGN KEY(song_id)
+              REFERENCES public.songs(id) ON DELETE CASCADE
+)
+

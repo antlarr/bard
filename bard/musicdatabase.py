@@ -257,6 +257,8 @@ class MusicDatabase:
         MusicDatabase._meta.reflect()
         MusicDatabase._meta.schema = 'musicbrainz'
         MusicDatabase._meta.reflect()
+        MusicDatabase._meta.schema = 'analysis'
+        MusicDatabase._meta.reflect()
         MusicDatabase._meta.schema = None
 
     @staticmethod

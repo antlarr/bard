@@ -34,6 +34,8 @@ from bard.user import requestNewPassword
 from bard.musicbrainz_database import MusicBrainzDatabase
 from bard.album import albumPath
 from bard.playlistmanager import PlaylistManager
+from bard.analysis_database import AnalysisDatabase, SongAnalysis, \
+    AnalysisImporter
 
 
 ComparisonResult = namedtuple('ComparisonResult', ['offset', 'similarity'])
@@ -1311,6 +1313,23 @@ class Bard:
     def backupMusic(self, target, priorityPatterns):
         backupMusic(target, priorityPatterns)
 
+    def analyzeSongs(self, verbose=False):
+        songsData = AnalysisDatabase.songsWithoutAnalysis()
+
+        c = MusicDatabase.getCursor()
+        for songID, songPath, songDuration in songsData:
+            print(songID, songPath)
+            analysis = SongAnalysis.analyze(songPath)
+            if abs(analysis.frames['metadata.audio_properties.length'] -
+                   songDuration) > 2:
+                print(f"ERROR: song duration from analysis is "
+                      f"{analysis.frames['metadata.audio_properties.length']}"
+                      f" but should be {songDuration}. Skipping song...")
+                continue
+            i = AnalysisImporter(songID, analysis)
+            i.import_analysis(connection=c)
+            c.commit()
+
     def parseCommandLine(self):
         main_parser = ArgumentParser(
             description='Manage your music collection',
@@ -1384,6 +1403,8 @@ check-musicbrainz-tags [-v]
 cache-musicbrainz-db [-v]
                     Cache musicbrainz tables by copying data into
                     new tables for fastest access
+analyze-songs [-v]
+                    Perform a high-level audio analysis of songs
 ''')
         # find-duplicates command
         sps.add_parser('find-duplicates',
@@ -1631,6 +1652,12 @@ cache-musicbrainz-db [-v]
                             action='append', help='Pattern to backup first '
                             'when found in a directory')
 
+        # analyze-songs command
+        parser = sps.add_parser('analyze-songs', description='Perform a '
+                                'high-level audio analysis of songs')
+        parser.add_argument('-v', '--verbose', dest='verbose',
+                            action='store_true', help='Be verbose')
+
         options = main_parser.parse_args()
 
         if options.command == 'find-duplicates':
@@ -1724,6 +1751,8 @@ cache-musicbrainz-db [-v]
             self.checkMusicBrainzTags(verbose=options.verbose)
         elif options.command == 'cache-musicbrainz-db':
             self.cacheMusicBrainzDB(verbose=options.verbose)
+        elif options.command == 'analyze-songs':
+            self.analyzeSongs(verbose=options.verbose)
 
 
 def main():
