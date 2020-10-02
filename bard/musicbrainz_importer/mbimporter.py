@@ -937,8 +937,8 @@ class MusicBrainzImporter:
         # haven't been referenced before.
         for x in table.getlines_matching_values('id', self.ids['track']):
             if x['recording'] not in self.ids['recording']:
-                sql = text(f'SELECT path FROM songs, songs_mb '
-                           f'where id = song_id and releasetrackid = :uuid ')
+                sql = text('SELECT path FROM songs, songs_mb '
+                           'where id = song_id and releasetrackid = :uuid ')
                 result = c.execute(sql, {'uuid': x['gid']})
                 paths.update(x[0] for x in result.fetchall())
         return paths
@@ -1158,7 +1158,8 @@ class MusicBrainzImporter:
                 try:
                     tgt_entity_ids = conversion[item['id']]
                 except KeyError:
-                    print(f'{entity} id {item["id"]} cannot be converted to {tgt_column}')
+                    print(f'{entity} id {item["id"]} cannot be converted '
+                          f'to {tgt_column}')
                     continue
             else:
                 tgt_entity_ids = [item['id']]
