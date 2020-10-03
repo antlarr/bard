@@ -169,10 +169,6 @@ class Song:
         return fp[1]
 
     def getAcoustidFingerprint_data(self, audiodata, properties):
-        # print(properties)
-        # prop = properties[1]
-        # fp = acoustid.fingerprint(prop.sample_rate, prop.channels,
-        #                           (audiodata,))
         fp = acoustid.fingerprint(properties.sample_rate, properties.channels,
                                   (audiodata,))
         return fp
@@ -212,30 +208,6 @@ class Song:
             mutagen.monkeysaudio.MonkeysAudio: 'ape',
             mutagen.musepack.Musepack: 'mpc', }
         self._format = formattext[type(self.metadata)]
-
-        # try:
-        #    if hasattr(filething, 'seek'):
-        #        filething.seek(0)
-        #        # Workaround for pydub closing filething
-        #        #backup = filething.close
-        #        #filething.close = lambda: None
-        #
-        #    audio_segment = AudioSegment.from_file(filething)
-        #
-        #    #if hasattr(filething, 'seek'):
-        #    #    filething.close = backup
-        # except:
-        #    print('Error processing:', fileinfo)
-        #    raise
-        # self._audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
-        # if hasattr(filething, 'seek'):
-        #     filething.seek(0)
-        # try:
-        #     self._audioSha256sum, audiodata, properties = \
-        #         calculateAudioTrackSHA256_pyav(filething)
-        # except ValueError as exc:
-        #     print(f'Error processing {fileinfo}: {exc}')
-        #     raise
 
         audiodata, properties = decodeAudio(filething)
 

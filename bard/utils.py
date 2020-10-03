@@ -3,8 +3,6 @@
 import subprocess
 import time
 import re
-import fcntl
-import os
 import hashlib
 import math
 from pydub import AudioSegment
@@ -25,7 +23,6 @@ from bard import bard_audiofile
 from pydub.utils import db_to_float
 import itertools
 import io
-# import tempfile
 
 ImageDataTuple = namedtuple('ImageDataTuple', ['image', 'data'])
 
@@ -480,26 +477,6 @@ def fixTags(mutagenFile):
         print('Nothing to be done for %s' % mutagenFile.filename)
         return False
 
-    # print('Before:')
-    # for k, v in originalValues.items():
-    #     msg = '%s : %s' % (str(k), repr(v)[:100])
-    #     if k in changedKeys:
-    #         print(TerminalColors.Highlight + msg + TerminalColors.ENDC)
-    #     elif k in removedKeys:
-    #         print(TerminalColors.First + msg + TerminalColors.ENDC)
-    #     else:
-    #         print(msg)
-    #
-    #  print('')
-    # print('After:')
-    # for k, v in mutagenFile.items():
-    #     msg = '%s : %s' % (str(k), repr(v)[:100])
-    #     if k in changedKeys:
-    #         print(TerminalColors.Highlight + msg + TerminalColors.ENDC)
-    #     else:
-    #         print(msg)
-    # print('')
-
     key = input('Do you want to write the changes? (y/n) ')
     if key == 'y':
         mutagenFile.save()
@@ -552,83 +529,6 @@ def calculateSHA256_data(data):
     return hash_sha256.hexdigest()
 
 
-def removeAllTagsFromPath(path):
-    # subprocess.check_output(['id3v2', '--delete-all', path])
-    mutagenFile = mutagen.File(path)
-    print(type(mutagenFile), path)
-
-    if isinstance(mutagenFile, mutagen.flac.FLAC):
-        mutagenFile.clear_pictures()
-        mutagenFile.delete(path)
-        # mutagenFile.save(path, deleteid3=True, padding=lambda x: 0)
-        return
-    elif isinstance(mutagenFile, mutagen.id3.ID3FileType):
-        mutagenFile.delete(path)
-        return
-    elif isinstance(mutagenFile, mutagen.apev2.APEv2File):
-        mutagenFile.delete(path)
-        return
-
-    mutagenFile.delete(path)
-
-
-def removeAllTags(filelike, recurse=True):
-    try:
-        filelike.seek(0)
-        id3 = mutagen.id3.ID3(filelike)
-    except mutagen.id3._util.ID3NoHeaderError:
-        pass
-    else:
-        filelike.seek(0)
-        id3.delete(filelike)
-
-    filelike.seek(0)
-    mutagenFile = mutagen.File(filelike)
-    # print(type(mutagenFile), filelike.name)
-
-    if isinstance(mutagenFile, mutagen.flac.FLAC) and mutagenFile.pictures:
-        mutagenFile.clear_pictures()
-        filelike.seek(0)
-        mutagenFile.save(filelike, padding=lambda x: 0)
-
-    filelike.seek(0)
-    if mutagenFile:
-        mutagenFile.delete(filelike)
-
-
-def calculateAudioTrackSHA256(path, tmpdir='/tmp'):
-    # extension=path[path.rfind('.'):]
-    # (fn, tmpfilename) = tempfile.mkstemp(suffix=extension, dir=tmpdir)
-
-    filelike = io.BytesIO(open(path, 'rb').read())
-    filelike.name = path
-    # filelike.filename = path
-    # print(path, tmpfilename)
-    # try:
-    removeAllTags(filelike)
-    # shutil.copyfile(path, tmpfilename)
-    # removeAllTags(tmpfilename)
-    # if os.path.getsize(tmpfilename) >= os.path.getsize(path):
-    #     print('Error removing tags from %s (%d >= %d)' % \
-    #           (path, os.path.getsize(tmpfilename), os.path.getsize(path)))
-    print(len(filelike.getvalue()))
-    # open('/tmp/output9.mp3','wb').write(filelike.getvalue())
-    filelike.seek(0)
-    return calculateSHA256(filelike)
-    # finally:
-    #     os.close(fn)
-    #     os.unlink(tmpfilename)
-
-    # return None
-
-
-def calculateAudioTrackSHA256_pydub(path):
-    audio_segment = AudioSegment.from_file(path)
-    audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
-    # print('size:', len(audio_segment.raw_data))
-    return audioSha256sum
-
-
 def DecodedAudioPropertiesTupleFromDict(properties):
     messages = []
     for time_position, level, message in properties['messages']:
@@ -647,13 +547,13 @@ def decodeAudio(filething):
         data, properties = bard_audiofile.decode(path=filething)
 
     if config['enable_internal_checks']:
-        FILES_PYDUB_CANT_DECODE_RIGHT = \
-            ['/mnt/DD8/media/mp3/id13/k3/software_libre-hq.ogg']
+        files_pydub_cant_decode_correctly = \
+            config['files_pydub_cant_decode_correctly']
         if hasattr(filething, 'seek'):
             filething.seek(0)
         audio_segment = AudioSegment.from_file(filething)
         if (audio_segment.raw_data != data and
-                filething not in FILES_PYDUB_CANT_DECODE_RIGHT):
+                filething not in files_pydub_cant_decode_correctly):
             with open('/tmp/decoded-song-pydub.raw', 'wb') as f:
                 f.write(audio_segment.raw_data)
             with open('/tmp/decoded-song-bard_audiofile.raw', 'wb') as f:
@@ -665,150 +565,11 @@ def decodeAudio(filething):
     return data, DecodedAudioPropertiesTupleFromDict(properties)
 
 
-class CaptureFD:
-    def __init__(self, fd, max_size=65535):
-        """Create a CaptureFD context manager."""
-        self.redirected_fd = fd
-        self.max_size = max_size
-
-    def __enter__(self):
-        self.fd_copy = os.dup(self.redirected_fd)
-        self.piper, self.pipew = os.pipe()
-        # os.close(self.redirected_fd)
-        os.dup2(self.pipew, self.redirected_fd)
-        # self.temp_fd_holder = os.open('/dev/null', os.O_WRONLY)
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        flags = fcntl.fcntl(self.piper, fcntl.F_GETFL)
-        flags = flags | os.O_NONBLOCK
-        fcntl.fcntl(self.piper, fcntl.F_SETFL, flags)
-
-        try:
-            self.output = os.read(self.piper, self.max_size)
-        except BlockingIOError:
-            self.output = None
-        # os.close(self.temp_fd_holder)
-        os.dup2(self.fd_copy, self.redirected_fd)
-        os.close(self.fd_copy)
-        os.close(self.pipew)
-        os.close(self.piper)
-
-
-def audioSamplesFromAudioFile(path):
-    decode_errors = []
-    captureStdErr = CaptureFD(2)
-    import av
-    # import contextlib
-    # captureStdErr = contextlib.nullcontext()
-    with captureStdErr:
-        container = av.open(path)
-        a_stream = container.streams.get(audio=0)[0]
-
-        format_name = a_stream.format.name
-
-        if (format_name == 'fltp' and
-                a_stream.codec_context.name in ('mp3float', 'aac')):
-            format_name = 's16'
-        else:
-            format_name = 's' + str(a_stream.format.bits)
-
-        audio_format = av.audio.format.AudioFormat(format_name)
-        audio_layout = av.audio.layout.AudioLayout(a_stream.channels)
-        sample_rate = a_stream.codec_context.sample_rate
-        resampler = av.audio.resampler.AudioResampler(audio_format,
-                                                      audio_layout,
-                                                      sample_rate)
-
-        # iprop = InputAudioPropertiesTuple(codec=a_stream.codec.name,
-        #                                   format_name=a_stream.format.name,
-        #                                   duration=float(a_stream.duration *
-        #                                                  a_stream.time_base),
-        #                                   stream_bitrate=a_stream.bit_rate,
-        #                                   container_bitrate=container.bit_rate,
-        #                                   is_valid=True,
-        #                                   decode_errors=None,
-        #                                   decode_messages=None)
-
-        # prop = AudioPropertiesTuple(channels=a_stream.channels,
-        #                             sample_rate=a_stream.sample_rate,
-        #                             bits_per_sample=audio_format.bits,
-        #                             bytes_per_sample=audio_format.bytes)
-
-        bytespersample = a_stream.channels * audio_format.bytes
-        outputbytes = bytearray(b'')
-        # frame_generator = container.decode(audio=0)
-
-        demuxer = container.demux(a_stream)
-
-        while True:
-            try:
-                packet = next(demuxer)
-            except av.AVError as exc:
-                decode_errors.append(str(exc))
-                print('error demuxing', exc)
-                continue
-            except StopIteration:
-                break
-
-            try:
-                frames = packet.decode()
-            except av.AVError as exc:
-                decode_errors.append(str(exc))
-                print('error decoding', exc)
-                import pdb
-                pdb.set_trace()
-                continue
-            for frame in frames:
-                frame.pts = None
-                p = resampler.resample(frame)
-                for x in p.planes:
-                    outputbytes.extend(x.to_bytes()[:bytespersample *
-                                                    p.samples])
-
-    messages = None
-    if captureStdErr.output:
-        messages = captureStdErr.output.decode('utf-8').strip('\n')
-
-    decode_errors = '\n'.join(decode_errors).strip('\n') or None
-    # iprop = iprop._replace(is_valid=bool(decode_errors),
-    #                       decode_messages=messages,
-    #                       decode_errors=decode_errors)
-
-    return bytes(outputbytes), (None, None)  # (iprop, prop)
-
-
-def calculateAudioTrackSHA256_pyav(path):
-    data, properties = audioSamplesFromAudioFile(path)
-    audioSha256sum = calculateSHA256_data(data)
-    # print('size:', len(audio_segment.raw_data))
-    if config['enable_internal_checks']:
-        if hasattr(path, 'seek'):
-            path.seek(0)
-        audio_segment = AudioSegment.from_file(path)
-        pydubAudioSha256sum = calculateSHA256_data(audio_segment.raw_data)
-        if audio_segment.raw_data != data or \
-                pydubAudioSha256sum != audioSha256sum:
-            raise Exception('SHA256sum IS DIFFERENT BETWEEN PYAV AND PYDUB')
-        print('pyav/pydub decode check ' +
-              TerminalColors.Ok + 'OK' + TerminalColors.ENDC)
-    return audioSha256sum, data, properties
-
-
 def audioSegmentFromDataProperties(data, properties):
     return AudioSegment(data=data,
                         sample_width=properties.decoded_bytes_per_sample,
                         frame_rate=properties.sample_rate,
                         channels=properties.channels)
-
-# def calculateAudioTrackSHA256_audioread(path):
-#    hash_sha256 = hashlib.sha256()
-#    with audioread.audio_open(path) as audiofile:
-#        c = 0
-#        for block in audiofile:
-#            c += len(block)
-#            hash_sha256.update(block)
-#        print('size:', c)
-#    return hash_sha256.hexdigest()
 
 
 def windowsList():

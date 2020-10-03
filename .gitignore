@@ -94,3 +94,5 @@ ENV/
 /bard/dump
 /gui/
 /bard/audiofile/tests
+/bard/audiofile/*.raw
+/bard/audiofile/*.wav

@@ -664,12 +664,6 @@ class Bard:
             audiodata, properties = decodeAudio(song.path())
             audioSha256sumInDisk = calculateSHA256_data(audiodata)
 
-            # print('from disk', end='', flush=True)
-            # audioSha256sumInDisk, audiodata, properties = \
-            #     calculateAudioTrackSHA256_pyav(song.path())
-            # audioSha256sumInDisk=calculateAudioTrackSHA256_pydub(song.path())
-            # print('Setting audio track sha256 %s to %s' %
-            #       (audioSha256sum, song.path()))
             if audioSha256sumInDB != audioSha256sumInDisk:
                 MusicDatabase.addAudioTrackSha256sum(song.id,
                                                      audioSha256sumInDisk)
