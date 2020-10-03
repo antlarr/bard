@@ -73,6 +73,7 @@ def getSongsAtPath(path, exact=False):
         values = {'path': path + '%'}
     return getMusic(where_clause=where, where_values=values)
 
+
 def getSongsFromIDorPath(id_or_path, query=None):
     try:
         songID = int(id_or_path)
@@ -83,4 +84,3 @@ def getSongsFromIDorPath(id_or_path, query=None):
         return getSongs(songID=songID, query=query)
 
     return getSongs(path=id_or_path, query=query)
-
