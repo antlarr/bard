@@ -225,5 +225,6 @@ class Playlist:
                 sql = text('UPDATE playlist_songs SET pos = :idx '
                            'WHERE playlist_id = :playlist_id '
                            ' AND pos = :pos')
-                c.execute(sql.bindparams(playlist_id=self.id, pos=pos, idx=idx))
+                c.execute(sql.bindparams(playlist_id=self.id, pos=pos,
+                                         idx=idx))
         c.commit()
