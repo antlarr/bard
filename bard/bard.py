@@ -1237,7 +1237,15 @@ class Bard:
         c = MusicDatabase.getCursor()
         for songID, songPath, songDuration in songsData:
             print(songID, songPath)
-            analysis = SongAnalysis.analyze(songPath)
+            try:
+                analysis = SongAnalysis.analyze(songPath)
+            except RuntimeError as e:
+                msg = ('In MusicExtractor.compute: File looks like a '
+                       'completely silent file... Aborting...')
+                if e.args and e.args[0] == msg:
+                    print("Silent file. Skipping...")
+                    continue
+                raise
             if abs(analysis.frames['metadata.audio_properties.length'] -
                    songDuration) > 2:
                 print(f"ERROR: song duration from analysis is "
