@@ -598,13 +598,15 @@ class AnalysisImporter:
 
 
 class AnalysisDatabase:
-    def songsWithoutAnalysis():
+    @staticmethod
+    def songsWithoutAnalysis(from_song_id=0):
         c = MusicDatabase.getCursor()
         sql = text('SELECT id, path, duration FROM songs, properties '
                    'WHERE NOT EXISTS (SELECT song_id '
                    '                    FROM analysis.highlevel '
                    '                   WHERE song_id = id) '
                    '  AND songs.id = properties.song_id '
+                   f'  AND songs.id >= {from_song_id} '
                    'ORDER BY id')
         result = c.execute(sql)
         return [(x[0], x[1], x[2]) for x in result.fetchall()]

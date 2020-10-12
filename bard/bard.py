@@ -1231,8 +1231,8 @@ class Bard:
     def backupMusic(self, target, priorityPatterns):
         backupMusic(target, priorityPatterns)
 
-    def analyzeSongs(self, verbose=False):
-        songsData = AnalysisDatabase.songsWithoutAnalysis()
+    def analyzeSongs(self, from_song_id=0, verbose=False):
+        songsData = AnalysisDatabase.songsWithoutAnalysis(from_song_id)
 
         c = MusicDatabase.getCursor()
         for songID, songPath, songDuration in songsData:
@@ -1583,6 +1583,9 @@ analyze-songs [-v]
                                 'high-level audio analysis of songs')
         parser.add_argument('-v', '--verbose', dest='verbose',
                             action='store_true', help='Be verbose')
+        parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
+                            help='Starts analyzing songs '
+                                 'from a specific song_id')
 
         options = main_parser.parse_args()
 
@@ -1678,7 +1681,8 @@ analyze-songs [-v]
         elif options.command == 'cache-musicbrainz-db':
             self.cacheMusicBrainzDB(verbose=options.verbose)
         elif options.command == 'analyze-songs':
-            self.analyzeSongs(verbose=options.verbose)
+            self.analyzeSongs(from_song_id=options.from_song_id,
+                              verbose=options.verbose)
 
 
 def main():
