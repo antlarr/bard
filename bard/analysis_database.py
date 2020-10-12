@@ -321,10 +321,13 @@ stat_variables = {'mean': 'mean',
 # Storing everything in the database is _too_much_
 # Just for 179 songs, this is the space used by the largest tables:
 #
-# > select concat(schemaname, '.', tablename),
-#          pg_total_relation_size( concat(schemaname, '.', tablename))
-#    from  pg_catalog.pg_tables
-#    where schemaname='analysis' order by 2;
+# select concat(schemaname, '.', tablename),
+#        pg_total_relation_size( concat(schemaname, '.', tablename)),
+#        pg_catalog.pg_size_pretty(
+#            pg_total_relation_size(
+#                concat(schemaname, '.', tablename)))
+#  from  pg_catalog.pg_tables
+#  where schemaname='analysis' order by 2;
 #
 # analysis.lowlevel__loudness_ebu128__short_term        |     49438720
 # analysis.lowlevel__loudness_ebu128__momentary         |     49848320
@@ -434,7 +437,8 @@ keys_to_ignore = {'lowlevel.loudness_ebu128.short_term',
                   'lowlevel.barkbands',
                   'lowlevel.erbbands',
                   'lowlevel.melbands',
-                  'lowlevel.melbands128'}
+                  'lowlevel.melbands128',
+                  'rhythm.beats_loudness_band_ratio'}
 
 
 essentia_allowed_exts = ['.wav', '.mp3', '.flac', '.ogg']
