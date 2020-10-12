@@ -1237,21 +1237,49 @@ class Bard:
         c = MusicDatabase.getCursor()
         for songID, songPath, songDuration in songsData:
             print(songID, songPath)
-            try:
-                analysis = SongAnalysis.analyze(songPath)
-            except RuntimeError as e:
-                msg = ('In MusicExtractor.compute: File looks like a '
-                       'completely silent file... Aborting...')
-                if e.args and e.args[0] == msg:
-                    print("Silent file. Skipping...")
+            analysis = None
+            force_predecode = False
+            skip_song = False
+            while not analysis:
+                try:
+                    analysis = (SongAnalysis.analyze(songPath,
+                                force_predecode=force_predecode))
+                except RuntimeError as e:
+                    msg = ('In MusicExtractor.compute: File looks like a '
+                           'completely silent file... Aborting...')
+                    msg2 = ('In MusicExtractor.compute: AudioLoader: '
+                            'Incomplete format conversion (some samples '
+                            'missing) from fltp to flt')
+                    msg3 = ('In MusicExtractor.compute: AudioLoader: '
+                            'could not load audio. Audio file has more '
+                            'than 2 channels.')
+                    if e.args and e.args[0] == msg:
+                        print("Silent file. Skipping...")
+                        skip_song = True
+                        break
+                    elif e.args and (e.args[0] == msg2 or e.args[0] == msg3):
+                        force_predecode = True
+                        continue
+                    else:
+                        raise
+                if abs(analysis.frames['metadata.audio_properties.length'] -
+                       songDuration) > 2:
+                    dur = analysis.frames['metadata.audio_properties.length']
+                    print(f"ERROR: song duration from analysis is {dur}"
+                          f" but should be {songDuration}. ", end='')
+                    if force_predecode:
+                        print("Skipping...")
+                        skip_song = True
+                        break
+
+                    print("Forcing pre-decoding of song...")
+                    analysis = None
+                    force_predecode = True
                     continue
-                raise
-            if abs(analysis.frames['metadata.audio_properties.length'] -
-                   songDuration) > 2:
-                print(f"ERROR: song duration from analysis is "
-                      f"{analysis.frames['metadata.audio_properties.length']}"
-                      f" but should be {songDuration}. Skipping song...")
+
+            if skip_song:
                 continue
+
             i = AnalysisImporter(songID, analysis)
             i.import_analysis(connection=c)
             c.commit()

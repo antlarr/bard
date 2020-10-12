@@ -448,7 +448,7 @@ class SongAnalysis:
         self.frames = None
 
     @staticmethod
-    def analyze(path):
+    def analyze(path, force_predecode=False):
         analysis = SongAnalysis(path)
 
         dir = '/usr/share/essentia-extractor-svm_models/'
@@ -458,15 +458,20 @@ class SongAnalysis:
         extractor = MusicExtractor(highlevel=history_files,
                                    lowlevelSilentFrames='keep',
                                    tonalSilentFrames='keep')
-        if any(path.lower().endswith(x) for x in essentia_allowed_exts):
+        if not force_predecode and any(path.lower().endswith(x)
+                                       for x in essentia_allowed_exts):
+            print('Extracting song parameters... ', end='', flush=True)
             analysis.stats, analysis.frames = extractor(path)
         else:
             with (tempfile.NamedTemporaryFile(mode='w',
                   prefix='bard_raw_audio', suffix='.wav')) as raw:
+                print('Predecoding song ... ', end='', flush=True)
                 args = ['ffmpeg', '-y', '-i', path, '-ac', '2', raw.name]
                 subprocess.run(args, capture_output=True)
+                print('Extracting song parameters... ', end='', flush=True)
                 analysis.stats, analysis.frames = extractor(raw.name)
 
+        print('done')
         return analysis
 
 
