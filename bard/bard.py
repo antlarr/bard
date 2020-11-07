@@ -13,7 +13,8 @@ from bard.comparesongs import compareSongSets
 from bard.backup import backupMusic
 from bard import __version__
 import chromaprint
-from collections import MutableSet, namedtuple
+from collections import namedtuple
+from collections.abc import MutableSet
 from sqlalchemy import text
 import urllib.parse
 import dbus
