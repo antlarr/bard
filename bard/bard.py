@@ -1296,6 +1296,13 @@ class Bard:
             i.import_analysis(connection=c)
             c.commit()
 
+    def fixRatings(self, user_id, from_song_id=0, verbose=False):
+        if not user_id:
+            user_id = MusicDatabase.getUserID(config['username'])
+
+        print(f'Fixing ratings for user {user_id}...')
+        MusicDatabase.add_null_ratings(user_id, from_song_id, verbose)
+
     def parseCommandLine(self):
         main_parser = ArgumentParser(
             description='Manage your music collection',
@@ -1318,6 +1325,9 @@ fix-mtime           fixes the mtime of imported files (you should never
                     need to use this)
 fix-checksums       fixes the checksums of imported files (you should
                     never need to use this)
+fix-ratings [--from-song-id]
+                    fixes the missing ratings of songs (you should never need
+                    to use this)
 add-silences [-t threshold] [-l length] [-s start] [-e end] [file|song_id ...]
                     adds silence information to the db for files missing it
                     (you should never need to use this)
@@ -1447,6 +1457,18 @@ analyze-songs [-v]
         parser.add_argument('--remove-missing-files',
                             dest='remove_missing_files', action='store_true',
                             help='Remove missing files')
+        # fix-ratings command
+        parser = sps.add_parser('fix-ratings',
+                                description='Fixes the missing ratings of '
+                                'songs (you should never need to use this)')
+        parser.add_argument('--user-id', type=int, default=None,
+                            help='User id for which to fix missing songs '
+                            'ratings')
+        parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
+                            default=0, help='Starts fixing ratings from a '
+                            'specific song_id')
+        parser.add_argument('-v', '--verbose', dest='verbose',
+                            action='store_true', help='Be verbose')
         # check-songs-existence command
         parser = sps.add_parser('check-songs-existence',
                                 description='Check for removed files to '
@@ -1730,6 +1752,9 @@ analyze-songs [-v]
         elif options.command == 'analyze-songs':
             self.analyzeSongs(from_song_id=options.from_song_id,
                               verbose=options.verbose)
+        elif options.command == 'fix-ratings':
+            self.fixRatings(options.user_id, from_song_id=options.from_song_id,
+                            verbose=options.verbose)
 
 
 def main():

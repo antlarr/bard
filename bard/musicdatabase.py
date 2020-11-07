@@ -931,6 +931,17 @@ CREATE TABLE cuesheets(
                     print(sql, cuesheettracks)
                     raise
 
+            sql = text('select id from users')
+            result = c.execute(sql)
+            user_ids = [x[0] for x in result.fetchall()]
+
+            values = {'song_id': song.id}
+            sql = text('INSERT INTO songs_ratings(song_id, user_id, rating) '
+                       'VALUES (:song_id,:user_id, NULL)')
+            for user_id in user_ids:
+                values['user_id'] = user_id
+                c.execute(text(sql).bindparams(**values))
+
     @staticmethod
     def removeSong(song=None, byID=None):
         if config['immutableDatabase']:
@@ -1513,6 +1524,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
                 result = c.execute(sql)
 
             userID = result.fetchone()[0]
+            MusicDatabase.add_null_ratings(userID, 0)
             MusicDatabase.commit()
             return userID
 
@@ -1979,6 +1991,25 @@ or name {like} '%%MusicBrainz/Track Id'""")
             sql = text(sql).bindparams(rating=rating, user_id=user_id,
                                        artist_id=artist_id)
             c.execute(sql)
+        MusicDatabase.commit()
+
+    @staticmethod
+    def add_null_ratings(user_id, from_song_id, verbose=False):
+        c = MusicDatabase.getCursor()
+
+        sql = text('INSERT INTO songs_ratings '
+                   '     (song_id, user_id, rating) '
+                   '     VALUES (:song_id, :user_id, NULL) '
+                   ' ON CONFLICT DO NOTHING')
+        result = c.execute('SELECT id FROM songs order by id')
+        song_ids = [x[0] for x in result.fetchall()]
+        for song_id in song_ids:
+            if song_id < from_song_id:
+                continue
+            if verbose:
+                print(song_id)
+            stm = sql.bindparams(song_id=song_id, user_id=user_id)
+            c.execute(stm)
         MusicDatabase.commit()
 
 
