@@ -619,3 +619,34 @@ class AnalysisDatabase:
                    'ORDER BY id')
         result = c.execute(sql)
         return [(x[0], x[1], x[2]) for x in result.fetchall()]
+
+    @staticmethod
+    def songAnalysis(song_id):
+        tab_col_keys = {}
+        for k, (t, c) in conversion_dict.items():
+            tab_col_keys.setdefault(t, {})[c] = k
+
+        c = MusicDatabase.getCursor()
+        result = {}
+        for t in tab_col_keys.keys():
+            sql = text(f'SELECT * FROM analysis.{t} '
+                       'WHERE song_id = :song_id ')
+            values = c.execute(sql.bindparams(song_id=song_id)).fetchone()
+            if not values:
+                continue
+            for col, key in tab_col_keys[t].items():
+                if t == 'highlevel':
+                    key = f'highlevel.{col}'
+                parent = result
+                parts = key.split('.')
+                for part in parts[:-1]:
+                    parent = parent.setdefault(part, {})
+
+                # print(col)
+                # print(values)
+                # print(parts)
+                parent[parts[-1]] = values[col]
+
+                # result[key] = values[col]
+
+        return result
