@@ -488,6 +488,14 @@ CREATE TABLE similarities(
                   FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
                   FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
                   )''')
+        c.execute('''CREATE VIEW avg_songs_ratings AS
+                         SELECT song_id, u.id user_id,
+                                ROUND(AVG(sr.rating)) avg_rating
+                           FROM songs s, songs_ratings sr, users u
+                          WHERE s.id = sr.song_id
+                            AND sr.user_id != u.id
+                       GROUP BY sr.song_id, u.id''')
+
         c.execute('''
  CREATE TABLE albums_ratings (
                   user_id INTEGER,
@@ -497,6 +505,13 @@ CREATE TABLE similarities(
                   FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
                   FOREIGN KEY(album_id) REFERENCES albums(id) ON DELETE CASCADE
                   )''')
+        c.execute('''CREATE VIEW avg_albums_ratings AS
+                         SELECT album_id, u.id user_id,
+                                ROUND(AVG(ar.rating)) avg_rating
+                           FROM albums a, albums_ratings ar, users u
+                          WHERE a.id = ar.album_id
+                            AND ar.user_id != u.id
+                       GROUP BY ar.album_id, u.id''')
         c.execute('''
  CREATE TABLE artists_ratings (
                   user_id INTEGER,
@@ -505,6 +520,13 @@ CREATE TABLE similarities(
                   UNIQUE(user_id, artist_id),
                   FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
                   )''')
+        c.execute('''CREATE VIEW avg_artists_ratings AS
+                         SELECT artist_id, u.id user_id,
+                                ROUND(AVG(ar.rating)) avg_rating
+                           FROM artists_mb a, artists_ratings ar, users u
+                          WHERE a.id = ar.artist_id
+                            AND ar.user_id != u.id
+                       GROUP BY ar.artist_id, u.id''')
         # The foreign key for artist_id will be created after the
         # artists_mb table is created.
         c.execute(f'''
@@ -1901,17 +1923,16 @@ or name {like} '%%MusicBrainz/Track Id'""")
 
         result = {row['song_id']: (row['rating'], 'user')
                   for row in r.fetchall()}
-        sql = text('SELECT song_id, AVG(rating) avgrating'
-                   '  FROM songs_ratings '
-                   ' WHERE user_id != :user_id '
-                   '   AND song_id in :song_ids'
-                   ' GROUP BY song_id')
+        sql = text('SELECT song_id, avg_rating '
+                   '  FROM avg_songs_ratings '
+                   ' WHERE user_id = :user_id '
+                   '   AND song_id in :song_ids')
 
         rem_song_ids = tuple(x for x in song_ids if x not in result.keys())
         r = c.execute(sql.bindparams(user_id=user_id,
                                      song_ids=rem_song_ids))
 
-        result.update({row['song_id']: (float(row['avgrating']), 'avg')
+        result.update({row['song_id']: (float(row['avg_rating']), 'avg')
                        for row in r.fetchall()})
 
         rem_song_ids = tuple(x for x in rem_song_ids if x not in result.keys())
