@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from bard.utils import fixTags, calculateFileSHA256, printSongsInfo, \
-    fingerprint_AudioSegment, alignColumns, decodeAudio, calculateSHA256_data
+    fingerprint_AudioSegment, alignColumns, decodeAudio, \
+    calculateSHA256_data, formatLength, colorizeTime, colorizeAll
 from bard.song import Song, DifferentLengthException, CantCompareSongsException
 from bard.song_utils import print_song_info
 from bard.musicdatabase import MusicDatabase
@@ -365,7 +366,7 @@ class Bard:
             print_song_info(song, userID)
 
     def list(self, path, long_ls=False, show_id=False, query=None,
-             group_by_directory=False):
+             group_by_directory=False, show_duration=False):
         try:
             songID = int(path)
         except ValueError:
@@ -388,13 +389,23 @@ class Bard:
                 print("%s" % directory)
         else:
             for song in songs:
+                if show_duration:
+                    duration = colorizeTime(TerminalColors.Yellow,
+                                            formatLength(song.duration()))
+                    duration = f'({duration})'
+                else:
+                    duration = ''
                 if show_id:
-                    print('%d) ' % song.id, end='', flush=True)
+                    print('%s) ' % colorizeAll(TerminalColors.White,
+                                               str(song.id)),
+                          end='', flush=True)
                 if long_ls:
+                    if duration:
+                        print(duration + ' ', end='', flush=True)
                     command = ['ls', '-l', song.path()]
                     subprocess.run(command)
                 else:
-                    print("%s" % song.path())
+                    print(f'{song.path()} {duration}')
 
     def listSimilars(self, condition=None, long_ls=False):
         if isinstance(condition, list):
@@ -1321,7 +1332,7 @@ import [file_or_directory [file_or_directory ...]]
                     musicPaths entries in the configuration file are used
 info <file | song id>
                     shows information about a song from the database
-list|ls [-l] [-d] [-i|--id] [-r root] [-g genre] [file | song_id ...]
+list|ls [-l] [-d] [-i|--id] [--duration] [-r root] [-g genre] [file | song_id ...]
                     lists paths to a song from the database
 list-similars [-l] [condition]
                     lists files marked as similar in the database
@@ -1479,6 +1490,9 @@ analyze-songs [-v]
                             help='Group results by directory')
         parser.add_argument('-i', '--id', dest='show_id', action='store_true',
                             help='Show the id of each song listed')
+        parser.add_argument('--duration', dest='show_duration',
+                            action='store_true',
+                            help='Show the duration of each song listed')
         parser.add_argument('-r', '--root', dest='root',
                             help='List only songs in the given root')
         parser.add_argument('-g', '--genre', dest='genre',
@@ -1494,6 +1508,9 @@ analyze-songs [-v]
                             help='Group results by directory')
         parser.add_argument('-i', '--id', dest='show_id', action='store_true',
                             help='Show the id of each song listed')
+        parser.add_argument('--duration', dest='show_duration',
+                            action='store_true',
+                            help='Show the duration of each song listed')
         parser.add_argument('-r', '--root', dest='root',
                             help='List only songs in the given root')
         parser.add_argument('-g', '--genre', dest='genre',
@@ -1666,7 +1683,8 @@ analyze-songs [-v]
             for path in options.paths:
                 self.list(path, long_ls=options.long_ls,
                           show_id=options.show_id, query=query,
-                          group_by_directory=options.group_by_directory)
+                          group_by_directory=options.group_by_directory,
+                          show_duration=options.show_duration)
         elif options.command == 'list-genres':
             self.listGenres(id_or_paths=options.id_or_paths, root=options.root,
                             quoted_output=options.quoted_output)
