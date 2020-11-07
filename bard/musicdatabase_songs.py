@@ -57,6 +57,61 @@ def getSongs(path=None, songID=None, query=None, metadata=False):
                              OR tags.name='TCON')
                         AND tags.value {like} :tag''')
             values['tag'] = query.genre
+        if query.rating:
+            tables += ['songs_ratings', 'avg_songs_ratings']
+            txt = query.rating.lower()
+            if ' and ' in txt:
+                raise NotImplementedError('Complex rating query')
+            elif txt.startswith('>') or txt.startswith('<'):
+                rating = float(txt[1:])
+                op = txt[0]
+            else:
+                rating = float(txt)
+                op = '='
+
+            where.append(f'''id = songs_ratings.song_id
+                             AND songs_ratings.user_id = :user_id
+                             AND id = avg_songs_ratings.song_id
+                             AND avg_songs_ratings.user_id = :user_id
+                             AND COALESCE(songs_ratings.rating,
+                             avg_songs_ratings.avg_rating, 5) {op} {rating}''')
+            values['user_id'] = query.user_id
+        if query.my_rating:
+            if 'songs_ratings' not in tables:
+                tables += ['songs_ratings']
+                where.append('id = songs_ratings.song_id '
+                             'AND songs_ratings.user_id = :user_id')
+                values['user_id'] = query.user_id
+
+            txt = query.my_rating.lower()
+            if ' and ' in txt:
+                raise NotImplementedError('Complex rating query')
+            elif txt.startswith('>') or txt.startswith('<'):
+                rating = float(txt[1:])
+                op = txt[0]
+            else:
+                rating = float(txt)
+                op = '='
+
+            where.append(f'songs_ratings.rating {op} {rating}')
+        if query.others_rating:
+            if 'avg_songs_ratings' not in tables:
+                tables += ['avg_songs_ratings']
+                where.append('id = avg_songs_ratings.song_id '
+                             'AND avg_songs_ratings.user_id = :user_id')
+                values['user_id'] = query.user_id
+
+            txt = query.others_rating.lower()
+            if ' and ' in txt:
+                raise NotImplementedError('Complex rating query')
+            elif txt.startswith('>') or txt.startswith('<'):
+                rating = float(txt[1:])
+                op = txt[0]
+            else:
+                rating = float(txt)
+                op = '='
+
+            where.append(f'avg_songs_ratings.avg_rating {op} {rating}')
 
     where = 'WHERE ' + ' AND '.join(where)
     return getMusic(where_clause=where, where_values=values,

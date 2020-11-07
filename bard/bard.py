@@ -28,6 +28,7 @@ import random
 import mutagen
 import argparse
 import subprocess
+from dataclasses import dataclass
 from argparse import ArgumentParser
 from bard.config import config, translatePath
 from bard.user import requestNewPassword
@@ -37,17 +38,28 @@ from bard.playlistmanager import PlaylistManager
 from bard.analysis_database import AnalysisDatabase, SongAnalysis, \
     AnalysisImporter
 
-
 ComparisonResult = namedtuple('ComparisonResult', ['offset', 'similarity'])
 
 bard = None
 
 
-class Query (namedtuple('Query', ['root', 'genre'])):
+@dataclass
+class Query:
+    root: str = None
+    genre: str = None
+    my_rating: str = None
+    others_rating: str = None
+    rating: str = None
+    user_id: int = None
+
+    def __post_init__(self):
+        if ((self.rating or self.my_rating or self.others_rating) and
+                not self.user_id):
+            self.user_id = MusicDatabase.getUserID(config['username'])
+
     def __bool__(self):
-        if self.root or self.genre:
-            return True
-        return False
+        return bool(self.root or self.genre or self.my_rating or
+                    self.others_rating or self.rating)
 
 
 def normalized(v):
@@ -1343,7 +1355,8 @@ import [file_or_directory [file_or_directory ...]]
                     musicPaths entries in the configuration file are used
 info <file | song id>
                     shows information about a song from the database
-list|ls [-l] [-d] [-i|--id] [--duration] [-r root] [-g genre] [file | song_id ...]
+list|ls [-l] [-d] [-i|--id] [--duration] [-r root] [-g genre] [--rating rating]
+        [--my-rating rating] [--others-rating rating] [file | song_id ...]
                     lists paths to a song from the database
 list-similars [-l] [condition]
                     lists files marked as similar in the database
@@ -1354,7 +1367,8 @@ list-roots [-q]
                     lists roots for songs
 fix-genres [file | song id]
                     fix genres of songs selected by its name or song id
-play --shuffle [-r root] [-g genre] [file | song_id ...]
+play [--shuffle] [-r root] [-g genre] [--rating rating] [--my-rating rating]
+     [--others-rating rating] [file | song_id ...]
                     play the specified songs using mpv
 fix-tags <file_or_directory [file_or_directory ...]>
                     apply several normalization algorithms to fix tags of
@@ -1362,7 +1376,7 @@ fix-tags <file_or_directory [file_or_directory ...]>
 update [-v]
                     Update database with new/modified/deleted files
 set-rating [-p] <rating> [file | song_id ...]
-                    Set ratings for a song or songs
+                    Set rating for a song or songs
 stats [-v]
                     Print database statistics
 web
@@ -1520,6 +1534,14 @@ analyze-songs [-v]
                             help='List only songs in the given root')
         parser.add_argument('-g', '--genre', dest='genre',
                             help='List only songs with the given genre')
+        parser.add_argument('--rating', dest='rating',
+                            help='List only songs with the given rating')
+        parser.add_argument('--my-rating', dest='my_rating',
+                            help='List only songs with the given rating'
+                            ' set by the current user')
+        parser.add_argument('--others-rating', dest='others_rating',
+                            help='List only songs with the given average'
+                            'rating set by other users')
         parser.add_argument('paths', nargs='*')
         parser = sps.add_parser('ls',
                                 description='Lists paths to songs '
@@ -1538,6 +1560,14 @@ analyze-songs [-v]
                             help='List only songs in the given root')
         parser.add_argument('-g', '--genre', dest='genre',
                             help='List only songs with the given genre')
+        parser.add_argument('--rating', dest='rating',
+                            help='List only songs with the given rating')
+        parser.add_argument('--my-rating', dest='my_rating',
+                            help='List only songs with the given rating'
+                            ' set by the current user')
+        parser.add_argument('--others-rating', dest='others_rating',
+                            help='List only songs with the given average'
+                            'rating set by other users')
         parser.add_argument('paths', nargs='*')
         # list-genres command
         parser = sps.add_parser('list-genres',
@@ -1578,6 +1608,14 @@ analyze-songs [-v]
                             help='Play only songs in the given root')
         parser.add_argument('-g', '--genre', dest='genre',
                             help='Play only songs with the given genre')
+        parser.add_argument('--rating', dest='rating',
+                            help='Play only songs with the given rating')
+        parser.add_argument('--my-rating', dest='my_rating',
+                            help='List only songs with the given rating'
+                            ' set by the current user')
+        parser.add_argument('--others-rating', dest='others_rating',
+                            help='List only songs with the given average'
+                            'rating set by other users')
         parser.add_argument('paths', nargs='*')
         # fix-tags command
         parser = sps.add_parser('fix-tags',
@@ -1593,7 +1631,7 @@ analyze-songs [-v]
                             action='store_true', help='Be verbose')
         # set-rating command
         parser = sps.add_parser('set-rating',
-                                description='Set ratings for a song or songs')
+                                description='Set rating for a song or songs')
         parser.add_argument('-p', dest='playing', action='store_true',
                             help='Set rating for the currently playing song')
         parser.add_argument('rating', nargs='?')
@@ -1695,11 +1733,14 @@ analyze-songs [-v]
         elif options.command == 'info':
             self.info(options.paths, options.playing)
         elif options.command == 'list' or options.command == 'ls':
-            if not options.paths and not options.root and not options.genre:
-                print('The list command needs either a path/id/root/genre '
-                      'parameter to list')
+            if not (options.paths or options.root or options.genre or
+                    options.rating or options.my_rating or
+                    options.others_rating):
+                print('The list command needs either a '
+                      'path/id/root/genre or rating parameter to list')
                 sys.exit(1)
-            query = Query(options.root, options.genre)
+            query = Query(options.root, options.genre, options.my_rating,
+                          options.others_rating, options.rating)
             if not options.paths:
                 options.paths = ['']
 
@@ -1719,7 +1760,8 @@ analyze-songs [-v]
             self.listSimilars(condition=options.condition,
                               long_ls=options.long_ls)
         elif options.command == 'play':
-            query = Query(options.root, options.genre)
+            query = Query(options.root, options.genre, options.my_rating,
+                          options.others_rating, options.rating)
             self.play(options.paths, options.shuffle, query)
         elif options.command == 'import':
             paths = options.paths
