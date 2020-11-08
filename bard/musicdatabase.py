@@ -1916,28 +1916,34 @@ or name {like} '%%MusicBrainz/Track Id'""")
         sql = text('SELECT song_id, rating '
                    '  FROM songs_ratings '
                    ' WHERE user_id = :user_id '
-                   '   AND song_id in :song_ids')
+                   '   AND song_id in :song_ids'
+                   '   AND rating IS NOT NULL')
 
         r = c.execute(sql.bindparams(user_id=user_id,
                                      song_ids=tuple(song_ids)))
 
         result = {row['song_id']: (row['rating'], 'user')
                   for row in r.fetchall()}
-        sql = text('SELECT song_id, avg_rating '
-                   '  FROM avg_songs_ratings '
-                   ' WHERE user_id = :user_id '
-                   '   AND song_id in :song_ids')
 
         rem_song_ids = tuple(x for x in song_ids if x not in result.keys())
-        r = c.execute(sql.bindparams(user_id=user_id,
-                                     song_ids=rem_song_ids))
 
-        result.update({row['song_id']: (float(row['avg_rating']), 'avg')
-                       for row in r.fetchall()})
+        if rem_song_ids:
+            sql = text('SELECT song_id, avg_rating '
+                       '  FROM avg_songs_ratings '
+                       ' WHERE user_id = :user_id '
+                       '   AND song_id in :song_ids'
+                       '   AND avg_rating IS NOT NULL')
 
-        rem_song_ids = tuple(x for x in rem_song_ids if x not in result.keys())
+            r = c.execute(sql.bindparams(user_id=user_id,
+                                         song_ids=rem_song_ids))
 
-        result.update({song_id: (5, None) for song_id in rem_song_ids})
+            result.update({row['song_id']: (float(row['avg_rating']), 'avg')
+                           for row in r.fetchall()})
+
+            rem_song_ids = tuple(x for x in rem_song_ids
+                                 if x not in result.keys())
+
+            result.update({song_id: (5, None) for song_id in rem_song_ids})
 
         return result
 
