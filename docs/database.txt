@@ -1,7 +1,7 @@
 # Install postgresql server
 
 ```
-zypper in postgresql11-server
+zypper in postgresql-server
 su postgres
 ```
 
@@ -26,7 +26,8 @@ If the above command fails with an error message like:
    createdb: could not connect to database template1: FATAL:  Peer authentication failed for user "bard"
 ```
 
-You might need to add the following line as the first uncommented line of /var/lib/pgsql/data/pg_hba.conf:
+You might need to add the following line as the first uncommented line of /var/lib/pgsql/data/pg_hba.conf
+and then restart postgresql and rerun the createdb command:
 
 ```
     local   all             all                                     md5

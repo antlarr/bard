@@ -1,3 +1,5 @@
+-- cat musicbrainz.sql | psql -U barduser barddb
+
 CREATE SCHEMA musicbrainz;
 SET search_path TO musicbrainz,public;
 
@@ -97,7 +99,7 @@ CREATE TABLE musicbrainz.area (
 
 CREATE INDEX ON musicbrainz.area (mbid);
 
-CREATE OR REPLACE TABLE musicbrainz.event (
+CREATE TABLE musicbrainz.event (
        id SERIAL PRIMARY KEY,
        mbid TEXT UNIQUE,
 
@@ -110,7 +112,7 @@ CREATE OR REPLACE TABLE musicbrainz.event (
        end_date_month INTEGER,
        end_date_day INTEGER,
        setlist TEXT,
-       comment TEXT
+       comment TEXT,
 
        FOREIGN KEY(event_type)
          REFERENCES enum_event_type_values(id_value)
@@ -136,7 +138,7 @@ CREATE TABLE musicbrainz.label (
        mbid TEXT UNIQUE,
 
        name TEXT,
-       disambiguation TEXT
+       disambiguation TEXT,
        label_type          INTEGER,
        area_id             INTEGER,
        begin_date_year     SMALLINT,
@@ -453,7 +455,6 @@ CREATE TABLE musicbrainz.link_attribute_credit (
   FOREIGN KEY(link_attribute_type_id)
     REFERENCES link_attribute_type(id)
 );
-
 
 -- Aliases
 
@@ -1618,54 +1619,15 @@ CREATE TABLE musicbrainz.l_work_work (
          REFERENCES work(id)
 );
 
+SET search_path TO public;
 
--- These tables don't come from MB. To fill artists_mb with data,
--- run "bard cache-musicbrainz-db"
+-- The following views don't come from MB.
+-- To fill artists_mb with data run "bard cache-musicbrainz-db"
 
-CREATE TABLE artist_paths (
-       id SERIAL PRIMARY KEY,
-       path TEXT UNIQUE,
-       image_filename TEXT
-);
-
-CREATE TABLE artists_mb (
-       id INTEGER PRIMARY KEY,
-
-       locale_name TEXT,
-       locale_sort_name TEXT,
-       locale TEXT,
-       artist_alias_type INTEGER,
-
-       artist_path_id INTEGER,
-
-       FOREIGN KEY(id)
-          REFERENCES musicbrainz.artist(id),
-       FOREIGN KEY(artist_path_id)
-          REFERENCES artist_paths(id)
-);
+ALTER TABLE artists_mb ADD CONSTRAINT artists_mb_id_fkey FOREIGN KEY(id) REFERENCES musicbrainz.artist(id);
+ALTER TABLE artist_credits_mb ADD CONSTRAINT artist_credits_mb_artist_credit_id_fkey FOREIGN KEY(artist_credit_id) REFERENCES musicbrainz.artist_credit(id);
 
 ALTER TABLE artists_ratings ADD CONSTRAINT artists_ratings_artist_id_fkey FOREIGN KEY(artist_id) REFERENCES artists_mb(id);
-
-CREATE TABLE artist_credits_mb (
-       artist_credit_id INTEGER PRIMARY KEY,
-       artist_path_id INTEGER,
-
-       FOREIGN KEY(artist_credit_id)
-          REFERENCES musicbrainz.artist_credit(id),
-       FOREIGN KEY(artist_path_id)
-          REFERENCES artist_paths(id)
-);
-
-
--- CREATE TABLE album_release (
---        album_id INTEGER,
---        release_id INTEGER,
---
---        FOREIGN KEY(album_id)
---           REFERENCES albums(id),
---        FOREIGN KEY(release_id)
---           REFERENCES musicbrainz.release(id)
--- );
 
 CREATE MATERIALIZED VIEW album_release
                       AS select album_songs.album_id, musicbrainz.release.id release_id
@@ -1676,7 +1638,6 @@ CREATE MATERIALIZED VIEW album_release
 
 CREATE UNIQUE INDEX ON album_release (album_id);
 CREATE INDEX ON album_release (release_id);
-
 
 -- SELECT album_id, string_agg(distinct format,'+'), min(bitrate) min_bitrate, max(bitrate) max_bitrate from album_songs, properties p where album_songs.song_id = p.song_id group by album_songs.album_id
 
@@ -1700,3 +1661,4 @@ CREATE MATERIALIZED VIEW album_properties
 --       max_samplerate INTEGER,
 
 CREATE INDEX ON album_properties (album_id);
+

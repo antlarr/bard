@@ -499,6 +499,12 @@ CREATE TABLE similarities(
                             AND sr.user_id != u.id
                        GROUP BY sr.song_id, u.id''')
 
+        c.execute(f'''
+ CREATE TABLE albums (
+                  id {serial_primary_key},
+                  path TEXT UNIQUE
+                  )''')
+
         c.execute('''
  CREATE TABLE albums_ratings (
                   user_id INTEGER,
@@ -515,23 +521,6 @@ CREATE TABLE similarities(
                           WHERE a.id = ar.album_id
                             AND ar.user_id != u.id
                        GROUP BY ar.album_id, u.id''')
-        c.execute('''
- CREATE TABLE artists_ratings (
-                  user_id INTEGER,
-                  artist_id INTEGER,
-                  rating INTEGER,
-                  UNIQUE(user_id, artist_id),
-                  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-                  )''')
-        c.execute('''CREATE VIEW avg_artists_ratings AS
-                         SELECT artist_id, u.id user_id,
-                                ROUND(AVG(ar.rating)) avg_rating
-                           FROM artists_mb a, artists_ratings ar, users u
-                          WHERE a.id = ar.artist_id
-                            AND ar.user_id != u.id
-                       GROUP BY ar.artist_id, u.id''')
-        # The foreign key for artist_id will be created after the
-        # artists_mb table is created.
         c.execute(f'''
  CREATE TABLE songs_history (
                   id {serial_primary_key},
@@ -601,12 +590,6 @@ CREATE TABLE similarities(
         c.execute('CREATE INDEX songs_mb_recordingid_idx '
                   ' ON songs_mb (recordingid)')
 
-        c.execute(f'''
- CREATE TABLE albums (
-                  id {serial_primary_key},
-                  path TEXT UNIQUE
-                  )''')
-
         c.execute('''
  CREATE TABLE album_songs (
                   song_id INTEGER,
@@ -668,6 +651,59 @@ CREATE TABLE similarities(
                   FOREIGN KEY(playlist_id)
                       REFERENCES playlists(id) ON DELETE CASCADE
                   )''')
+
+        c.execute('''
+CREATE TABLE artist_paths (
+       id SERIAL PRIMARY KEY,
+       path TEXT UNIQUE,
+       image_filename TEXT
+       )''')
+
+        c.execute('''
+CREATE TABLE artists_mb (
+       id INTEGER PRIMARY KEY,
+
+       locale_name TEXT,
+       locale_sort_name TEXT,
+       locale TEXT,
+       artist_alias_type INTEGER,
+
+       artist_path_id INTEGER,
+
+       FOREIGN KEY(artist_path_id)
+          REFERENCES artist_paths(id)
+       )''')
+        # The foreign key for id will be created after the
+        # musicbrainz.artist table is created.
+        c.execute('''
+CREATE TABLE artist_credits_mb (
+       artist_credit_id INTEGER PRIMARY KEY,
+       artist_path_id INTEGER,
+
+       FOREIGN KEY(artist_path_id)
+          REFERENCES artist_paths(id)
+       )''')
+        # The foreign key for artist_credit_id will be created after the
+        # musicbrainz.artist_credit table is created.
+        c.execute('''
+ CREATE TABLE artists_ratings (
+                  user_id INTEGER,
+                  artist_id INTEGER,
+                  rating INTEGER,
+                  UNIQUE(user_id, artist_id),
+                  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+                  )''')
+        # The foreign key for artist_id will be created after the
+        # artists_mb table is created.
+        c.execute('''CREATE VIEW avg_artists_ratings AS
+                 SELECT artist_id, u.id user_id,
+                        ROUND(AVG(ar.rating)) avg_rating
+                   FROM artists_mb a, artists_ratings ar, users u
+                  WHERE a.id = ar.artist_id
+                    AND ar.user_id != u.id
+               GROUP BY ar.artist_id, u.id''')
+
+
         c.execute('''
 CREATE TABLE cuesheets(
                   song_id INTEGER NOT NULL,
