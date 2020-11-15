@@ -6,7 +6,7 @@ import pwd
 
 
 def readConfiguration():
-    cfgfile = os.path.expanduser('~/.config/bard')
+    cfgfile = os.path.expanduser(os.getenv('BARDCONFIGFILE', '~/.config/bard'))
     if not os.path.isfile(cfgfile):
         raise FileNotFoundError('Configuration file not found.'
                                 'Please configure the application at %s'
