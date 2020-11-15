@@ -454,7 +454,7 @@ class Bard:
             userID = MusicDatabase.getUserID(config['username'])
             for song in songs:
                 paths.append(song.path())
-                probabilities.append(song.userRating(userID) * 1000)
+                probabilities.append(song.rating(userID) * 1000)
 
 #            print(list(normalized(probabilities)))
             paths = numpy.random.choice(paths, total_songs, replace=False,

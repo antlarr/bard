@@ -26,8 +26,18 @@ def print_song_info(song, userID=None, print_analysis=True):
         filesize = "File not found"
     print("%s (%s)" % (song.path(), filesize))
     print("song id:", song.id)
+
     rating = song.userRating(userID)
-    print("rating:", '*' * rating, '(%d/10)' % rating)
+    if rating:
+        print("my rating:", '*' * rating, '(%d/10)' % rating)
+    avgrating = song.avgRating(userID)
+    if avgrating:
+        print("avg rating:", '*' * avgrating, '(%d/10)' % avgrating)
+
+    if not rating and not avgrating:
+        rating = song.rating(userID)
+        print("rating:", '*' * rating, '(%d/10)' % rating)
+
     for k in sorted(song.metadata):
         v = song.metadata[k]
         print(TerminalColors.Header + str(k) + TerminalColors.ENDC +

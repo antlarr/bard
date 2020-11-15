@@ -43,7 +43,7 @@ class GeneratedPlaylist(Playlist):
         probabilities = []
         for song in songs:
             ids.append(song.id)
-            probabilities.append(song.userRating(self.owner_id) * 1000)
+            probabilities.append(song.rating(self.owner_id) * 1000)
 
         ids = numpy.random.choice(ids, count, replace=False,
                                   p=list(normalized(probabilities)))

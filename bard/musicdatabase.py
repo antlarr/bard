@@ -957,12 +957,12 @@ CREATE TABLE cuesheets(
             result = c.execute(sql)
             user_ids = [x[0] for x in result.fetchall()]
 
-            values = {'song_id': song.id}
+            values = {'song_id': song.id, 'rating': None}
             sql = text('INSERT INTO songs_ratings(song_id, user_id, rating) '
-                       'VALUES (:song_id,:user_id, NULL)')
+                       'VALUES (:song_id,:user_id, :rating)')
             for user_id in user_ids:
                 values['user_id'] = user_id
-                c.execute(text(sql).bindparams(**values))
+                c.execute(sql.bindparams(**values))
 
     @staticmethod
     def removeSong(song=None, byID=None):

@@ -45,9 +45,17 @@ class CantCompareSongsException(Exception):
 
 class Ratings:
     def __init__(self):
-        """Create a Ratings object with ALL ratings from all users/songs."""
+        """Create a Ratings object."""
+        self.user_ratings = {}
+        self.avg_ratings = {}
+        self.cached = False
+
+    def cache_all_ratings(self):
+        """Load ALL ratings from all users/songs."""
         c = MusicDatabase.getCursor()
-        sql = 'SELECT user_id, song_id, rating FROM songs_ratings'
+        sql = ('SELECT user_id, song_id, rating '
+               '  FROM songs_ratings '
+               ' WHERE rating IS NOT NULL')
         result = c.execute(sql)
         self.user_ratings = {}
         for user_id, song_id, rating in result.fetchall():
@@ -58,12 +66,40 @@ class Ratings:
                     self.user_ratings[user_id] = {}
                     self.user_ratings[user_id][song_id] = rating
 
+        sql = ('SELECT user_id, song_id, avg_rating '
+               '  FROM avg_songs_ratings '
+               ' WHERE avg_rating IS NOT NULL')
+        result = c.execute(sql)
+        self.avg_ratings = {}
+        for user_id, song_id, rating in result.fetchall():
+            if rating:
+                try:
+                    self.avg_ratings[user_id][song_id] = int(rating)
+                except KeyError:
+                    self.avg_ratings[user_id] = {}
+                    self.avg_ratings[user_id][song_id] = int(rating)
+        self.cached = True
+
+    def getSongUserRatings(self, user_id, song_id):
+        try:
+            return self.user_ratings[user_id][song_id]
+        except KeyError:
+            return None
+
+    def getSongAvgRatings(self, user_id, song_id):
+        try:
+            return self.avg_ratings[user_id][song_id]
+        except KeyError:
+            return None
+
     def getSongRatings(self, user_id, song_id):
         try:
             return self.user_ratings[user_id][song_id]
         except KeyError:
-            # Should we return the average ratings for the rest of users?
-            return 5
+            try:
+                return self.avg_ratings[user_id][song_id]
+            except KeyError:
+                return 5
 
     def setSongUserRating(self, user_id, song_id, rating):
         try:
@@ -91,11 +127,11 @@ class Ratings:
 class Song:
     silence_threshold = -67
     min_silence_length = 10
+    ratings = None
 
     def __init__(self, x, rootDir=None, data=None):
         """Create a Song oject."""
         self.tags = {}
-        Song.ratings = None
         self.fingerprint = None
         self._decode_properties = None
         self.cuesheet = []
@@ -701,10 +737,20 @@ class Song:
         except AttributeError:
             return 'nocover'
 
-    def userRating(self, user_id=0):
+    def rating(self, user_id=0):
         if not Song.ratings:
             Song.ratings = Ratings()
         return Song.ratings.getSongRatings(user_id, self.id)
+
+    def userRating(self, user_id=0):
+        if not Song.ratings:
+            Song.ratings = Ratings()
+        return Song.ratings.getSongUserRatings(user_id, self.id)
+
+    def avgRating(self, user_id=0):
+        if not Song.ratings:
+            Song.ratings = Ratings()
+        return Song.ratings.getSongAvgRatings(user_id, self.id)
 
     def setUserRating(self, rating, user_id=0):
         if not Song.ratings:
