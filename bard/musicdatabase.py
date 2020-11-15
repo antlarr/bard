@@ -218,13 +218,14 @@ class MusicDatabase:
                 MusicDatabase.conn[threading.get_ident()] = \
                     sqlite3.connect(databasepath)
                 self.createDatabase()
-            else:
-                MusicDatabase.uri = 'sqlite:///' + databasepath
-                if ro:
-                    MusicDatabase.uri += '?mode=ro'
+                del MusicDatabase.conn[threading.get_ident()]
+
+            MusicDatabase.uri = 'sqlite:///' + databasepath
+            if ro:
+                MusicDatabase.uri += '?mode=ro'
 
         MusicDatabase.engine = create_engine(MusicDatabase.uri)
-        if not MusicDatabase.engine.has_table('songs'):
+        if not MusicDatabase.engine.has_table('cuesheets'):
             print('Tables missing. Creating database schema and tables.')
             self.createDatabase()
         MusicDatabase.getConnection()
@@ -281,6 +282,7 @@ class MusicDatabase:
             print("Error: Can't create database: "
                   "The database is configured as immutable")
             return
+        print('Creating database...')
         if self.database == 'postgresql':
             serial_primary_key = 'SERIAL PRIMARY KEY'
         else:
@@ -300,10 +302,10 @@ CREATE TABLE songs (
                     track INTEGER,
                     date TEXT,
                     genre TEXT,
-                    discNumber INTEGER,
-                    coverWidth INTEGER,
-                    coverHeight INTEGER,
-                    coverMD5 TEXT,
+                    discnumber INTEGER,
+                    coverwidth INTEGER,
+                    coverheight INTEGER,
+                    covermd5 TEXT,
                     completeness REAL,
                     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     insert_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -427,7 +429,8 @@ CREATE TABLE decode_messages(
                     pos INTEGER,
                     FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
                  )''')
-        c.execute('CREATE INDEX ON decode_messages (song_id)')
+        c.execute('''CREATE INDEX decode_messages_song_id_idx
+                       ON decode_messages (song_id)''')
         c.execute('''
 CREATE TABLE tags(
                     song_id INTEGER,
@@ -436,7 +439,7 @@ CREATE TABLE tags(
                     pos INTEGER,
                     FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
                  )''')
-        c.execute('CREATE INDEX ON tags (song_id)')
+        c.execute('CREATE INDEX tags_song_id_idx ON tags (song_id)')
         c.execute('''
 CREATE TABLE covers(
                   path TEXT,
@@ -477,7 +480,7 @@ CREATE TABLE similarities(
                   id {serial_primary_key},
                   name TEXT,
                   password BYTEA,
-                  active BOOLEAN DEFAULT TRUE,
+                  active BOOLEAN DEFAULT TRUE
                   )''')
         c.execute('''
  CREATE TABLE songs_ratings (
@@ -676,6 +679,8 @@ CREATE TABLE cuesheets(
                   )''')
         c.execute('CREATE INDEX cuesheets_song_id_idx '
                   ' ON cuesheets (song_id)')
+        c.commit()
+        print('Database created')
 
     @staticmethod
     def addSong(song):  # noqa
@@ -719,8 +724,8 @@ CREATE TABLE cuesheets(
                    'mtime=:mtime, title=:title, '
                    'artist=:artist, album=:album, albumArtist=:albumartist, '
                    'track=:track, date=:date, genre=:genre, '
-                   'discNumber=:discnumber, coverWidth=:coverwidth, '
-                   'coverHeight=:coverheight, coverMD5=:covermd5, '
+                   'discnumber=:discnumber, coverwidth=:coverwidth, '
+                   'coverheight=:coverheight, covermd5=:covermd5, '
                    'completeness=:completeness, update_time=CURRENT_TIMESTAMP '
                    'WHERE id = :id')
 
@@ -840,8 +845,8 @@ CREATE TABLE cuesheets(
             # print(values)
             sql = ('INSERT INTO songs(root, path, filename, mtime, '
                    'title, artist, album, albumArtist, track, date, '
-                   'genre, discNumber, coverWidth, coverHeight, '
-                   'coverMD5, completeness) '
+                   'genre, discNumber, coverwidth, coverheight, '
+                   'covermd5, completeness) '
                    'VALUES (:root,:path,:filename,:mtime,:title,:artist,'
                    ':album,:albumartist,:track,:date,:genre,:discnumber,'
                    ':coverwidth,:coverheight,:covermd5,:completeness)')
@@ -936,7 +941,8 @@ CREATE TABLE cuesheets(
                     c.rollback()
                     print(sql, tags)
                     raise
-            albumID = MusicDatabase.getAlbumID(albumPath(song.path()))
+            albumID = MusicDatabase.getAlbumID(albumPath(song.path()),
+                                               connection=c)
             MusicDatabase.setSongInAlbum(song.id, albumID, connection=c)
 
             cuesheettracks = extractCueSheetTracks(song)
@@ -1745,26 +1751,27 @@ or name {like} '%%MusicBrainz/Track Id'""")
             return None
 
     @staticmethod
-    def getAlbumID(albumPath):
-        c = MusicDatabase.getCursor()
+    def getAlbumID(albumPath, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         sql = text('SELECT id FROM albums where path = :path')
 
-        result = c.execute(sql, {'path': albumPath}).fetchone()
+        result = connection.execute(sql, {'path': albumPath}).fetchone()
         if result:
             return result[0]
         else:
             sql = text('INSERT INTO albums(path) VALUES (:path)')
-            c.execute(sql, {'path': albumPath})
+            connection.execute(sql, {'path': albumPath})
 
             try:
                 sql = "SELECT currval(pg_get_serial_sequence('albums','id'))"
-                result = c.execute(sql)
+                result = connection.execute(sql)
             except sqlalchemy.exc.OperationalError:
                 # Try the sqlite way
                 sql = 'SELECT last_insert_rowid()'
-                result = c.execute(sql)
+                result = connection.execute(sql)
 
-            MusicDatabase.commit()
+            # connection.commit()
             albumID = result.fetchone()[0]
             return albumID
 
@@ -1896,17 +1903,16 @@ or name {like} '%%MusicBrainz/Track Id'""")
                                           track_position=track_position))
         return result.fetchone()
 
-    @staticmethod
-    def refreshMaterializedView(viewName):
-        c = MusicDatabase.getCursor()
-        sql = text(f'refresh materialized view {viewName}')
-        c.execute(sql)
-        MusicDatabase.commit()
+    def refreshMaterializedView(self, viewName):
+        if self.database == 'postgresql':
+            c = MusicDatabase.getCursor()
+            sql = text(f'refresh materialized view {viewName}')
+            c.execute(sql)
+            MusicDatabase.commit()
 
-    @staticmethod
-    def refreshMaterializedViews():
-        MusicDatabase.refreshMaterializedView('album_properties')
-        MusicDatabase.refreshMaterializedView('album_release')
+    def refreshMaterializedViews(self):
+        self.refreshMaterializedView('album_properties')
+        self.refreshMaterializedView('album_release')
 
     @staticmethod
     def get_songs_ratings(song_ids, user_id):

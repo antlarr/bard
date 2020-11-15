@@ -362,7 +362,7 @@ class Bard:
         print('update musicbrainz ids')
         # do things for new songs
         MusicBrainzDatabase.updateMusicBrainzIDs(ids)
-        MusicDatabase.refreshMaterializedViews()
+        self.db.refreshMaterializedViews()
 
     def info(self, ids_or_paths, currentlyPlaying=False):
         songs = []
@@ -1180,7 +1180,7 @@ class Bard:
 
             MusicDatabase.setSongInAlbum(songID, albumID)
         MusicDatabase.removeOrphanAlbums()
-        MusicDatabase.refreshMaterializedViews()
+        self.db.refreshMaterializedViews()
 
     def checkMusicBrainzTags(self, verbose=False):
         r1 = MusicBrainzDatabase.checkMusicBrainzTags()
