@@ -1315,6 +1315,58 @@ class Bard:
         print(f'Fixing ratings for user {user_id}...')
         MusicDatabase.add_null_ratings(user_id, from_song_id, verbose)
 
+    def addArtistPath(self, path, image_filename=None):
+        mbidfile = os.path.join(path, '.artist_mbid')
+        mbids = [x.strip('\n') for x in open(mbidfile).readlines()]
+        dirname = os.path.normpath(path)
+        path_id = MusicBrainzDatabase.get_artist_path_id(dirname)
+        connection = MusicDatabase.getCursor()
+        if path_id:
+            MusicBrainzDatabase.set_artist_path_image_filename(path_id,
+                                                               image_filename)
+        else:
+            path_id = (MusicBrainzDatabase.add_artist_path(dirname,
+                       image_filename, connection=connection))
+            if not path_id:
+                return
+        print(f'Adding artist path at {dirname} ({path_id}) for {mbids}...')
+        if len(mbids) == 1:
+            artist_id = MusicBrainzDatabase.get_artist_id(mbids[0])
+            print(f'Adding path to artist {artist_id}')
+            if artist_id:
+                MusicBrainzDatabase.set_artist_path(artist_id, path_id,
+                                                    connection=connection)
+
+        artist_credit_ids = MusicBrainzDatabase.get_artist_credit_ids(mbids)
+        print(f'Adding path to artist credit {artist_credit_ids}')
+
+        if artist_credit_ids:
+            (MusicBrainzDatabase.set_artist_credit_path(artist_credit_ids,
+             path_id, connection=connection))
+
+    def updateMusicBrainzArtists(self, verbose=False):
+        paths = config['musicPaths']
+        for path in paths:
+            if not os.path.isdir(path):
+                continue
+            for dirpath, dirnames, filenames in os.walk(path, topdown=True):
+                if verbose:
+                    print('New dir: %s' % dirpath)
+                dirnames.sort()
+                if '.artist_mbid' in filenames:
+                    print(f'Found artist dir at {dirpath}')
+                    image_filename = ('artist.jpg' if 'artist.jpg' in filenames
+                                      else None)
+
+                    self.addArtistPath(dirpath, image_filename)
+                    MusicDatabase.commit()
+
+                for excludeDir in self.excludeDirectories:
+                    try:
+                        dirnames.remove(excludeDir)
+                    except ValueError:
+                        pass
+
     def parseCommandLine(self):
         main_parser = ArgumentParser(
             description='Manage your music collection',
@@ -1692,6 +1744,11 @@ analyze-songs [-v]
         parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
                             help='Starts analyzing songs '
                                  'from a specific song_id')
+        # update-musicbrainz-artists command
+        parser = sps.add_parser('update-musicbrainz-artists', description=''
+                                'Recognize artists paths on the collection')
+        parser.add_argument('-v', '--verbose', dest='verbose',
+                            action='store_true', help='Be verbose')
 
         options = main_parser.parse_args()
 
@@ -1797,6 +1854,8 @@ analyze-songs [-v]
         elif options.command == 'fix-ratings':
             self.fixRatings(options.user_id, from_song_id=options.from_song_id,
                             verbose=options.verbose)
+        elif options.command == 'update-musicbrainz-artists':
+            self.updateMusicBrainzArtists(verbose=options.verbose)
 
 
 def main():

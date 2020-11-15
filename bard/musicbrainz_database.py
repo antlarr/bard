@@ -446,11 +446,15 @@ class MusicBrainzDatabase:
     def get_range_artists(offset=0, page_size=500, metadata=False):
         artist = table('musicbrainz.artist')
         artists_mb = table('artists_mb')
+        artist_paths = table('artist_paths')
+        j = (artists_mb.join(artist_paths,
+             artists_mb.c.artist_path_id == artist_paths.c.id, isouter=True))
         s = (select([artist.c.id, artist.c.mbid, artist.c.name,
                     artist.c.artist_type, artist.c.area_id, artist.c.gender,
                     artist.c.disambiguation,
                     artists_mb.c.locale_name, artists_mb.c.locale_sort_name,
-                    artists_mb.c.image_path])
+                    artist_paths.c.path, artist_paths.c.image_filename])
+             .select_from(j)
              .where(artist.c.id == artists_mb.c.id)
              .order_by(artists_mb.c.locale_name)
              .limit(page_size)
@@ -526,32 +530,58 @@ class MusicBrainzDatabase:
     @staticmethod
     def get_artist_image_path(artistID):
         c = MusicDatabase.getCursor()
-        sql = 'select image_path from artists_mb where id = :artistid'
+        sql = ('select ap.path, ap.image_filename '
+               'from artists_mb amb, artist_paths ap '
+               'where amb.id = :artistid and amb.artist_path_id = ap.id')
         result = c.execute(sql, {'artistid': artistID})
-        return result.fetchone()[0]
+        r = result.fetchone()
+        if not r:
+            return None
+        return os.path.join(r[0], r[1])
 
     @staticmethod
-    def get_artist_info(artistID):
+    def get_artist_info(*, artistID=None, artistMBID=None):
         artist = table('musicbrainz.artist')
         artists_mb = table('artists_mb')
+        artist_paths = table('artist_paths')
+        j = (artists_mb.join(artist_paths,
+             artists_mb.c.artist_path_id == artist_paths.c.id))
         s = (select([artist.c.id, artist.c.mbid, artist.c.name,
                     artist.c.artist_type, artist.c.area_id, artist.c.gender,
                     artist.c.disambiguation,
                     artists_mb.c.locale_name, artists_mb.c.locale_sort_name,
-                    artists_mb.c.image_path])
-             .where(and_(artist.c.id == artists_mb.c.id,
-                         artist.c.id == artistID)))
+                    artist_paths.c.path, artist_paths.c.image_filename])
+             .select_from(j))
+        if artistMBID:
+            s = s.where(and_(artist.c.id == artists_mb.c.id,
+                             artist.c.mbid == artistMBID))
+        else:
+            s = s.where(and_(artist.c.id == artists_mb.c.id,
+                             artist.c.id == artistID))
+
         return MusicDatabase.execute(s).fetchone()
+
+    @staticmethod
+    def get_artist_id(mbid):
+        artist = table('musicbrainz.artist')
+        s = select([artist.c.id]).where(artist.c.mbid == mbid)
+
+        r = MusicDatabase.execute(s).fetchone()
+        return r[0] if r else None
 
     @staticmethod
     def get_artists_info(artistIDs):
         artist = table('musicbrainz.artist')
         artists_mb = table('artists_mb')
+        artist_paths = table('artist_paths')
+        j = (artists_mb.join(artist_paths,
+             artists_mb.c.artist_path_id == artist_paths.c.id))
         s = (select([artist.c.id, artist.c.mbid, artist.c.name,
                     artist.c.artist_type, artist.c.area_id, artist.c.gender,
                     artist.c.disambiguation,
                     artists_mb.c.locale_name, artists_mb.c.locale_sort_name,
-                    artists_mb.c.image_path])
+                    artist_paths.c.path, artist_paths.c.image_filename])
+             .select_from(j)
              .where(and_(artist.c.id == artists_mb.c.id,
                          artist.c.id.in_(artistIDs))))
         return MusicDatabase.execute(s).fetchall()
@@ -1023,6 +1053,31 @@ class MusicBrainzDatabase:
         return result.fetchall()
 
     @staticmethod
+    def get_artist_credit_ids(mbids):
+        """Return a list of artist_credit_ids associated to a list of mbids.
+
+        In theory, this should return just one artist_credit_ids, but some
+        times there are more than one artist_credit_ids, for example, when the
+        same artists are credited like "Eric Woolfson and Alan Parsons"
+        and also like "Eric Woolfson & Alan Parsons".
+        """
+        acn = table('musicbrainz.artist_credit_name')
+        s = select([acn.c.artist_credit_id])
+        for pos, mbid in enumerate(mbids):
+            artist_id = MusicBrainzDatabase.get_artist_id(mbid)
+            s = s.where(acn.c.artist_credit_id.in_(
+                (select([acn.c.artist_credit_id])
+                 .where(and_(acn.c.artist_id == artist_id,
+                             acn.c.position == pos)))))
+        s = (s.where(acn.c.artist_credit_id.notin_(
+             (select([acn.c.artist_credit_id])
+              .where(acn.c.position == len(mbids)))))
+             .group_by(acn.c.artist_credit_id))
+
+        r = MusicDatabase.execute(s).fetchall()
+        return sorted([x[0] for x in r]) if r else None
+
+    @staticmethod
     def search_songs_for_webui(query, offset=None, page_size=200):
         query = (FullSongsWebQuery(
                  tables=['songs s'],
@@ -1071,3 +1126,60 @@ class MusicBrainzDatabase:
         if ratings:
             return (sum(x[0] for x in ratings.values()) / len(ratings), kind)
         return (5, None)
+
+    @staticmethod
+    def add_artist_path(artist_path, image_filename, *, connection=None):
+        artist_paths = table('artist_paths')
+        i = artist_paths.insert().values(path=artist_path,
+                                         image_filename=image_filename)
+        if not connection:
+            connection = MusicDatabase.getCursor()
+        r = connection.execute(i)
+        return r.inserted_primary_key[0] if r else None
+
+    @staticmethod
+    def set_artist_path_image_filename(artist_path_id, image_filename):
+        artist_paths = table('artist_paths')
+        u = (artist_paths.update()
+             .where(artist_paths.c.id == artist_path_id)
+             .values(image_filename=image_filename))
+        MusicDatabase.execute(u)
+
+    @staticmethod
+    def get_artist_path(artist_path_id):
+        artist_paths = table('artist_paths')
+        s = (select([artist_paths.c.path])
+             .where(artist_paths.c.id == artist_path_id))
+        r = MusicDatabase.execute(s).fetchone()
+        return r[0] if r else None
+
+    @staticmethod
+    def get_artist_path_id(artist_path):
+        artist_paths = table('artist_paths')
+        s = (select([artist_paths.c.id])
+             .where(artist_paths.c.path == artist_path))
+        r = MusicDatabase.execute(s).fetchone()
+        return r[0] if r else None
+
+    @staticmethod
+    def set_artist_path(artist_id, path_id, *, connection=None):
+        artists_mb = table('artists_mb')
+        u = (artists_mb.update()
+             .where(artists_mb.c.id == artist_id)
+             .values(artist_path_id=path_id))
+
+        if not connection:
+            connection = MusicDatabase.getCursor()
+        connection.execute(u)
+
+    @staticmethod
+    def set_artist_credit_path(artist_credit_ids, path_id,
+                               *, connection=None):
+        artist_credits_mb = table('artist_credits_mb')
+        u = (artist_credits_mb.update()
+             .where(artist_credits_mb.c.artist_credit_id.in_(
+                    artist_credit_ids))
+             .values(artist_path_id=path_id))
+        if not connection:
+            connection = MusicDatabase.getCursor()
+        connection.execute(u)

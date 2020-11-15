@@ -167,7 +167,7 @@ def structFromArtist(artistRow, aliasesRows=[]):
     r['gender'] = artistRow.gender
     r['disambiguation'] = artistRow.disambiguation
     r['locale_name'] = artistRow.locale_name
-    r['has_image'] = bool(artistRow.image_path)
+    r['has_image'] = bool(artistRow.image_filename)
     if aliasesRows:
         r['aliases'] = [structFromArtistAlias(x) for x in aliasesRows]
     else:

@@ -1621,6 +1621,13 @@ CREATE TABLE musicbrainz.l_work_work (
 
 -- These tables don't come from MB. To fill artists_mb with data,
 -- run "bard cache-musicbrainz-db"
+
+CREATE TABLE artist_paths (
+       id SERIAL PRIMARY KEY,
+       path TEXT UNIQUE,
+       image_filename TEXT
+);
+
 CREATE TABLE artists_mb (
        id INTEGER PRIMARY KEY,
 
@@ -1629,13 +1636,26 @@ CREATE TABLE artists_mb (
        locale TEXT,
        artist_alias_type INTEGER,
 
-       image_path TEXT,
+       artist_path_id INTEGER,
 
        FOREIGN KEY(id)
-          REFERENCES musicbrainz.artist(id)
+          REFERENCES musicbrainz.artist(id),
+       FOREIGN KEY(artist_path_id)
+          REFERENCES artist_paths(id)
 );
 
 ALTER TABLE artists_ratings ADD CONSTRAINT artists_ratings_artist_id_fkey FOREIGN KEY(artist_id) REFERENCES artists_mb(id);
+
+CREATE TABLE artist_credits_mb (
+       artist_credit_id INTEGER PRIMARY KEY,
+       artist_path_id INTEGER,
+
+       FOREIGN KEY(artist_credit_id)
+          REFERENCES musicbrainz.artist_credit(id),
+       FOREIGN KEY(artist_path_id)
+          REFERENCES artist_paths(id)
+);
+
 
 -- CREATE TABLE album_release (
 --        album_id INTEGER,
