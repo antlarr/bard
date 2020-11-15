@@ -145,6 +145,8 @@ def structFromSong(song):
     r['filename'] = os.path.basename(song.path())
     r['title'] = song.getTagIfAvailable('title')
     r['artist'] = song.getTagIfAvailable('artist')
+    r['album'] = song.getTagIfAvailable('album')
+    r['cover'] = base_href() + f'/api/v1/coverart/song/{song.id}'
     return r
 
 

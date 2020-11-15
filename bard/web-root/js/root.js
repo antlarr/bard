@@ -381,6 +381,17 @@ function setCurrentSongInfo(id, metadata)
     {
         $( "#current-song-title" ).html(metadata.title);
         $( "#current-song-artist" ).html(metadata.artist);
+
+        if ('mediaSession' in navigator) {
+            console.log(metadata);
+            navigator.mediaSession.metadata = new MediaMetadata({
+              title: metadata.title,
+              artist: metadata.artist,
+              album: metadata.album,
+              artwork: [{ src: metadata.cover }]
+              //artwork: [{ src: metadata.cover, sizes: '512x512', type: 'image/png' }]
+            });
+        };
     }
 }
 
