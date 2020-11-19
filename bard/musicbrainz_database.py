@@ -642,8 +642,17 @@ class MusicBrainzDatabase:
                  for lt_id, lt_name, lt_entity_t0, lt_entity_t1
                  in r.fetchall()}
 
-        return MusicBrainzDatabase.link_types[(name,
-                                               entity_type0, entity_type1)]
+        try:
+            return MusicBrainzDatabase.link_types[(name,
+                                                   entity_type0, entity_type1)]
+        except KeyError:
+            print(f'Link type {name} from {entity_type0} to {entity_type1} '
+                  'does not exist. Available link types of that kind are:')
+            for name, et0, et1 in MusicBrainzDatabase.link_types:
+                if et0 == entity_type0 and et1 == entity_type1:
+                    print(name, et0, et1)
+            print('Fix the application!')
+            raise RuntimeError('Link type does not exist.')
 
     @staticmethod
     def get_links(entity_type0, entity_type1, lt_id, entity_positions, entity):
