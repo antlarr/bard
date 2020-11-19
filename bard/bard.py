@@ -755,7 +755,8 @@ class Bard:
             songs = collection
         if not from_song_id:
             from_song_id = MusicDatabase \
-                .lastSongIDWithCalculatedSimilarities() + 1
+                .lastSongIDWithCalculatedSimilarities()
+            from_song_id = from_song_id + 1 if from_song_id else 1
         elif from_song_id < 0:
             last = MusicDatabase.lastSongIDWithCalculatedSimilarities() + 1
             from_song_id = last + from_song_id
