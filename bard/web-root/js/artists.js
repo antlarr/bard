@@ -1,5 +1,6 @@
 var artistsOffset = 0;
 var page_size = 500;
+var current_letter = '';
 
 function artistImage( result )
 {
@@ -42,13 +43,14 @@ function artistsReceived( result )
     artistsOffset += result.length;
 }
 
-function requestArtists(offset, count)
+function requestArtists(offset, count, filter)
 {
     $.ajax({
         url: "/api/v1/artists/list",
         data: {
             offset: offset,
-            page_size: count},
+            page_size: count,
+            filter: filter},
         success: artistsReceived,
         error: function( jqXHR, textStatus, errorThrown) {
             alert(textStatus + "\n" + errorThrown);
@@ -58,10 +60,10 @@ function requestArtists(offset, count)
 
 function fillArtists()
 {
-    requestArtists(artistsOffset, page_size);
+    requestArtists(artistsOffset, page_size, $("#artist_filter").val());
     $('#artistsContent').on('scroll', function() {
         if($(this).scrollTop() + $(this).innerHeight() >= $(this)[0].scrollHeight) {
-            requestArtists(artistsOffset, page_size);
+            requestArtists(artistsOffset, page_size, $("#artist_filter").val() );
         }
     });
 }
@@ -75,23 +77,30 @@ function fillIndex()
         r+="<li><a onclick=\"goToLetter('" + alphabet[i] + "')\">" + alphabet[i] + "</li>";
     }
     $( "#alphabetIndex" ).append(r);
+
+    $( "#artist_filter" ).on('change', function() {
+        $("#artistsList").empty();
+        goToLetter(current_letter, $( "#artist_filter" ).val());
+    });
 }
 
-function letterOffsetReceived( result )
+function letterOffsetReceived( result, letter, filter )
 {
     console.log(result.offset);
     $("#artistsList").empty();
     artistsOffset = result.offset;
-    requestArtists(result.offset, page_size);
+    requestArtists(result.offset, page_size, filter);
+    current_letter = letter;
 }
 
-function goToLetter(letter, push_to_history=true)
+function goToLetter(letter, filter, push_to_history=true)
 {
     if (push_to_history)
     {
         path = '/artists?letter=' + letter;
         window.history.pushState({path: path}, "", path);
     }
+    var filter = $('#artist_filter').val();
 
     if (letter != '0')
         bard.setTitle('Artists (' + letter + ')', 'Artists');
@@ -101,8 +110,9 @@ function goToLetter(letter, push_to_history=true)
     $.ajax({
         url: "/api/v1/artists/letterOffset",
         data: {
-            letter: letter},
-        success: letterOffsetReceived,
+            letter: letter,
+            filter: filter},
+        success: function(result) {letterOffsetReceived(result, letter, filter);},
         error: function( jqXHR, textStatus, errorThrown) {
             alert(textStatus + "\n" + errorThrown);
         }

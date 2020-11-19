@@ -1,6 +1,6 @@
 from bard.musicdatabase import MusicDatabase, DatabaseEnum, table
 from collections import namedtuple
-from sqlalchemy import text, insert, select, and_, desc
+from sqlalchemy import text, insert, select, and_, desc, union, distinct
 from bard.config import config
 from bard.utils import alignColumns
 import os.path
@@ -443,19 +443,45 @@ class MusicBrainzDatabase:
         return r
 
     @staticmethod
-    def get_range_artists(offset=0, page_size=500, metadata=False):
+    def get_range_artists(offset=0, page_size=500, metadata=False,
+                          artist_filter='all'):
         artist = table('musicbrainz.artist')
         artists_mb = table('artists_mb')
         artist_paths = table('artist_paths')
         j = (artists_mb.join(artist_paths,
              artists_mb.c.artist_path_id == artist_paths.c.id, isouter=True))
+        if artist_filter in ['main', 'main+']:
+            acn = table('musicbrainz.artist_credit_name')
+            rg = table('musicbrainz.release_group')
+            rel = table('musicbrainz.release')
+            songs_mb = table('songs_mb')
+            tables_to_get_artists_from = [
+                select([rg.c.artist_credit_id]).where(rg.c.mbid.in_(
+                    select([songs_mb.c.releasegroupid]))),
+                select([rel.c.artist_credit_id]).where(rel.c.mbid.in_(
+                    select([songs_mb.c.releaseid])))]
+            if artist_filter == 'main+':
+                rec = table('musicbrainz.recording')
+                tables_to_get_artists_from.append(
+                    select([rec.c.artist_credit_id]).where(rec.c.mbid.in_(
+                        select([songs_mb.c.recordingid]))))
+
+            main_artist_ids = \
+                (select([distinct(acn.c.artist_id)])
+                 .where(acn.c.artist_credit_id.in_(
+                        union(*tables_to_get_artists_from))))
+            qfilter = and_(artist.c.id.in_(main_artist_ids),
+                           artist.c.id == artists_mb.c.id)
+        else:
+            qfilter = (artist.c.id == artists_mb.c.id)
+
         s = (select([artist.c.id, artist.c.mbid, artist.c.name,
                     artist.c.artist_type, artist.c.area_id, artist.c.gender,
                     artist.c.disambiguation,
                     artists_mb.c.locale_name, artists_mb.c.locale_sort_name,
                     artist_paths.c.path, artist_paths.c.image_filename])
              .select_from(j)
-             .where(artist.c.id == artists_mb.c.id)
+             .where(qfilter)
              .order_by(artists_mb.c.locale_name)
              .limit(page_size)
              .offset(offset))
@@ -514,15 +540,36 @@ class MusicBrainzDatabase:
         MusicDatabase.commit()
 
     @staticmethod
-    def get_letter_offset_for_artist(letter):
+    def get_letter_offset_for_artist(letter, artist_filter='all'):
         if letter == '0':
             return 0
+
+        if artist_filter in ['main', 'main+']:
+            if artist_filter == 'main+':
+                rec_table_union = '''union select rec.artist_credit_id
+        from musicbrainz.recording rec
+       where rec.mbid in (select recordingid from songs_mb)'''
+            else:
+                rec_table_union = ''
+            qfilter = '''
+where id in (select distinct acn.artist_id
+               from musicbrainz.artist_credit_name acn
+               where acn.artist_credit_id in
+     (select rg.artist_credit_id
+        from musicbrainz.release_group rg
+       where rg.mbid in (select releasegroupid from songs_mb)
+union select rel.artist_credit_id
+        from musicbrainz.release rel
+       where rel.mbid in (select releaseid from songs_mb)
+        %s))''' % rec_table_union
+        else:
+            qfilter = ''
         c = MusicDatabase.getCursor()
         sql = ('select min(subq.offset) from ('
                '       select row_number() over(order by locale_name)'
                '                           as offset,'
-               '              locale_name'
-               '         from artists_mb) as subq'
+               '              locale_name, id'
+               f'         from artists_mb {qfilter}) as subq'
                '  where subq.locale_name ilike :search')
         result = c.execute(sql, {'search': letter + '%'})
         return result.fetchone()[0] - 1

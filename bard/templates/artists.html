@@ -3,6 +3,12 @@
       <div class="alphabetIndex">
         <ul id="alphabetIndex">
         </ul>
+        <select id="artist_filter" name="artist_filter">
+            <option value="all">All artists</option>
+            <option value="main">Main artists</option>
+            <option value="main+">Main+ artists</option>
+        </select>
+
       </div>
       <ul id="artistsList">
       </ul>
@@ -12,11 +18,13 @@
   <script type="text/javascript">
       fillIndex();
       startAtLetter='{{letter}}';
+      filter='{{filter}}';
+      $('#artist_filter').val(filter);
       goToLetter(startAtLetter, false);
 
       $('#artistsContent').on('scroll', function() {
         if($(this).scrollTop() + $(this).innerHeight() >= $(this)[0].scrollHeight) {
-            requestArtists(artistsOffset, page_size);
+            requestArtists(artistsOffset, page_size, $("#artist_filter").val() );
         }
       });
   </script>

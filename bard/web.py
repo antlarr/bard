@@ -360,7 +360,8 @@ def component(page):
         return render_template('%s.html' % page)
     elif page in ('artists',):
         letter = request.args.get('letter', default='0', type=str)
-        return render_template('%s.html' % page, letter=letter)
+        filter = request.args.get('filter', default='main', type=str)
+        return render_template('%s.html' % page, letter=letter, filter=filter)
     elif page in ('artist', 'release-group', 'album', 'playlist'):
         _id = request.args.get('id', default=0, type=int)
         print('artist page', _id)
@@ -399,13 +400,15 @@ def artists_list():
         return None
     offset = request.args.get('offset', default=0, type=int)
     page_size = request.args.get('page_size', default=500, type=int)
+    artist_filter = request.args.get('filter', default='all', type=str)
     print('/api/v1/artists/list', offset, page_size)
     # result = []
     # for artist in getArtists(from_idx, to_idx, metadata=True):
     #    result.append(artist)
     result = [structFromArtist(x)
               for x in MusicBrainzDatabase.get_range_artists(
-                  offset, page_size, metadata=True)]
+                  offset, page_size, metadata=True,
+                  artist_filter=artist_filter)]
     return jsonify(result)
 
 
@@ -414,9 +417,11 @@ def artists_letter_offset():
     if request.method != 'GET':
         return None
     letter = request.args.get('letter', default='0', type=str)
+    artist_filter = request.args.get('filter', default='all', type=str)
     print(letter)
     result = {'offset':
-              MusicBrainzDatabase.get_letter_offset_for_artist(letter)}
+              MusicBrainzDatabase.get_letter_offset_for_artist(letter,
+                                                               artist_filter)}
     return jsonify(result)
 
 
@@ -436,7 +441,7 @@ def artist_info():
         return None
     artistID = request.args.get('id', type=int)
     print('id', artistID)
-    result = MusicBrainzDatabase.get_artist_info(artistID)
+    result = MusicBrainzDatabase.get_artist_info(artistID=artistID)
     result_aliases = MusicBrainzDatabase.get_artist_aliases(
         artistID, locales=['es', 'en'])
     return jsonify(structFromArtist(result, result_aliases))
