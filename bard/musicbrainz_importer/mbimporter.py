@@ -336,7 +336,7 @@ iterate_over_l_tables(add_l_table)
 extra_filters = {}
 
 follow_links_to_import = {
-    ('artist', 'artist'): ['member of band', 'married', 'sibling', 'parent', 'subgroup', 'founder'],  # noqa
+    ('artist', 'artist'): ['member of band', 'collaboration', 'married', 'sibling', 'parent', 'subgroup', 'founder'],  # noqa
     ('label', 'label'): ['label ownership'],
     ('artist', 'label'): ['label founder']}
 #    ('artist', 'artist'): ['member of band', 'tribute', 'supporting musician', 'instrumental supporting musician', 'married', 'sibling', 'parent', 'is person', 'conductor position', 'vocal supporting musician', 'subgroup', 'founder', 'named after', 'involved with']}  # noqa

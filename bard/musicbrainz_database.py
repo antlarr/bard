@@ -748,8 +748,8 @@ union select rel.artist_credit_id
         return r.fetchall()
 
     @staticmethod
-    def get_artist_members_of_band_relations(artistID):
-        relation = ('member of band', 'artist', 'artist')
+    def get_artist_artist_relationship(relationship, artistID):
+        relation = (relationship, 'artist', 'artist')
         r = MusicBrainzDatabase.get_related_entities(relation, artistID,
                                                      'artist')
         result1 = []
@@ -776,15 +776,25 @@ union select rel.artist_credit_id
             if x['entity0'] != artistID:
                 result1.append((artists[x['entity0']], begin_date, end_date,
                                 [x['name'] for x in attrs] if attrs else None))
-                print('###', x)
+            #    print('###', x)
             if x['entity1'] != artistID:
                 result2.append((artists[x['entity1']], begin_date, end_date,
                                 [x['name'] for x in attrs] if attrs else None))
-                print('   ', x)
+            #    print('   ', x)
 
         print('->', result1)
         print('<-', result2)
         return (result1, result2)
+
+    @staticmethod
+    def get_artist_members_of_band_relations(artistID):
+        MBD = MusicBrainzDatabase
+        return MBD.get_artist_artist_relationship('member of band', artistID)
+
+    @staticmethod
+    def get_artist_collaboration_relations(artistID):
+        MBD = MusicBrainzDatabase
+        return MBD.get_artist_artist_relationship('collaboration', artistID)
 
     @staticmethod
     def get_release_group_info(rgID):

@@ -455,6 +455,9 @@ def artist_member_relations():
     r1, r2 = \
         MusicBrainzDatabase.get_artist_members_of_band_relations(artistID)
     result = {'members': r1, 'memberOf': r2}
+    r1, r2 = \
+        MusicBrainzDatabase.get_artist_collaboration_relations(artistID)
+    result.update({'collaborators': r1, 'collaboratorOn': r2})
     print(result)
     return jsonify(result)
 

@@ -80,12 +80,44 @@ function add_table_of_release_groups(add_header_row=true)
 
     return table;
 }
+function appendArtistArtistRelations( jq, relation_name1, list1, relation_name2, list2 )
+{
+    var r="";
+    for (i=0 ; i< list1.length; i++)
+    {
+        var artist = list1[i][0];
+        var date_range = dateTuplesRangeToString(list1[i][1], list1[i][2]);
+        var date_range_str = date_range ? ("<span class=\"date_range\">(" + date_range + ")</span>") : "";
+        var attrs = list1[i][3];
+        var attrs_str = attrs ? ("<span class=\"attributes\">(" + attrs + ")</span>") : "";
+        r+="<li><a onclick=\"openArtist('" + artist.id + "')\"><span class=\"artist_name\">" + artist.name + "</span></a> " + attrs_str + " " + date_range_str + "</li>";
+    };
+    if (r) {
+        var members = $( "<ul/>" );
+        members.html(r);
+        jq.append($("<span>" + relation_name1 + ":</span>"), members);
+    }
+    var memberof = [];
+    for (i=0 ; i< list2.length; i++)
+    {
+        var artist = list2[i][0];
+        var date_range = dateTuplesRangeToString(list2[i][1], list2[i][2]);
+        var date_range_str = date_range ? ("<span class=\"date_range\">(" + date_range + ")</span>") : "";
+        var attrs = list2[i][3];
+        var attrs_str = attrs ? ("<span class=\"attributes\">(" + attrs + ")</span>") : "";
+        memberof.push("<a onclick=\"openArtist('" + artist.id + "')\"><span class=\"artist_name\">" + artist.name + "</span></a> " + attrs_str + " " + date_range_str);
+    };
+    if (memberof.length > 0) {
+        jq.append($("<span>" + relation_name2 + ": </span>"), memberof.join(', '));
+    }
+
+}
 
 function artistMemberRelationsReceived( result )
 {
-    var r="";
     var jq = $( "#artistMemberRelations" );
-    
+    /*
+    var r="";
     for (i=0 ; i< result.members.length; i++)
     {
         var artist = result.members[i][0];
@@ -112,7 +144,13 @@ function artistMemberRelationsReceived( result )
     };
     if (memberof.length > 0) {
         jq.append($("<span>Member of: </span>"), memberof.join(', '));
-    }
+    }*/
+    console.log(result);
+    appendArtistArtistRelations(jq, 'Members', result.members, 'Member of', result.memberOf);
+    if ((result.members || result.memberOf) && (result.collaborators || result.collaboratorOn))
+        jq.append($('<br/>'));
+    appendArtistArtistRelations(jq, 'Collaborators', result.collaborators, 'Collaborator on', result.collaboratorOn);
+
 }
 
 function artistInfoReceived( result )
