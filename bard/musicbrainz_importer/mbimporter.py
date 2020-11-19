@@ -767,13 +767,15 @@ class MusicBrainzImporter:
                 self.save_entity_item(tablename, item, MBOptions())
         MusicDatabase.commit()
 
-    def import_elements_from_table(self, tablename, *, column=None, ids=[]):
+    def import_elements_from_table(self, tablename, *, column=None, ids=None):
         """Import all entities from tablename or only those that match ids.
 
         If column is set, then ids is not compared to the 'id' column, but
         to the one specified by column. Note that the column name should be
         a reference to the original musicbrainz table column name.
         """
+        if ids == set() or ids == []:
+            return
         self.load_musicbrainz_schema_importer_names()
         if (tablename.startswith('enum_') and
                 tablename.endswith('_values')):
