@@ -1,4 +1,4 @@
-CREATE SCHEMA analysis
+CREATE SCHEMA analysis;
 CREATE TABLE analysis.rhythm__beats_loudness_stats (
         song_id INTEGER PRIMARY KEY,
         mean REAL,
@@ -13,47 +13,28 @@ CREATE TABLE analysis.rhythm__beats_loudness_stats (
         dvar2 REAL,
         FOREIGN KEY(song_id)
             REFERENCES public.songs(id) ON DELETE CASCADE
-)
+);
 CREATE TABLE analysis.lowlevel__gfcc__mean (
         song_id INTEGER PRIMARY KEY,
         values REAL[],
         FOREIGN KEY(song_id)
             REFERENCES public.songs(id) ON DELETE CASCADE
-)
+);
 CREATE TABLE analysis.lowlevel__mfcc__mean (
         song_id INTEGER PRIMARY KEY,
         values REAL[],
         FOREIGN KEY(song_id)
             REFERENCES public.songs(id) ON DELETE CASCADE
-)
-CREATE TABLE analysis.rhythm__beats_loudness_band_ratio_stats (
-        song_id INTEGER, pos INTEGER,
-        mean REAL,
-        minimum REAL,
-        maximum REAL,
-        stdev REAL,
-        var REAL,
-        median REAL,
-        dmean REAL,
-        dmean2 REAL,
-        dvar REAL,
-        dvar2 REAL,
-        UNIQUE(song_id, pos),
-        FOREIGN KEY(song_id)
-            REFERENCES public.songs(id) ON DELETE CASCADE
-)
-CREATE INDEX rhythm__beats_loudness_band_ratio_stats_song_id_idx
-                  ON rhythm__beats_loudness_band_ratio_stats (song_id)
-
+);
 CREATE TABLE analysis.rhythm__beats_loudness (
         song_id INTEGER, pos INTEGER,
         value REAL,
         UNIQUE(song_id, pos),
         FOREIGN KEY(song_id)
             REFERENCES public.songs(id) ON DELETE CASCADE
-)
+);
 CREATE INDEX rhythm__beats_loudness_song_id_idx
-                  ON rhythm__beats_loudness (song_id)
+                  ON analysis.rhythm__beats_loudness (song_id);
 
 CREATE TABLE analysis.rhythm__beats_position (
         song_id INTEGER, pos INTEGER,
@@ -61,9 +42,9 @@ CREATE TABLE analysis.rhythm__beats_position (
         UNIQUE(song_id, pos),
         FOREIGN KEY(song_id)
             REFERENCES public.songs(id) ON DELETE CASCADE
-)
+);
 CREATE INDEX rhythm__beats_position_song_id_idx
-                  ON rhythm__beats_position (song_id)
+                  ON analysis.rhythm__beats_position (song_id);
 
 CREATE TABLE analysis.rhythm__bpm_histogram (
         song_id INTEGER, pos INTEGER,
@@ -71,9 +52,9 @@ CREATE TABLE analysis.rhythm__bpm_histogram (
         UNIQUE(song_id, pos),
         FOREIGN KEY(song_id)
             REFERENCES public.songs(id) ON DELETE CASCADE
-)
+);
 CREATE INDEX rhythm__bpm_histogram_song_id_idx
-                  ON rhythm__bpm_histogram (song_id)
+                  ON analysis.rhythm__bpm_histogram (song_id);
 
 CREATE TABLE analysis.tonal__chords_histogram (
         song_id INTEGER, pos INTEGER,
@@ -81,9 +62,9 @@ CREATE TABLE analysis.tonal__chords_histogram (
         UNIQUE(song_id, pos),
         FOREIGN KEY(song_id)
             REFERENCES public.songs(id) ON DELETE CASCADE
-)
+);
 CREATE INDEX tonal__chords_histogram_song_id_idx
-                  ON tonal__chords_histogram (song_id)
+                  ON analysis.tonal__chords_histogram (song_id);
 
 CREATE TABLE analysis.tonal__thpcp (
         song_id INTEGER, pos INTEGER,
@@ -91,19 +72,9 @@ CREATE TABLE analysis.tonal__thpcp (
         UNIQUE(song_id, pos),
         FOREIGN KEY(song_id)
             REFERENCES public.songs(id) ON DELETE CASCADE
-)
+);
 CREATE INDEX tonal__thpcp_song_id_idx
-                  ON tonal__thpcp (song_id)
-
-CREATE TABLE analysis.rhythm__beats_loudness_band_ratio (
-        song_id INTEGER, pos INTEGER,
-        values REAL[],
-        UNIQUE(song_id, pos),
-        FOREIGN KEY(song_id)
-            REFERENCES public.songs(id) ON DELETE CASCADE
-)
-CREATE INDEX rhythm__beats_loudness_band_ratio_song_id_idx
-                  ON rhythm__beats_loudness_band_ratio (song_id)
+                  ON analysis.tonal__thpcp (song_id);
 
 CREATE TABLE analysis.highlevel (
    song_id INTEGER PRIMARY KEY,
@@ -121,7 +92,7 @@ CREATE TABLE analysis.highlevel (
    instrumental REAL,
    FOREIGN KEY(song_id)
               REFERENCES public.songs(id) ON DELETE CASCADE
-)
+);
 
 CREATE TABLE analysis.lowlevel (
    song_id INTEGER PRIMARY KEY,
@@ -131,14 +102,14 @@ CREATE TABLE analysis.lowlevel (
    loudness_ebu128_loudness_range REAL,
    FOREIGN KEY(song_id)
               REFERENCES public.songs(id) ON DELETE CASCADE
-)
+);
 
 CREATE TABLE analysis.version (
    song_id INTEGER PRIMARY KEY,
    essentia TEXT,
    FOREIGN KEY(song_id)
               REFERENCES public.songs(id) ON DELETE CASCADE
-)
+);
 
 CREATE TABLE analysis.rhythm (
    song_id INTEGER PRIMARY KEY,
@@ -153,7 +124,7 @@ CREATE TABLE analysis.rhythm (
    onset_rate REAL,
    FOREIGN KEY(song_id)
               REFERENCES public.songs(id) ON DELETE CASCADE
-)
+);
 
 CREATE TABLE analysis.tonal (
    song_id INTEGER PRIMARY KEY,
@@ -176,7 +147,7 @@ CREATE TABLE analysis.tonal (
    tuning_nontempered_energy_ratio REAL,
    FOREIGN KEY(song_id)
               REFERENCES public.songs(id) ON DELETE CASCADE
-)
+);
 
 CREATE TABLE analysis.highlevel__genre_dortmund (
    song_id INTEGER PRIMARY KEY,
@@ -193,7 +164,7 @@ CREATE TABLE analysis.highlevel__genre_dortmund (
    rock REAL,
    FOREIGN KEY(song_id)
               REFERENCES public.songs(id) ON DELETE CASCADE
-)
+);
 
 CREATE TABLE analysis.highlevel__genre_electronic (
    song_id INTEGER PRIMARY KEY,
@@ -206,7 +177,7 @@ CREATE TABLE analysis.highlevel__genre_electronic (
    trance REAL,
    FOREIGN KEY(song_id)
               REFERENCES public.songs(id) ON DELETE CASCADE
-)
+);
 
 CREATE TABLE analysis.highlevel__genre_rosamerica (
    song_id INTEGER PRIMARY KEY,
@@ -222,7 +193,7 @@ CREATE TABLE analysis.highlevel__genre_rosamerica (
    spe REAL,
    FOREIGN KEY(song_id)
               REFERENCES public.songs(id) ON DELETE CASCADE
-)
+);
 
 CREATE TABLE analysis.highlevel__genre_tzanetakis (
    song_id INTEGER PRIMARY KEY,
@@ -240,7 +211,7 @@ CREATE TABLE analysis.highlevel__genre_tzanetakis (
    roc REAL,
    FOREIGN KEY(song_id)
               REFERENCES public.songs(id) ON DELETE CASCADE
-)
+);
 
 CREATE TABLE analysis.highlevel__ismir04_rhythm (
    song_id INTEGER PRIMARY KEY,
@@ -258,7 +229,7 @@ CREATE TABLE analysis.highlevel__ismir04_rhythm (
    waltz REAL,
    FOREIGN KEY(song_id)
               REFERENCES public.songs(id) ON DELETE CASCADE
-)
+);
 
 CREATE TABLE analysis.highlevel__moods_mirex (
    song_id INTEGER PRIMARY KEY,
@@ -271,5 +242,5 @@ CREATE TABLE analysis.highlevel__moods_mirex (
    cluster5 REAL,
    FOREIGN KEY(song_id)
               REFERENCES public.songs(id) ON DELETE CASCADE
-)
+);
 

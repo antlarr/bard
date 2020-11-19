@@ -4,7 +4,7 @@ from bard.analysis_database import conversion_dict, keys_with_stats, \
     fkeys_with_lists_of_lists, keys_to_ignore
 
 schema = 'analysis'
-sql = f'CREATE SCHEMA {schema}'
+sql = f'CREATE SCHEMA {schema};'
 print(sql)
 
 
@@ -41,12 +41,12 @@ def create_table_for_essentia_variable(varname, use_stats_vars=False,
         {index},
         {columns},{unique}
         FOREIGN KEY(song_id)
-            REFERENCES public.songs(id) ON DELETE CASCADE\n)''')
+            REFERENCES public.songs(id) ON DELETE CASCADE\n);''')
     print(sql)
 
     if allow_value_list:
         sql = f'''CREATE INDEX {tablename}_song_id_idx
-                  ON {tablename} (song_id)\n'''
+                  ON {schema}.{tablename} (song_id);\n'''
         print(sql)
 
 
@@ -113,5 +113,5 @@ for tablename, columns in tables.items():
     sql = (f'CREATE TABLE {schema}.{tablename} (\n' +
            '   song_id INTEGER PRIMARY KEY,\n   ' + column_defs +
            ''',\n   FOREIGN KEY(song_id)
-              REFERENCES public.songs(id) ON DELETE CASCADE\n)\n''')
+              REFERENCES public.songs(id) ON DELETE CASCADE\n);\n''')
     print(sql)
