@@ -1232,10 +1232,16 @@ union select rel.artist_credit_id
     def set_artist_credit_path(artist_credit_ids, path_id,
                                *, connection=None):
         artist_credits_mb = table('artist_credits_mb')
-        u = (artist_credits_mb.update()
-             .where(artist_credits_mb.c.artist_credit_id.in_(
-                    artist_credit_ids))
-             .values(artist_path_id=path_id))
         if not connection:
             connection = MusicDatabase.getCursor()
-        connection.execute(u)
+        for artist_credit_id in artist_credit_ids:
+            u = (artist_credits_mb.update()
+                 .where(artist_credits_mb.c.artist_credit_id.in_(
+                        artist_credit_ids))
+                 .values(artist_path_id=path_id))
+            r = connection.execute(u)
+            if r.rowcount == 0:
+                i = (artist_credits_mb.insert()
+                     .values(artist_credit_id=artist_credit_id,
+                             artist_path_id=path_id))
+                connection.execute(i)
