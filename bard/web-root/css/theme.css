@@ -248,7 +248,7 @@ button:focus {
   opacity: 0.3;
 }
 
-.ratings img {
+img.ratings {
     width: 16px;
     height: 16px;
 }

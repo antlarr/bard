@@ -30,7 +30,7 @@
 }
 #artistsList img {
   width: 10em;
-  height: 10em;
+  object-fit: scale-down;
 }
 
 .alphabetIndex {
@@ -49,4 +49,11 @@
  display: inline-block;
  width: 3em;
 
+}
+
+.artist_image {
+  width: 10em;
+  height: 10em;
+  display: flex;
+  align-items: flex-end;
 }

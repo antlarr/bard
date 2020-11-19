@@ -43,6 +43,10 @@ div.medium {
    border-bottom: 1px solid #bbb;
 }
 
+img.medium-cover {
+   width: 200px;
+}
+
 .album-info {
     display: flex;
 }

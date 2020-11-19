@@ -37,7 +37,7 @@ function artistsReceived( result )
     r="";
     for (i=0 ; i< result.length; i++)
     {
-        r+="<li><a onclick=\"openArtist('" + result[i].id + "')\"><img src=\"" + artistImage(result[i]) + "\"><p class=\"name\">" + result[i].locale_name + "</p></a></li>";
+        r+="<li><a onclick=\"openArtist('" + result[i].id + "')\"><div class=\"artist_image\"><img src=\"" + artistImage(result[i]) + "\"></div><p class=\"name\">" + result[i].locale_name + "</p></a></li>";
     };
     $( "#artistsList" ).append( r );
     artistsOffset += result.length;
