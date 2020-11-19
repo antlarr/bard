@@ -221,6 +221,7 @@ class Playlist:
                'ORDER BY pos')
         result = c.execute(text(sql).bindparams(id=self.id))
         for idx, pos in enumerate(result.fetchall()):
+            pos = pos[0]
             if pos != idx:
                 sql = text('UPDATE playlist_songs SET pos = :idx '
                            'WHERE playlist_id = :playlist_id '
