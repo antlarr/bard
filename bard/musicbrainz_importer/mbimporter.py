@@ -835,13 +835,14 @@ class MusicBrainzImporter:
                     ids.add(item['id'])
         else:
             for item in table.getlines():
+                # if item['link'] == 1099:
+                #     print(item.values)
+                #     import pdb
+                #     pdb.set_trace()
                 if item[r_colname] in self.ids[r_entity]:
                     result.add(item[colname])
                     link_ids.add(item['link'])
                     ids.add(item['id'])
-                    # if item['link'] == 1099:
-                    #    import pdb
-                    #    pdb.set_trace()
         return result, link_ids, relation, ids
 
     def import_relationship_table(self, entity, r_entity, pos):
