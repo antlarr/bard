@@ -1392,7 +1392,7 @@ fix-mtime           fixes the mtime of imported files (you should never
                     need to use this)
 fix-checksums       fixes the checksums of imported files (you should
                     never need to use this)
-fix-ratings [--from-song-id]
+fix-ratings [--from-song-id id]
                     fixes the missing ratings of songs (you should never need
                     to use this)
 add-silences [-t threshold] [-l length] [-s start] [-e end] [file|song_id ...]
@@ -1422,7 +1422,7 @@ list-roots [-q]
                     lists roots for songs
 fix-genres [file | song id]
                     fix genres of songs selected by its name or song id
-play [--shuffle] [-r root] [-g genre] [--rating rating] [--my-rating rating]
+play [--sh|--shuffle] [-r root] [-g genre] [--rating rating] [--my-rating rating]
      [--others-rating rating] [file | song_id ...]
                     play the specified songs using mpv
 fix-tags <file_or_directory [file_or_directory ...]>
@@ -1448,8 +1448,11 @@ check-musicbrainz-tags [-v]
 cache-musicbrainz-db [-v]
                     Cache musicbrainz tables by copying data into
                     new tables for fastest access
-analyze-songs [-v]
+analyze-songs [-v] [--from-song-id id]
                     Perform a high-level audio analysis of songs
+update-musicbrainz-artists [-v]
+                    Find .artist_mbid files to recognize artist paths
+                    and images
 ''')
         # find-duplicates command
         sps.add_parser('find-duplicates',
@@ -1748,8 +1751,8 @@ analyze-songs [-v]
         parser.add_argument('-v', '--verbose', dest='verbose',
                             action='store_true', help='Be verbose')
         parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
-                            help='Starts analyzing songs '
-                                 'from a specific song_id')
+                            default=0, help='Starts analyzing songs '
+                            'from a specific song_id')
         # update-musicbrainz-artists command
         parser = sps.add_parser('update-musicbrainz-artists', description=''
                                 'Recognize artists paths on the collection')
