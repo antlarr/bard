@@ -1255,4 +1255,6 @@ class MusicBrainzImporter:
             for rel, event_pos, both_checked in relations:
                 self.import_relationship_table(entity, rel, event_pos)
 
+        MusicBrainzDatabase.cacheMusicBrainzDB()
+
         self.import_ratings()
