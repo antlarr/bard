@@ -25,17 +25,27 @@ function PlayerControls(playerBackend)
     this.setPlayIcon = function(iconName) {
         document.getElementById('playPauseSongButton').style.backgroundImage = 'url(\'/static/images/' + iconName + '.png\')';
     }
+    this.play = function() {
+        this.player.play();
+        this.setPlayIcon('media-playback-pause');
+        if ('mediaSession' in navigator)
+            navigator.mediaSession.playbackState = "playing";
+    }
+    this.pause = function() {
+        this.player.pause();
+        this.setPlayIcon('media-playback-start');
+        if ('mediaSession' in navigator)
+            navigator.mediaSession.playbackState = "paused";
+    }
     this.playPause = function() {
         if (!this.enabled) {
             return;
         }
 
         if (this.media.paused) {
-            this.player.play();
-            this.setPlayIcon('media-playback-pause');
+            this.play();
         } else {
-            this.player.pause();
-            this.setPlayIcon('media-playback-start');
+            this.pause();
         }
     };
 
@@ -60,18 +70,43 @@ function PlayerControls(playerBackend)
     this.mouseUpOnProgressBar = function(ev) {
         var width = this.progressBarContainer.offsetWidth;
         var value = ev.pageX / width;
-        this.player.seek(value);
-    };
+        this.player.seekPercentage(value);
+    }
+
+    this.seek = function(seekTime) {
+        this.player.seekTo(seekTime);
+    }
+
+    this.seekBackward = function() {
+        this.player.seekBackward();
+    }
+
+    this.seekForward = function() {
+        this.player.seekForward();
+    }
 
     this.updateTime = function(currentTime, duration) {
         this.currentTimeSpan.textContent = formatDurationValue(currentTime);
+        var d = duration;
         if (isNaN(duration))
+        {
             this.songDurationSpan.textContent = '--:--';
+            d = 1000;
+        }
         else
             this.songDurationSpan.textContent = formatDurationValue(duration);
         var barLength = 100 * (currentTime / duration);
         this.progressBar.style.width = barLength + '%';
         this.progressDot.style.left = barLength + '%';
+
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.setPositionState({
+                duration: d,
+                playbackRate: 1.0,
+                position: currentTime
+            });
+        }
+
     };
 
     this.volumeSliderMoved = function(ev) {
@@ -96,4 +131,17 @@ function PlayerControls(playerBackend)
 
     window.addEventListener("resize", this.recalcMaxWidths.bind(this));
     this.recalcMaxWidths();
+
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.setActionHandler('play', this.play.bind(this));
+        navigator.mediaSession.setActionHandler('pause', this.pause.bind(this));
+        navigator.mediaSession.setActionHandler('stop', this.pause.bind(this));
+        navigator.mediaSession.setActionHandler('seekbackward', this.seekBackward.bind(this));
+        navigator.mediaSession.setActionHandler('seekforward', this.seekForward.bind(this));
+        navigator.mediaSession.setActionHandler('seekto', function(details) { this.seek(details.seekTime); }.bind(this));
+        navigator.mediaSession.setActionHandler('previoustrack', this.prevSong.bind(this));
+        navigator.mediaSession.setActionHandler('nexttrack', this.nextSong.bind(this));
+
+    }
+
 }

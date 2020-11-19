@@ -19,9 +19,23 @@ function WebPlayer() {
    this.prevSong = function() {
    };
 
-   this.seek = function(position) {
+   this.seekPercentage = function(position) {
       this.media.currentTime = this.media.duration * position;
    };
+
+   this.seekTo = function(position) {
+      if (position > this.media.duration)
+          position = this.media.duration;
+      this.media.currentTime = position;
+   };
+
+   this.seekBackward = function() {
+      this.media.currentTime = this.media.currentTime - 5;
+   }
+
+   this.seekForward = function() {
+      this.media.currentTime = this.media.currentTime + 5;
+   }
 
    this.setVolume = function(volume) {
       this.media.volume = volume;
