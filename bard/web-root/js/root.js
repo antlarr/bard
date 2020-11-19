@@ -359,7 +359,7 @@ function dateTupleToString(tuple)
         if (tuple[2])
             r += "-" + tuple[2];
     };
-    return r;
+    return r || '';
 }
 
 function dateTuplesRangeToString(begin, end)
