@@ -545,7 +545,7 @@ class MusicBrainzDatabase:
         artists_mb = table('artists_mb')
         artist_paths = table('artist_paths')
         j = (artists_mb.join(artist_paths,
-             artists_mb.c.artist_path_id == artist_paths.c.id))
+             artists_mb.c.artist_path_id == artist_paths.c.id, isouter=True))
         s = (select([artist.c.id, artist.c.mbid, artist.c.name,
                     artist.c.artist_type, artist.c.area_id, artist.c.gender,
                     artist.c.disambiguation,
@@ -575,7 +575,7 @@ class MusicBrainzDatabase:
         artists_mb = table('artists_mb')
         artist_paths = table('artist_paths')
         j = (artists_mb.join(artist_paths,
-             artists_mb.c.artist_path_id == artist_paths.c.id))
+             artists_mb.c.artist_path_id == artist_paths.c.id, isouter=True))
         s = (select([artist.c.id, artist.c.mbid, artist.c.name,
                     artist.c.artist_type, artist.c.area_id, artist.c.gender,
                     artist.c.disambiguation,
