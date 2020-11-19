@@ -1229,6 +1229,7 @@ class Bard:
         from bard.web import init_flask_app, app
         from werkzeug.serving import run_simple
 
+        MusicDatabase.table('users')
         use_ssl = config['use_ssl']
         if use_ssl:
             import ssl
