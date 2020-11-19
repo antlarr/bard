@@ -365,7 +365,7 @@ class Bard:
         MusicBrainzDatabase.updateMusicBrainzIDs(ids)
         self.db.refreshMaterializedViews()
 
-    def info(self, ids_or_paths, currentlyPlaying=False):
+    def info(self, ids_or_paths, currentlyPlaying=False, show_analysis=False):
         songs = []
         for id_or_path in ids_or_paths:
             songs.extend(getSongsFromIDorPath(id_or_path))
@@ -377,7 +377,7 @@ class Bard:
         userID = MusicDatabase.getUserID(config['username'])
 
         for song in songs:
-            print_song_info(song, userID)
+            print_song_info(song, userID, show_analysis)
 
     def list(self, path, long_ls=False, show_id=False, query=None,
              group_by_directory=False, show_duration=False):
@@ -1406,7 +1406,7 @@ import [file_or_directory [file_or_directory ...]]
                     files/directories to import as arguments. If no
                     arguments are given in the command line, the
                     musicPaths entries in the configuration file are used
-info <file | song id>
+info [-p] [-a|--show-analysis] <file | song id>
                     shows information about a song from the database
 list|ls [-l] [-d] [-i|--id] [--duration] [-r root] [-g genre] [--rating rating]
         [--my-rating rating] [--others-rating rating] [file | song_id ...]
@@ -1568,6 +1568,9 @@ analyze-songs [-v]
                                             'from the database')
         parser.add_argument('-p', dest='playing', action='store_true',
                             help='Show information of currently playing song')
+        parser.add_argument('-a', '--show-analysis', dest='show_analysis',
+                            action='store_true', help='Show also the '
+                            'highlevel analysis information')
         parser.add_argument('paths', nargs='*')
         # list command
         parser = sps.add_parser('list',
@@ -1789,7 +1792,7 @@ analyze-songs [-v]
         elif options.command == 'fix-tags':
             self.fixTags(options.paths)
         elif options.command == 'info':
-            self.info(options.paths, options.playing)
+            self.info(options.paths, options.playing, options.show_analysis)
         elif options.command == 'list' or options.command == 'ls':
             if not (options.paths or options.root or options.genre or
                     options.rating or options.my_rating or
