@@ -13,7 +13,7 @@ _bard() {
 	cmd="${COMP_WORDS[1]}"
 
 	if [ "$COMP_CWORD" == "1" ]; then
-            opts="find-duplicates find-audio-duplicates compare-dirs compare-files compare-songs fix-mtime fix-checksums add-silences check-songs-existence check-checksums import info ls list list-genres list-similars fix-genres play fix-tags update set-rating stats web passwd backup update-musicbrainz-ids"
+            opts="find-duplicates find-audio-duplicates compare-dirs compare-files compare-songs fix-mtime fix-checksums fix-ratings add-silences check-songs-existence check-checksums import info ls list list-genres list-similars fix-genres play fix-tags update set-rating stats web passwd backup update-musicbrainz-ids check-musicbrainz-tags cache-musicbrainz-db analyze-songs update-musicbrainz-artists"
             COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
             return 0
 	fi
@@ -48,12 +48,12 @@ _bard() {
                 ;;
                 "info")
 			_bard_compfile
-                        opts="-p"
+                        opts="-p -a \--show-analysis"
 			COMPREPLY=( "${COMPREPLY[@]}" $(compgen -W "${opts}" -- ${cur})  )
                 ;;
                 "ls"|"list")
 			_bard_compfile
-                        opts="-l -d -i \--id -r -g"
+                        opts="-l -d -i \--id -r -g \--duration \--rating \--my-rating \--others-rating"
 			COMPREPLY=( "${COMPREPLY[@]}" $(compgen -W "${opts}" -- ${cur})  )
                 ;;
                 "list-similars")
@@ -67,7 +67,7 @@ _bard() {
                 ;;
                 "play")
 			_bard_compfile
-                        opts="\--shuffle \--sh -r -g"
+                        opts="\--shuffle \--sh -r -g \--rating \--my-rating \--others-rating"
 			COMPREPLY=( "${COMPREPLY[@]}" $(compgen -W "${opts}" -- ${cur})  )
                 ;;
                 "update")
@@ -85,6 +85,22 @@ _bard() {
                         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
                 ;;
                 "update-musicbrainz-ids")
+                        opts="-v"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "check-musicbrainz-tags")
+                        opts="-v"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "cache-musicbrainz-db")
+                        opts="-v"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "analyze-songs")
+                        opts="-v \--from-song-id"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "update-musicbrainz-artists")
                         opts="-v"
                         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
                 ;;
