@@ -198,6 +198,7 @@ class Bard:
                                  '.fpl', '.wpl', '.accurip', '.db', '.ffp',
                                  '.flv', '.mkv', '.m4v', '.mov', '.mpg',
                                  '.mpeg', '.avi', '.artist_mbid']
+        self.ignoreExtensions += config['ignore_extensions']
 
         self.excludeDirectories = ['covers', 'info']
         self.playlist_manager = PlaylistManager()
