@@ -662,7 +662,11 @@ union select rel.artist_credit_id
                'where rg.artist_credit_id = ac.id '
                '  and rg.artist_credit_id = acn.artist_credit_id '
                '  and rg.release_group_type = rgt.id_value '
-               '  and acn.artist_id = :artistID')
+               '  and acn.artist_id = :artistID '
+               '  and exists(select ar.album_id '
+               '               from album_release ar, musicbrainz.release rel '
+               '              where ar.release_id = rel.id '
+               '                and rel.release_group_id = rg.id)')
         result = c.execute(sql, {'artistID': artistID})
         return result.fetchall()
 
