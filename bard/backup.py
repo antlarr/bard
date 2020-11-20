@@ -261,7 +261,7 @@ class Upload(Task):
     def compareAudioFiles(self, source, target, sftp):
         print('Comparing songs...')
 
-        # src_song = getSongsAtPath(source, exact=True)[0]
+        src_song_db = getSongsAtPath(source, exact=True)[0]
         src_song = Song(source)
         tgt_song = remoteSong(target, sftp)
         basename = os.path.basename(source)
@@ -269,9 +269,14 @@ class Upload(Task):
         printSongsInfo(src_song, tgt_song, useColors=colors)
         if src_song.audioSha256sum() == tgt_song.audioSha256sum():
             print(f'{basename} has exactly the same audio in source and '
-                  'target files')
+                  'target files', end='')
+            if src_song_db.audioSha256sum() == src_song.audioSha256sum():
+                print(' and it matches the checksum stored in the db')
+            else:
+                print(' but WARNING: they are different from the checksum '
+                      'stored in the db!')
         else:
-            print(f'Audio tracks are different in local and remote files')
+            print('Audio tracks are different in local and remote files')
             comparison = src_song.audioCmp(tgt_song)
             print(comparison)
             tgt_audio_sha256 = tgt_song.audioSha256sum()
@@ -279,9 +284,11 @@ class Upload(Task):
                 tgt_audio_sha256)
             same_audio_songs = [getSongsFromIDorPath(songID)[0]
                                 for songID in song_ids]
+            same_audio_songs = [song for song in same_audio_songs
+                                if song.path() != src_song.path()]
 
             if tgt_audio_sha256 and same_audio_songs:
-                d = 'Files with exact same audio:\n'
+                d = 'Local files with exact same audio:\n'
                 d += '\n'.join('      ' + Color.CantCompareSongs +
                                song.path() + Color.ENDC
                                for song in same_audio_songs)
@@ -289,6 +296,23 @@ class Upload(Task):
             else:
                 print(f'WARNING: The target file {target} will be overwritten '
                       'but has a unique audio track')
+        if (src_song_db.fileSha256sum() == src_song.fileSha256sum() and
+                src_song_db.fileSha256sum() != tgt_song.fileSha256sum()):
+            print('The remote file has different checksum from the one stored '
+                  'in db, but local file is ok, so submission is recommended')
+        elif (src_song_db.fileSha256sum() != src_song.fileSha256sum() and
+                src_song_db.fileSha256sum() == tgt_song.fileSha256sum()):
+            print('The local file has different checksum from the one stored '
+                  f'in db, but the remote file is ok, so restoring \n{source}'
+                  f'\n with the remote \n{target}\n file is recommended')
+        elif (src_song_db.fileSha256sum() == src_song.fileSha256sum() and
+                src_song_db.fileSha256sum() == tgt_song.fileSha256sum()):
+            print('Both local and remote files have the same checksum stored '
+                  'in db')
+        else:
+            print('Both local and remote files have a different checksum from '
+                  ' the one stored in db')
+
         return False
 
     def compareDirectories(self, source, target, sftp):
@@ -738,7 +762,7 @@ class BackupMusic:
 
                 txt = ('The following changes in %s require confirmation.\n'
                        '%s\n'
-                       f'Submit changes to %s? \n' %
+                       'Submit changes to %s? \n' %
                        (Color.Filename + dirpath + Color.ENDC,
                         '\n'.join(aligned_descs),
                         Color.Host + self.server + Color.ENDC + ':' +
