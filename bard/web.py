@@ -47,7 +47,7 @@ def read_or_generate_key():
             for line in fh.readlines():
                 if line.startswith('key='):
                     encodedkey = line[4:-1]
-                    print(encodedkey, type(encodedkey))
+                    # print(encodedkey, type(encodedkey))
                     return base64.decodebytes(encodedkey.encode('utf8'))
     except FileNotFoundError:
         pass

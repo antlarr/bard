@@ -1248,7 +1248,7 @@ class Bard:
         hostname = config['hostname']
         port = config['port']
         return run_simple(hostname, port, app,
-                          use_reloader=True, use_debugger=True,
+                          use_reloader=True, use_debugger=False,
                           use_evalex=True, ssl_context=context,
                           threaded=True)
 
