@@ -673,7 +673,8 @@ union select rel.artist_credit_id
                '  from songs '
                ' where id in (select song_id '
                '               from songs_mb '
-               '              where releasegroupid=:rgMBID)')
+               '              where releasegroupid=:rgMBID) '
+               ' order by id')
         result = c.execute(sql, {'rgMBID': rgMBID})
         return set(os.path.dirname(path) for (path,) in result.fetchall())
 
