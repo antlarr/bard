@@ -10,8 +10,13 @@ def isMediumPath(path):
     return any(pat.match(path) for pat in patterns)
 
 
-def albumPath(songPath):
-    directory = dirname(songPath)
+def albumPath(filePath=None, dirPath=None):
+    if filePath:
+        directory = dirname(filePath)
+    elif dirPath:
+        directory = dirPath
+    else:
+        raise ValueError('Either filePath or dirPath have to be set')
     if isMediumPath(basename(directory)):
         return dirname(directory)
     return directory

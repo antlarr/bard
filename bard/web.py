@@ -14,7 +14,7 @@ from bard.musicbrainz_database import MusicBrainzDatabase, MediumFormatEnum, \
     LanguageEnum, ReleaseStatusEnum, ReleaseGroupTypeEnum
 from bard.musicdatabase import MusicDatabase
 from bard.playlist import Playlist
-from bard.album import coverAtPath
+from bard.album import coverAtPath, albumPath
 from bard.searchquery import SearchQuery
 from bard.searchplaylist import SearchPlaylist
 from bard.playlistsonginfo import PlaylistSongInfo
@@ -480,15 +480,22 @@ def release_group_get_image():
     dirnames = MusicBrainzDatabase.get_release_group_directories(
         release_group_mbid)
     path = 'web-root/images/cd.png'
-    for dirname in dirnames:
-        cover = os.path.join(dirname, 'cover.jpg')
-        if os.path.exists(cover):
-            path = cover
-            break
-        cover = cover[:-3] + 'png'
-        if os.path.exists(cover):
-            path = cover
-            break
+
+    def find_cover_at_paths(dirnames, prefer_album_image):
+        for dirname in dirnames:
+            if prefer_album_image:
+                dirname = albumPath(dirPath=dirname)
+
+            cover = os.path.join(dirname, 'cover.jpg')
+            if os.path.exists(cover):
+                return cover
+            cover = cover[:-3] + 'png'
+            if os.path.exists(cover):
+                return cover
+        return None
+
+    path = (find_cover_at_paths(dirnames, True) or
+            find_cover_at_paths(dirnames, False))
 
     print('Delivering release_group image of release_group %s: %s' %
           (release_group_mbid, path))
