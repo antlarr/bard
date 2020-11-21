@@ -1420,8 +1420,8 @@ list-roots [-q]
                     lists roots for songs
 fix-genres [file | song id]
                     fix genres of songs selected by its name or song id
-play [--sh|--shuffle] [-r root] [-g genre] [--rating rating] [--my-rating rating]
-     [--others-rating rating] [file | song_id ...]
+play [--sh|--shuffle] [-r root] [-g genre] [--rating rating]
+     [--my-rating rating] [--others-rating rating] [file | song_id ...]
                     play the specified songs using mpv
 fix-tags <file_or_directory [file_or_directory ...]>
                     apply several normalization algorithms to fix tags of
