@@ -1234,13 +1234,21 @@ union select rel.artist_credit_id
 
     @staticmethod
     def set_artist_path(artist_id, path_id, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         artists_mb = table('artists_mb')
+        s = select([artists_mb.c.artist_path_id]).where(artists_mb.c.id ==
+                                                        artist_id)
+        r = connection.execute(s).fetchone()
+        if r and r[0] == path_id:
+            # print(f'artist {artist_id} already has path {path_id}')
+            return
+        print(f'Adding path to artist {artist_id}')
+
         u = (artists_mb.update()
              .where(artists_mb.c.id == artist_id)
              .values(artist_path_id=path_id))
 
-        if not connection:
-            connection = MusicDatabase.getCursor()
         connection.execute(u)
 
     @staticmethod
@@ -1250,9 +1258,17 @@ union select rel.artist_credit_id
         if not connection:
             connection = MusicDatabase.getCursor()
         for artist_credit_id in artist_credit_ids:
+            s = (select([artist_credits_mb.c.artist_path_id])
+                 .where(artist_credits_mb.c.artist_credit_id ==
+                        artist_credit_id))
+            r = connection.execute(s).fetchone()
+            if (r and r[0] == path_id):
+                # print(f'artist credit id {artist_credit_id} already has path {path_id}')
+                continue
+            print(f'Adding path {path_id} to artist credit {artist_credit_id}')
             u = (artist_credits_mb.update()
-                 .where(artist_credits_mb.c.artist_credit_id.in_(
-                        artist_credit_ids))
+                 .where(artist_credits_mb.c.artist_credit_id ==
+                        artist_credit_id)
                  .values(artist_path_id=path_id))
             r = connection.execute(u)
             if r.rowcount == 0:

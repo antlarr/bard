@@ -1318,7 +1318,7 @@ class Bard:
         print(f'Fixing ratings for user {user_id}...')
         MusicDatabase.add_null_ratings(user_id, from_song_id, verbose)
 
-    def addArtistPath(self, path, image_filename=None):
+    def addArtistPath(self, path, image_filename=None, verbose=False):
         mbidfile = os.path.join(path, '.artist_mbid')
         mbids = [x.strip('\n') for x in open(mbidfile).readlines()]
         dirname = os.path.normpath(path)
@@ -1332,16 +1332,15 @@ class Bard:
                        image_filename, connection=connection))
             if not path_id:
                 return
-        print(f'Adding artist path at {dirname} ({path_id}) for {mbids}...')
+        if verbose:
+            print(f'Adding artist path {dirname} ({path_id}) for {mbids}...')
         if len(mbids) == 1:
             artist_id = MusicBrainzDatabase.get_artist_id(mbids[0])
-            print(f'Adding path to artist {artist_id}')
             if artist_id:
                 MusicBrainzDatabase.set_artist_path(artist_id, path_id,
                                                     connection=connection)
 
         artist_credit_ids = MusicBrainzDatabase.get_artist_credit_ids(mbids)
-        print(f'Adding path to artist credit {artist_credit_ids}')
 
         if artist_credit_ids:
             (MusicBrainzDatabase.set_artist_credit_path(artist_credit_ids,
@@ -1353,15 +1352,15 @@ class Bard:
             if not os.path.isdir(path):
                 continue
             for dirpath, dirnames, filenames in os.walk(path, topdown=True):
-                if verbose:
-                    print('New dir: %s' % dirpath)
                 dirnames.sort()
                 if '.artist_mbid' in filenames:
-                    print(f'Found artist dir at {dirpath}')
+                    if verbose:
+                        print(f'Found artist dir at {dirpath}')
                     image_filename = ('artist.jpg' if 'artist.jpg' in filenames
                                       else None)
 
-                    self.addArtistPath(dirpath, image_filename)
+                    self.addArtistPath(dirpath, image_filename,
+                                       verbose=verbose)
                     MusicDatabase.commit()
 
                 for excludeDir in self.excludeDirectories:
