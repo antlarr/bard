@@ -717,7 +717,7 @@ def playlist_list():
         result.append({'id': x['id'],
                        'name': x['name'],
                        'type': x['playlist_type']})
-    print(result)
+    # print('playlist list', result)
     return jsonify(result)
 
 
@@ -746,7 +746,8 @@ def playlist_new():
     name = request.args.get('name', type=str)
     gen = request.args.get('generated', type=int)
     generated_playlist = bool(request.args.get('generated', type=int))
-    print(f'Request to create playlist with name {name}: {generated_playlist} {gen}')
+    print(f'Request to create playlist with name {name}: '
+          f'{generated_playlist} {gen}')
     if generated_playlist:
         pl = GeneratedPlaylist(None, owner_id=current_user.userID)
     else:

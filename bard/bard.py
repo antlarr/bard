@@ -360,7 +360,6 @@ class Bard:
 
         MusicDatabase.removeOrphanAlbums()
 
-        print('update musicbrainz ids')
         # do things for new songs
         MusicBrainzDatabase.updateMusicBrainzIDs(ids)
         self.db.refreshMaterializedViews()
