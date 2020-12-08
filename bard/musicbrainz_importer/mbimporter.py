@@ -1221,6 +1221,7 @@ class MusicBrainzImporter:
                                         ids=self.ids['release_group'])
 
         self.import_table('release')
+        MusicDatabase.refresh_album_release()
         self.import_elements_from_table('release_country',
                                         column='release',
                                         ids=self.ids['release'])
