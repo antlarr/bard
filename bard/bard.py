@@ -1368,6 +1368,12 @@ class Bard:
                     except ValueError:
                         pass
 
+    def initDatabase(self):
+        # This is actually an empty method since just
+        # creating a Bard object is enough to initialize
+        # the database
+        pass
+
     def parseCommandLine(self):
         main_parser = ArgumentParser(
             description='Manage your music collection',
@@ -1377,6 +1383,7 @@ class Bard:
         sps = main_parser.add_subparsers(
             dest='command', metavar='command',
             help='''The following commands are available:
+init                initializes the database
 find-duplicates     find duplicate files comparing the checksums
 find-audio-duplicates [--from-song-id <song_id>] [song_id ...]
                     find duplicate files comparing the audio fingerprint
@@ -1452,6 +1459,8 @@ update-musicbrainz-artists [-v]
                     Find .artist_mbid files to recognize artist paths
                     and images
 ''')
+        # init command
+        sps.add_parser('init', description='Initialize the database')
         # find-duplicates command
         sps.add_parser('find-duplicates',
                        description='Find duplicate files comparing '
@@ -1759,7 +1768,9 @@ update-musicbrainz-artists [-v]
 
         options = main_parser.parse_args()
 
-        if options.command == 'find-duplicates':
+        if options.command == 'init':
+            self.initDatabase()
+        elif options.command == 'find-duplicates':
             self.findDuplicates()
         elif options.command == 'find-duplicates':
             self.fixMtime()
