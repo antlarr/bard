@@ -61,13 +61,16 @@ setup(
         "numpy",
         "dbus-python",
         "SQLAlchemy",
+        "SQLAlchemy-Utils",
+        "alembic",
         "Werkzeug",
         "Flask",
         "Flask-Cors",
         "Flask-Login",
         "Jinja2",
         "bcrypt",
-        "paramiko"
+        "paramiko",
+        "importlib_resources; python_version < '3.7'"
     ],
     data_files=[('share/doc/packages/bard/',
                  ['config/bard', 'README.md'])],

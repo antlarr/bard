@@ -1,5 +1,6 @@
 import re
 from datetime import datetime
+from uuid import UUID
 
 
 def to_int(x):
@@ -13,6 +14,10 @@ def to_str(x):
         return None
     return x.decode('utf-8')
 
+def to_uuid(x):
+    if x == b'\\N':
+        return None
+    return UUID(x.decode('ascii'))
 
 def to_bool(x):
     if x == b'\\N':
@@ -32,13 +37,15 @@ def to_datetime(x):
                                  '%Y-%m-%d %H:%M:%S')
 
 
-def decoder_for_type(x):
+def decoder_for_type(x, col_name):
     if x == 'int':
         return to_int
     elif x == 'bool':
         return to_bool
     elif x == 'datetime':
         return to_datetime
+    elif x == 'str' and col_name == 'gid':
+        return to_uuid
     else:
         return to_str
 

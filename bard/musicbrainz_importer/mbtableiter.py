@@ -9,7 +9,8 @@ class MBTableIter:
         self.name = name
         self.columns = columns
         self.column_types = {x[0]: x[1] for x in columns}
-        self.col_pos_and_decoders = {x[0]: (i, mbtable.decoder_for_type(x[1]))
+        self.col_pos_and_decoders = {x[0]: (i, mbtable.decoder_for_type(x[1],
+                                                                        x[0]))
                                      for i, x in enumerate(columns)}
         self.column_positions = {x[0]: i for i, x in enumerate(columns)}
         try:

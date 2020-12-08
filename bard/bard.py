@@ -180,9 +180,9 @@ def normalizeTrack(track):
 
 class Bard:
 
-    def __init__(self, ro=False):
+    def __init__(self):
         """Construct a Bard object."""
-        self.db = MusicDatabase(ro)
+        self.db = MusicDatabase()
 
         self.ignoreExtensions = ['.jpg', '.jpeg', '.bmp', '.tif', '.png',
                                  '.gif',
@@ -362,7 +362,7 @@ class Bard:
 
         # do things for new songs
         MusicBrainzDatabase.updateMusicBrainzIDs(ids)
-        self.db.refreshMaterializedViews()
+        MusicDatabase.refresh_album_tables()
 
     def info(self, ids_or_paths, currentlyPlaying=False, show_analysis=False):
         songs = []
@@ -1181,7 +1181,7 @@ class Bard:
 
             MusicDatabase.setSongInAlbum(songID, albumID)
         MusicDatabase.removeOrphanAlbums()
-        self.db.refreshMaterializedViews()
+        MusicDatabase.refresh_album_tables()
 
     def checkMusicBrainzTags(self, verbose=False):
         r1 = MusicBrainzDatabase.checkMusicBrainzTags()

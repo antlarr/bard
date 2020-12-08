@@ -4,15 +4,47 @@ from bard.config import config
 from bard.normalizetags import normalizeTagValues
 from bard.utils import DecodedAudioPropertiesTuple, DecodeMessageRecord
 from bard.album import albumPath
+from bard.db import metadata
+from bard.db.core import AlbumProperties, AlbumSongs, AlbumRelease, SongsMB, \
+    Properties, AlbumsRatings, SongsRatings, AvgSongsRatings, Tags, Songs, \
+    DecodeMessages, DecodeProperties, Users, Albums
+from bard.db.musicbrainz import Release
 import sqlalchemy
-from sqlalchemy import create_engine, text, Table, select
+from sqlalchemy import create_engine, text, select, and_, or_, exists, func
+from sqlalchemy.schema import CreateSchema
 from sqlalchemy.orm import Session
-from functools import lru_cache
-import sqlite3
+from sqlalchemy.event import listen
+from alembic.runtime import migration
+from alembic.script import ScriptDirectory
+from alembic.config import Config
+from alembic import command
+from functools import lru_cache, partial
 import os
 import re
 import threading
 import mutagen
+
+try:
+    import importlib.resources as importlib_resources
+except ImportError:
+    # In PY<3.7 fall-back to backported `importlib_resources`.
+    import importlib_resources
+
+
+def check_current_head(alembic_cfg, connectable):
+    # type: (Config, sqlalchemy.engine.Engine) -> bool
+    directory = ScriptDirectory.from_config(alembic_cfg)
+    with connectable.begin() as connection:
+        context = migration.MigrationContext.configure(connection)
+        return set(context.get_current_heads()) == set(directory.get_heads())
+
+
+def attach_sqlite_databases(dbapi_con, connection_record,
+                            mb_dbpath, analysis_dbpath):
+    cmd = f'ATTACH DATABASE \'{mb_dbpath}\' AS \'musicbrainz\''
+    dbapi_con.execute(cmd)
+    cmd = f'ATTACH DATABASE \'{analysis_dbpath}\' AS \'analysis\''
+    dbapi_con.execute(cmd)
 
 
 class DatabaseEnum:
@@ -59,8 +91,10 @@ class DatabaseEnum:
     def add_value(self, name):
         sql = (f'INSERT INTO {self.table_name}(name) '
                'VALUES (:name)')
-        c = MusicDatabase.getCursor()
+        c = MusicDatabase.getConnection()
+        tr = c.begin_nested()
         c.execute(text(sql).bindparams(name=name))
+        tr.commit()
 
         try:
             sql = (f"SELECT currval(pg_get_serial_sequence("
@@ -192,45 +226,63 @@ class MusicDatabase:
     uri = None
     like = 'like'
 
-    def __init__(self, ro=False):
+    def __init__(self):
         """Create a MusicDatabase object."""
         try:
             database = config['database']
         except KeyError:
             database = 'sqlite'
         self.database = database
+        ro = config['immutableDatabase']
 
-        if database == 'postgresql':
-            name = config['database_name']
-            user = config['database_user']
-            password = config['database_password']
-            MusicDatabase.uri = f'postgresql://{user}:{password}@/{name}'
-            MusicDatabase.like = 'ilike'
-        else:
+        if database == 'sqlite':
             _dbpath = config['databasePath']
             databasepath = os.path.expanduser(os.path.expandvars(_dbpath))
             if not os.path.isdir(os.path.dirname(databasepath)):
                 os.makedirs(os.path.dirname(databasepath))
-            if not os.path.isfile(databasepath):
-                if ro:
-                    raise Exception("Database doesn't exist and read-only was "
-                                    "requested")
-                MusicDatabase.conn[threading.get_ident()] = \
-                    sqlite3.connect(databasepath)
-                self.createDatabase()
-                del MusicDatabase.conn[threading.get_ident()]
 
-            MusicDatabase.uri = 'sqlite:///' + databasepath
+            root, ext = os.path.splitext(databasepath)
+            MusicDatabase.dbpath = databasepath + '' if ext else '.db'
+            mb_dbpath = f'file:{root}-mb{ext if ext else ".db"}'
+            analysis_dbpath = (f'file:{root}-analysis'
+                               f'{ext if ext else ".db"}')
+
+            MusicDatabase.uri = f'sqlite:///file:{databasepath}?uri=true'
             if ro:
-                MusicDatabase.uri += '?mode=ro'
+                MusicDatabase.uri += '&mode=ro'
+                mb_dbpath += '?mode=ro'
+                analysis_dbpath += '?mode=ro'
+        else:
+            name = config['database_name']
+            user = config['database_user']
+            password = config['database_password']
+            MusicDatabase.uri = f'{database}://{user}:{password}@/{name}'
+            MusicDatabase.like = 'ilike'
 
         MusicDatabase.engine = create_engine(MusicDatabase.uri)
+        metadata.bind = MusicDatabase.engine
+        if database == 'sqlite':
+            # root, ext = os.path.splitext(MusicDatabase.dbpath)
+            # mb_dbpath = f'{root}-mb{ext}'
+            # analysis_dbpath = f'{root}-analysis{ext}'
+            listen(MusicDatabase.engine, "connect", partial(
+                   attach_sqlite_databases, mb_dbpath=mb_dbpath,
+                   analysis_dbpath=analysis_dbpath))
+
+        alembic_cfg = Config()
+        alembic_cfg.set_main_option('sqlalchemy.url', MusicDatabase.uri)
+
+        with importlib_resources.path('bard', 'alembic') as path:
+            alembic_path = str(path)
+        alembic_cfg.set_main_option('script_location', alembic_path)
+
         if not MusicDatabase.engine.has_table('cuesheets'):
             print('Tables missing. Creating database schema and tables.')
-            self.createDatabase()
+            self.createDatabase(alembic_cfg)
+
+        self.migrate_database_schema(alembic_cfg)
+
         MusicDatabase.getConnection()
-        MusicDatabase._meta = sqlalchemy.MetaData()
-        MusicDatabase._meta.bind = MusicDatabase.engine
 
     @staticmethod
     def getConnection():
@@ -240,7 +292,7 @@ class MusicDatabase:
         except KeyError:
             s = Session(bind=MusicDatabase.engine)
             MusicDatabase.conn[currentThread] = s
-            return s
+        return s
 
     @staticmethod
     def getCursor():
@@ -254,468 +306,36 @@ class MusicDatabase:
         MusicDatabase.engine.dispose()
 
     @staticmethod
-    def reflectDBSchema():
-        MusicDatabase._meta.reflect()
-        MusicDatabase._meta.schema = 'musicbrainz'
-        MusicDatabase._meta.reflect()
-        MusicDatabase._meta.schema = 'analysis'
-        MusicDatabase._meta.reflect()
-        MusicDatabase._meta.schema = None
-
-    @staticmethod
     def table(tablename):
-        if (not MusicDatabase._meta.tables or
-                tablename not in MusicDatabase._meta.tables):
-            MusicDatabase.reflectDBSchema()
-
-        return MusicDatabase._meta.tables[tablename]
+        return metadata.tables[tablename]
 
     @staticmethod
     def view(viewname):
-        if not MusicDatabase._meta.tables:
-            MusicDatabase.reflectDBSchema()
+        return metadata.tables[viewname]
 
-        return Table(viewname, MusicDatabase._meta, autoload=True)
+    def migrate_database_schema(self, alembic_cfg):
+        if check_current_head(alembic_cfg, MusicDatabase.engine):
+            return
 
-    def createDatabase(self):
+        print('Database schema needs to be updated')
+        with MusicDatabase.engine.begin() as connection:
+            alembic_cfg.attributes['connection'] = connection
+            command.upgrade(alembic_cfg, "head")
+            alembic_cfg.attributes['connection'] = None
+
+    def createDatabase(self, alembic_cfg):
         if config['immutableDatabase']:
             print("Error: Can't create database: "
                   "The database is configured as immutable")
             return
         print('Creating database...')
-        if self.database == 'postgresql':
-            serial_primary_key = 'SERIAL PRIMARY KEY'
-        else:
-            serial_primary_key = 'INTEGER PRIMARY KEY AUTOINCREMENT'
-        c = MusicDatabase.getCursor()
-        c.execute(f'''
-CREATE TABLE songs (
-                    id {serial_primary_key},
-                    root TEXT,
-                    path TEXT UNIQUE,
-                    filename TEXT,
-                    mtime NUMERIC(20,8),
-                    title TEXT,
-                    artist TEXT,
-                    album TEXT,
-                    albumArtist TEXT,
-                    track INTEGER,
-                    date TEXT,
-                    genre TEXT,
-                    discnumber INTEGER,
-                    coverwidth INTEGER,
-                    coverheight INTEGER,
-                    covermd5 TEXT,
-                    completeness REAL,
-                    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    insert_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                   )''')
-        c.execute('CREATE INDEX songs_path_idx ON songs (path)')
-        c.execute('''
-CREATE TABLE properties(
-                    song_id INTEGER PRIMARY KEY,
-                    format TEXT,
-                    duration REAL,
-                    bitrate INTEGER,
-                    bits_per_sample INTEGER,
-                    sample_rate INTEGER,
-                    channels INTEGER,
-                    audio_sha256sum TEXT,
-                    silence_at_start REAL,
-                    silence_at_end REAL,
-                    FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
-                 )''')
-        c.execute(f'''
-CREATE TABLE enum_sample_format_values(
-                    id_value {serial_primary_key},
-                    name TEXT,
-                    bits_per_sample INTEGER,
-                    is_planar BOOLEAN
-                 )''')
-        c.execute('INSERT INTO enum_sample_format_values '
-                  '(name, bits_per_sample, is_planar) '
-                  '''VALUES ('u8', 8, FALSE)''')
-        c.execute('INSERT INTO enum_sample_format_values '
-                  '(name, bits_per_sample, is_planar) '
-                  '''VALUES ('s16', 16, FALSE)''')
-        c.execute('INSERT INTO enum_sample_format_values '
-                  '(name, bits_per_sample, is_planar) '
-                  '''VALUES ('s32', 32, FALSE)''')
-        c.execute('INSERT INTO enum_sample_format_values '
-                  '(name, bits_per_sample, is_planar) '
-                  '''VALUES ('flt', 32, FALSE)''')
-        c.execute('INSERT INTO enum_sample_format_values '
-                  '(name, bits_per_sample, is_planar) '
-                  '''VALUES ('dbl', 64, FALSE)''')
-        c.execute('INSERT INTO enum_sample_format_values '
-                  '(name, bits_per_sample, is_planar) '
-                  '''VALUES ('u8p', 8, TRUE)''')
-        c.execute('INSERT INTO enum_sample_format_values '
-                  '(name, bits_per_sample, is_planar) '
-                  '''VALUES ('s16p', 16, TRUE)''')
-        c.execute('INSERT INTO enum_sample_format_values '
-                  '(name, bits_per_sample, is_planar) '
-                  '''VALUES ('s32p', 32, TRUE)''')
-        c.execute('INSERT INTO enum_sample_format_values '
-                  '(name, bits_per_sample, is_planar) '
-                  '''VALUES ('fltp', 32, TRUE)''')
-        c.execute('INSERT INTO enum_sample_format_values '
-                  '(name, bits_per_sample, is_planar) '
-                  '''VALUES ('dblp', 64, TRUE)''')
-        c.execute('INSERT INTO enum_sample_format_values '
-                  '(name, bits_per_sample, is_planar) '
-                  '''VALUES ('s64', 64, FALSE)''')
-        c.execute('INSERT INTO enum_sample_format_values '
-                  '(name, bits_per_sample, is_planar) '
-                  '''VALUES ('s64p', 64, TRUE)''')
-        c.execute(f'''
-CREATE TABLE enum_library_versions_values(
-                    id_value {serial_primary_key},
-                    bard_audiofile TEXT,
-                    libavcodec TEXT,
-                    libavformat TEXT,
-                    libavutil TEXT,
-                    libswresample TEXT
-                 )''')
-        c.execute(f'''
-CREATE TABLE enum_format_values(
-                    id_value {serial_primary_key},
-                    name TEXT
-                 )''')
-        c.execute(f'''
-CREATE TABLE enum_codec_values(
-                    id_value {serial_primary_key},
-                    name TEXT
-                 )''')
-        c.execute('''
-CREATE TABLE decode_properties(
-                    song_id INTEGER PRIMARY KEY,
+        if self.database != 'sqlite':
+            MusicDatabase.engine.execute(CreateSchema('musicbrainz'))
+            MusicDatabase.engine.execute(CreateSchema('analysis'))
 
-                    codec INTEGER,
-                    format INTEGER,
-                    container_duration REAL,
-                    decoded_duration REAL,
+        metadata.create_all(MusicDatabase.engine)
 
-                    container_bitrate INTEGER,
-                    stream_bitrate INTEGER,
-
-                    stream_sample_format INTEGER,
-                     stream_bits_per_raw_sample INTEGER,
-
-                    decoded_sample_format INTEGER,
-                    samples INTEGER,
-
-                    library_versions INTEGER,
-
-                    FOREIGN KEY(song_id)
-                      REFERENCES songs(id) ON DELETE CASCADE,
-                    FOREIGN KEY(codec)
-                      REFERENCES enum_codec_values(id_value),
-                    FOREIGN KEY(format)
-                      REFERENCES enum_format_values(id_value),
-                    FOREIGN KEY(stream_sample_format)
-                      REFERENCES enum_sample_format_values(id_value),
-                    FOREIGN KEY(decoded_sample_format)
-                      REFERENCES enum_sample_format_values(id_value),
-                    FOREIGN KEY(library_versions)
-                      REFERENCES enum_library_versions_values(id_value)
-                 )''')
-        c.execute('''
-CREATE TABLE decode_messages(
-                    song_id INTEGER,
-                    time_position REAL,
-                    level INTEGER,
-                    message TEXT,
-                    pos INTEGER,
-                    FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
-                 )''')
-        c.execute('''CREATE INDEX decode_messages_song_id_idx
-                       ON decode_messages (song_id)''')
-        c.execute('''
-CREATE TABLE tags(
-                    song_id INTEGER,
-                    name TEXT NOT NULL,
-                    value TEXT,
-                    pos INTEGER,
-                    FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
-                 )''')
-        c.execute('CREATE INDEX tags_song_id_idx ON tags (song_id)')
-        c.execute('''
-CREATE TABLE covers(
-                  path TEXT,
-                  cover BYTEA NOT NULL
-                  )''')
-        c.execute('''
-CREATE TABLE checksums(
-                  song_id INTEGER PRIMARY KEY,
-                  sha256sum TEXT NOT NULL,
-                  last_check_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                  insert_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
-                  )''')
-        c.execute('''
-CREATE TABLE fingerprints(
-                  song_id INTEGER PRIMARY KEY,
-                  fingerprint BYTEA NOT NULL,
-                  insert_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
-                  )''')
-        c.execute('''
-CREATE TABLE similarities(
-                  song_id1 INTEGER,
-                  song_id2 INTEGER,
-                  match_offset INTEGER NOT NULL,
-                  similarity REAL NOT NULL,
-                  UNIQUE(song_id1, song_id2),
-                  FOREIGN KEY(song_id1) REFERENCES songs(id) ON DELETE CASCADE,
-                  FOREIGN KEY(song_id2) REFERENCES songs(id) ON DELETE CASCADE
-                  )''')
-        c.execute('CREATE INDEX similarities_song_id1_idx '
-                  ' ON similarities (song_id1)')
-        c.execute('CREATE INDEX similarities_song_id2_idx '
-                  ' ON similarities (song_id2)')
-
-        c.execute(f'''
- CREATE TABLE users (
-                  id {serial_primary_key},
-                  name TEXT,
-                  password BYTEA,
-                  active BOOLEAN DEFAULT TRUE
-                  )''')
-        c.execute('''
- CREATE TABLE songs_ratings (
-                  user_id INTEGER,
-                  song_id INTEGER,
-                  rating INTEGER,
-                  UNIQUE(user_id, song_id),
-                  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
-                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
-                  )''')
-        c.execute('''CREATE VIEW avg_songs_ratings AS
-                         SELECT song_id, u.id user_id,
-                                ROUND(AVG(sr.rating)) avg_rating
-                           FROM songs s, songs_ratings sr, users u
-                          WHERE s.id = sr.song_id
-                            AND sr.user_id != u.id
-                       GROUP BY sr.song_id, u.id''')
-
-        c.execute(f'''
- CREATE TABLE albums (
-                  id {serial_primary_key},
-                  path TEXT UNIQUE
-                  )''')
-
-        c.execute('''
- CREATE TABLE albums_ratings (
-                  user_id INTEGER,
-                  album_id INTEGER,
-                  rating INTEGER,
-                  UNIQUE(user_id, album_id),
-                  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
-                  FOREIGN KEY(album_id) REFERENCES albums(id) ON DELETE CASCADE
-                  )''')
-        c.execute('''CREATE VIEW avg_albums_ratings AS
-                         SELECT album_id, u.id user_id,
-                                ROUND(AVG(ar.rating)) avg_rating
-                           FROM albums a, albums_ratings ar, users u
-                          WHERE a.id = ar.album_id
-                            AND ar.user_id != u.id
-                       GROUP BY ar.album_id, u.id''')
-        c.execute(f'''
- CREATE TABLE songs_history (
-                  id {serial_primary_key},
-                  song_id INTEGER,
-                  path TEXT,
-                  mtime NUMERIC(20,8),
-                  song_insert_time TIMESTAMP,
-                  removed BOOLEAN DEFAULT FALSE,
-                  sha256sum TEXT NOT NULL,
-                  last_check_time TIMESTAMP,
-                  duration REAL,
-                  bitrate INTEGER,
-                  audio_sha256sum TEXT NOT NULL,
-                  description TEXT,
-                  insert_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                  )''')
-        c.execute('CREATE INDEX songs_history_song_id_idx '
-                  ' ON songs_history (song_id)')
-        c.execute('CREATE INDEX songs_history_path_idx '
-                  ' ON songs_history (path)')
-
-        c.execute('''
- CREATE TABLE songs_mb_artistids (
-                  song_id INTEGER,
-                  artistid TEXT,
-                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
-                  )''')
-        c.execute('CREATE INDEX songs_mb_artistids_song_id_idx '
-                  ' ON songs_mb_artistids (song_id)')
-        c.execute('CREATE INDEX songs_mb_artistids_artistid_idx '
-                  ' ON songs_mb_artistids (artistid)')
-
-        c.execute('''
- CREATE TABLE songs_mb_albumartistids (
-                  song_id INTEGER,
-                  albumartistid TEXT,
-                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
-                  )''')
-        c.execute('CREATE INDEX songs_mb_albumartistids_song_id_idx '
-                  ' ON songs_mb_albumartistids (song_id)')
-        c.execute('CREATE INDEX songs_mb_albumartistids_albumartistid_idx '
-                  ' ON songs_mb_albumartistids (albumartistid)')
-
-        c.execute('''
- CREATE TABLE songs_mb_workids (
-                  song_id INTEGER,
-                  workid TEXT,
-                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
-                  )''')
-        c.execute('CREATE INDEX songs_mb_workids_song_id_idx '
-                  ' ON songs_mb_workids (song_id)')
-        c.execute('CREATE INDEX songs_mb_workids_workid_idx '
-                  ' ON songs_mb_workids (workid)')
-
-        c.execute('''
- CREATE TABLE songs_mb (
-                  song_id INTEGER PRIMARY KEY,
-                  releasegroupid TEXT,
-                  releaseid TEXT,
-                  releasetrackid TEXT,
-                  recordingid TEXT,
-                  confirmed BOOLEAN,
-                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
-                  )''')
-        c.execute('CREATE INDEX songs_mb_releasegroupid_idx '
-                  ' ON songs_mb (releasegroupid)')
-        c.execute('CREATE INDEX songs_mb_recordingid_idx '
-                  ' ON songs_mb (recordingid)')
-
-        c.execute('''
- CREATE TABLE album_songs (
-                  song_id INTEGER,
-                  album_id INTEGER,
-
-                  FOREIGN KEY(song_id) REFERENCES songs(id),
-                  FOREIGN KEY(album_id) REFERENCES albums(id)
-                  )''')
-        c.execute('CREATE UNIQUE INDEX album_songs_song_id_idx '
-                  ' ON album_songs (song_id)')
-        c.execute('CREATE INDEX album_songs_album_id_idx '
-                  ' ON album_songs (album_id)')
-        c.execute(f'''
- CREATE TABLE enum_playlist_type_values (
-                  id_value {serial_primary_key},
-                  name TEXT
-                  )''')
-        c.execute('INSERT INTO enum_playlist_type_values '
-                  '''(name) VALUES ('user')''')
-        c.execute('INSERT INTO enum_playlist_type_values '
-                  '''(name) VALUES ('album')''')
-        c.execute('INSERT INTO enum_playlist_type_values '
-                  '''(name) VALUES ('search')''')
-        c.execute('INSERT INTO enum_playlist_type_values '
-                  '''(name) VALUES ('generated')''')
-
-        c.execute(f'''
- CREATE TABLE playlists (
-                  id {serial_primary_key},
-                  name TEXT,
-                  owner_id INTEGER,
-                  playlist_type INTEGER,
-
-                  FOREIGN KEY(owner_id) REFERENCES users(id) ON DELETE CASCADE,
-                  FOREIGN KEY(playlist_type)
-                      REFERENCES enum_playlist_type_values(id_value)
-                  )''')
-
-        c.execute('''
- CREATE TABLE playlist_songs (
-                  playlist_id INTEGER,
-                  song_id INTEGER,
-                  recording_mbid TEXT,
-                  pos INTEGER,
-
-                  FOREIGN KEY(playlist_id)
-                      REFERENCES playlists(id) ON DELETE CASCADE,
-                  FOREIGN KEY(song_id) REFERENCES songs(id),
-                  UNIQUE(playlist_id, pos)
-                  )''')
-        c.execute('CREATE INDEX playlist_songs_playlist_id_song_id_idx '
-                  ' ON playlist_songs (playlist_id, song_id)')
-
-        c.execute('''
- CREATE TABLE playlist_generators (
-                  playlist_id INTEGER,
-                  generator TEXT,
-
-                  FOREIGN KEY(playlist_id)
-                      REFERENCES playlists(id) ON DELETE CASCADE
-                  )''')
-
-        c.execute('''
-CREATE TABLE artist_paths (
-       id SERIAL PRIMARY KEY,
-       path TEXT UNIQUE,
-       image_filename TEXT
-       )''')
-
-        c.execute('''
-CREATE TABLE artists_mb (
-       id INTEGER PRIMARY KEY,
-
-       locale_name TEXT,
-       locale_sort_name TEXT,
-       locale TEXT,
-       artist_alias_type INTEGER,
-
-       artist_path_id INTEGER,
-
-       FOREIGN KEY(artist_path_id)
-          REFERENCES artist_paths(id)
-       )''')
-        # The foreign key for id will be created after the
-        # musicbrainz.artist table is created.
-        c.execute('''
-CREATE TABLE artist_credits_mb (
-       artist_credit_id INTEGER PRIMARY KEY,
-       artist_path_id INTEGER,
-
-       FOREIGN KEY(artist_path_id)
-          REFERENCES artist_paths(id)
-       )''')
-        # The foreign key for artist_credit_id will be created after the
-        # musicbrainz.artist_credit table is created.
-        c.execute('''
- CREATE TABLE artists_ratings (
-                  user_id INTEGER,
-                  artist_id INTEGER,
-                  rating INTEGER,
-                  UNIQUE(user_id, artist_id),
-                  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-                  )''')
-        # The foreign key for artist_id will be created after the
-        # artists_mb table is created.
-        c.execute('''CREATE VIEW avg_artists_ratings AS
-                 SELECT artist_id, u.id user_id,
-                        ROUND(AVG(ar.rating)) avg_rating
-                   FROM artists_mb a, artists_ratings ar, users u
-                  WHERE a.id = ar.artist_id
-                    AND ar.user_id != u.id
-               GROUP BY ar.artist_id, u.id''')
-
-
-        c.execute('''
-CREATE TABLE cuesheets(
-                  song_id INTEGER NOT NULL,
-                  idx INTEGER NOT NULL,
-                  sample_position INTEGER NOT NULL,
-                  time_position REAL NOT NULL,
-                  title TEXT,
-                  FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE
-                  )''')
-        c.execute('CREATE INDEX cuesheets_song_id_idx '
-                  ' ON cuesheets (song_id)')
-        c.commit()
+        command.stamp(alembic_cfg, "head")
         print('Database created')
 
     @staticmethod
@@ -879,23 +499,9 @@ CREATE TABLE cuesheets(
             # print('Adding song to database')
             values['path'] = song.path()
             # print(values)
-            sql = ('INSERT INTO songs(root, path, filename, mtime, '
-                   'title, artist, album, albumArtist, track, date, '
-                   'genre, discNumber, coverwidth, coverheight, '
-                   'covermd5, completeness) '
-                   'VALUES (:root,:path,:filename,:mtime,:title,:artist,'
-                   ':album,:albumartist,:track,:date,:genre,:discnumber,'
-                   ':coverwidth,:coverheight,:covermd5,:completeness)')
-            c.execute(text(sql).bindparams(**values))
-
-            try:
-                sql = "SELECT currval(pg_get_serial_sequence('songs','id'))"
-                result = c.execute(sql)
-            except sqlalchemy.exc.OperationalError:
-                # Try the sqlite way
-                sql = 'SELECT last_insert_rowid()'
-                result = c.execute(sql)
-            song.id = result.fetchone()[0]
+            ins = Songs.insert().values(**values)
+            result = c.execute(ins)
+            song.id = result.inserted_primary_key[0]
 
             values = {'sha256sum': song.fileSha256sum(),
                       'id': song.id}
@@ -1152,29 +758,29 @@ or name {like} '%%MusicBrainz/Track Id'""")
     @staticmethod
     def updateSongsTags(songList, readProperties=True):
         ids = tuple([song.id for song in songList])
-        # print('aa', ids)
         if readProperties:
             properties = MusicDatabase.getSongsProperties(ids)
         c = MusicDatabase.getCursor()
-        sql = ('SELECT song_id, name, value FROM tags '
-               'where song_id in :ids order by song_id, pos')
-        result = c.execute(text(sql), {'ids': ids})
+        sel = (select([Tags.c.song_id, Tags.c.name, Tags.c.value])
+               .where(Tags.c.song_id.in_(ids))
+               .order_by(Tags.c.song_id, Tags.c.pos))
+        result = c.execute(sel)
         tags = {}
         currentSongID = None
-        metadata = None
+        song_metadata = None
         for song_id, name, value in result.fetchall():
             if song_id != currentSongID:
                 if currentSongID:
-                    tags[currentSongID] = metadata
-                metadata = type('metadata', (dict,), {})()
+                    tags[currentSongID] = song_metadata
+                song_metadata = type('metadata', (dict,), {})()
                 currentSongID = song_id
             try:
-                metadata[name] += [value]
+                song_metadata[name] += [value]
             except KeyError:
-                metadata[name] = [value]
+                song_metadata[name] = [value]
         else:
-            if metadata:
-                tags[currentSongID] = metadata
+            if song_metadata:
+                tags[currentSongID] = song_metadata
 
         for song in songList:
             try:
@@ -1201,11 +807,14 @@ or name {like} '%%MusicBrainz/Track Id'""")
             ids = [int(songID) for songID in songIDs]
         ids = tuple(ids)
         c = MusicDatabase.getCursor()
-        sql = ('SELECT song_id, format, duration, bitrate, '
-               'bits_per_sample, sample_rate, channels, audio_sha256sum, '
-               'silence_at_start, silence_at_end '
-               'FROM properties where song_id in :ids')
-        result = c.execute(text(sql), {'ids': ids})
+        sel = (select([Properties.c.song_id, Properties.c.format,
+                       Properties.c.duration, Properties.c.bitrate,
+                       Properties.c.bits_per_sample, Properties.c.sample_rate,
+                       Properties.c.channels, Properties.c.audio_sha256sum,
+                       Properties.c.silence_at_start,
+                       Properties.c.silence_at_end])
+               .where(Properties.c.song_id.in_(ids)))
+        result = c.execute(sel)
 
         r = {}
         for row in result.fetchall():
@@ -1241,10 +850,13 @@ or name {like} '%%MusicBrainz/Track Id'""")
         ids = tuple(ids)
         c = MusicDatabase.getCursor()
 
-        sql = ('SELECT song_id, time_position, level, message '
-               'FROM decode_messages where song_id in :ids '
-               'ORDER BY song_id, pos')
-        result = c.execute(text(sql), {'ids': ids})
+        sel = (select([DecodeMessages.c.song_id,
+                       DecodeMessages.c.time_position,
+                       DecodeMessages.c.level,
+                       DecodeMessages.c.message])
+               .where(DecodeMessages.c.song_id.in_(ids))
+               .order_by(DecodeMessages.c.song_id, DecodeMessages.c.pos))
+        result = c.execute(sel)
         messages = {}
         for row in result.fetchall():
             dm = DecodeMessageRecord(time_position=row['time_position'],
@@ -1255,12 +867,20 @@ or name {like} '%%MusicBrainz/Track Id'""")
             except KeyError:
                 messages[row['song_id']] = [dm]
 
-        sql = ('SELECT song_id, codec, format, container_duration, '
-               'decoded_duration, container_bitrate, stream_bitrate, '
-               'stream_sample_format, stream_bits_per_raw_sample, '
-               'decoded_sample_format, samples, library_versions '
-               'FROM decode_properties where song_id in :ids')
-        result = c.execute(text(sql), {'ids': ids})
+        sel = (select([DecodeProperties.c.song_id,
+                       DecodeProperties.c.codec,
+                       DecodeProperties.c.format,
+                       DecodeProperties.c.container_duration,
+                       DecodeProperties.c.decoded_duration,
+                       DecodeProperties.c.container_bitrate,
+                       DecodeProperties.c.stream_bitrate,
+                       DecodeProperties.c.stream_sample_format,
+                       DecodeProperties.c.stream_bits_per_raw_sample,
+                       DecodeProperties.c.decoded_sample_format,
+                       DecodeProperties.c.samples,
+                       DecodeProperties.c.library_versions])
+               .where(DecodeProperties.c.song_id.in_(ids)))
+        result = c.execute(sel)
 
         r = {}
         for row in result.fetchall():
@@ -1528,38 +1148,25 @@ or name {like} '%%MusicBrainz/Track Id'""")
 
     @staticmethod
     def getGenres(ids=[], paths=[], root=None):
-        like = MusicDatabase.like
-        tables = 'tags'
+        conditions = []
         if root:
-            condition = ('AND song_id IN '
-                         '(select id from songs where root = :root)')
-            variables = {'root': root}
-        else:
-            condition = ''
-            variables = {}
+            conditions.append(Tags.c.song_id.in_(
+                              select(Songs.c.id).where(Songs.c.root == root)))
         if ids:
-            condition += ' AND song_id in :ids'
-            variables['ids'] = tuple(ids)
+            conditions.append(Tags.c.song_id.in_(ids))
         if paths:
-            part = ''
-            for idx, path in enumerate(paths):
-                if part:
-                    part += f' OR path {like} :path%d' % idx
-                else:
-                    part = f'path {like} :path%d' % idx
-                variables['path%d' % idx] = ('%' + path + '%')
-            condition += ' AND id = song_id AND (%s)' % part
-            tables += ',songs'
+            subcond = [Songs.c.path.ilike(f'%{path}%') for path in paths]
+            conditions.append(or_(*subcond))
+            conditions.append(Tags.c.song_id == Songs.c.id)
 
-        sql = '''select value, count(*)
-                   from %s
-                  where (lower(name) = 'genre' OR name='TCON')
-                        %s
-                  group by value
-                  order by 2''' % (tables, condition)
-        # print(sql, variables)
+        sel = (select([Tags.c.value, func.count().label('c')])
+               .where(and_(or_(func.lower(Tags.c.name) == 'genre',
+                               Tags.c.name == 'TCON'),
+                           *conditions))
+               .group_by(Tags.c.value)
+               .order_by('c'))
         c = MusicDatabase.getCursor()
-        result = c.execute(text(sql).bindparams(**variables))
+        result = c.execute(sel)
         pairs = []
         for genre, count in result.fetchall():
             pairs.append((genre.split('\0'), count))
@@ -1576,18 +1183,10 @@ or name {like} '%%MusicBrainz/Track Id'""")
             return userID[0]
 
         if create:
-            sql = 'INSERT INTO users(name) VALUES (:name)'
-            c.execute(text(sql).bindparams(name=username))
+            ins = Users.insert().values(name=username)
+            result = c.execute(ins)
+            userID = result.inserted_primary_key[0]
 
-            try:
-                sql = "SELECT currval(pg_get_serial_sequence('users','id'))"
-                result = c.execute(sql)
-            except sqlalchemy.exc.OperationalError:
-                # Try the sqlite way
-                sql = 'SELECT last_insert_rowid()'
-                result = c.execute(sql)
-
-            userID = result.fetchone()[0]
             MusicDatabase.add_null_ratings(userID, 0)
             MusicDatabase.commit()
             return userID
@@ -1746,7 +1345,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
             if any(dbRecord[k] != recorddict[k]
                    for k in [c.name for c in table.columns]
                    if k in recorddict):
-                print(f'update {table.name} db data for {recorddict}')
+                # print(f'update {table.name} db data for {recorddict}')
                 u = table.update() \
                          .where(wherestatement) \
                          .values(**recorddict)
@@ -1754,7 +1353,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
 #            else:
 #                print(f'no changes in {table.name} db data for {recorddict}')
         else:
-            print(f'insert {table.name} db data for {recorddict}')
+            # print(f'insert {table.name} db data for {recorddict}')
             i = table.insert().values(**recorddict)
             connection.execute(i)
 
@@ -1796,19 +1395,9 @@ or name {like} '%%MusicBrainz/Track Id'""")
         if result:
             return result[0]
         else:
-            sql = text('INSERT INTO albums(path) VALUES (:path)')
-            connection.execute(sql, {'path': albumPath})
-
-            try:
-                sql = "SELECT currval(pg_get_serial_sequence('albums','id'))"
-                result = connection.execute(sql)
-            except sqlalchemy.exc.OperationalError:
-                # Try the sqlite way
-                sql = 'SELECT last_insert_rowid()'
-                result = connection.execute(sql)
-
-            # connection.commit()
-            albumID = result.fetchone()[0]
+            ins = Albums.insert().values(path=albumPath)
+            result = connection.execute(ins)
+            albumID = result.inserted_primary_key[0]
             return albumID
 
     @staticmethod
@@ -1939,30 +1528,71 @@ or name {like} '%%MusicBrainz/Track Id'""")
                                           track_position=track_position))
         return result.fetchone()
 
-    def refreshMaterializedView(self, viewName):
-        if self.database == 'postgresql':
-            c = MusicDatabase.getCursor()
-            sql = text(f'refresh materialized view {viewName}')
-            c.execute(sql)
-            MusicDatabase.commit()
+    @staticmethod
+    def refresh_album_tables():
+        MusicDatabase.refresh_album_properties()
+        MusicDatabase.refresh_album_release()
 
-    def refreshMaterializedViews(self):
-        self.refreshMaterializedView('album_properties')
-        self.refreshMaterializedView('album_release')
+    @staticmethod
+    def refresh_album_properties():
+        delete = AlbumProperties.delete()
+        columns = ['album_id', 'format',
+                   'min_bitrate', 'max_bitrate',
+                   'min_bits_per_sample', 'max_bits_per_sample',
+                   'min_sample_rate', 'max_sample_rate',
+                   'min_channels', 'max_channels']
+        album_properties_s = (select(
+            [AlbumSongs.c.album_id,
+             Properties.c.format,
+             func.min(Properties.c.bitrate).label('min_bitrate'),
+             func.max(Properties.c.bitrate).label('max_bitrate'),
+             func.min(Properties.c.bits_per_sample).label(
+                 'min_bits_per_sample'),
+             func.max(Properties.c.bits_per_sample).label(
+                 'max_bits_per_sample'),
+             func.min(Properties.c.sample_rate).label('min_sample_rate'),
+             func.max(Properties.c.sample_rate).label('max_sample_rate'),
+             func.min(Properties.c.channels).label('min_channels'),
+             func.max(Properties.c.channels).label('max_channels')])
+            .where(AlbumSongs.c.song_id == Properties.c.song_id)
+            .group_by(AlbumSongs.c.album_id, Properties.c.format))
+        insert = AlbumProperties.insert().from_select(columns,
+                                                      album_properties_s)
+        c = MusicDatabase.getConnection()
+        c.execute(delete)
+        c.execute(insert)
+        c.commit()
+
+    @staticmethod
+    def refresh_album_release():
+        delete = AlbumRelease.delete()
+        album_release_s = (select(
+            [AlbumSongs.c.album_id,
+             Release.c.id.label('release_id')])
+            .select_from(SongsMB)
+            .where(and_(
+                ~exists(select([AlbumRelease.c.album_id]).where(
+                    AlbumRelease.c.album_id == AlbumSongs.c.album_id)),
+                SongsMB.c.releaseid == Release.c.mbid,
+                SongsMB.c.song_id == AlbumSongs.c.song_id))
+            .group_by(AlbumSongs.c.album_id, Release.c.id))
+        insert = AlbumRelease.insert().from_select(['album_id', 'release_id'],
+                                                   album_release_s)
+        c = MusicDatabase.getConnection()
+        c.execute(delete)
+        c.execute(insert)
+        c.commit()
 
     @staticmethod
     def get_songs_ratings(song_ids, user_id):
         if not song_ids:
             return {}
         c = MusicDatabase.getCursor()
-        sql = text('SELECT song_id, rating '
-                   '  FROM songs_ratings '
-                   ' WHERE user_id = :user_id '
-                   '   AND song_id in :song_ids'
-                   '   AND rating IS NOT NULL')
-
-        r = c.execute(sql.bindparams(user_id=user_id,
-                                     song_ids=tuple(song_ids)))
+        sel = (select([SongsRatings.c.song_id, SongsRatings.c.rating])
+               .where(and_(SongsRatings.c.user_id == user_id,
+                           SongsRatings.c.song_id.in_(song_ids),
+                           SongsRatings.c.rating.isnot(None))))
+        r = c.execute(sel)
 
         result = {row['song_id']: (row['rating'], 'user')
                   for row in r.fetchall()}
@@ -1970,14 +1600,12 @@ or name {like} '%%MusicBrainz/Track Id'""")
         rem_song_ids = tuple(x for x in song_ids if x not in result.keys())
 
         if rem_song_ids:
-            sql = text('SELECT song_id, avg_rating '
-                       '  FROM avg_songs_ratings '
-                       ' WHERE user_id = :user_id '
-                       '   AND song_id in :song_ids'
-                       '   AND avg_rating IS NOT NULL')
-
-            r = c.execute(sql.bindparams(user_id=user_id,
-                                         song_ids=rem_song_ids))
+            sel = (select([AvgSongsRatings.c.song_id,
+                           AvgSongsRatings.c.avg_rating])
+                   .where(and_(AvgSongsRatings.c.user_id == user_id,
+                               AvgSongsRatings.c.song_id.in_(rem_song_ids),
+                               AvgSongsRatings.c.avg_rating.isnot(None))))
+            r = c.execute(sel)
 
             result.update({row['song_id']: (float(row['avg_rating']), 'avg')
                            for row in r.fetchall()})
@@ -1994,13 +1622,11 @@ or name {like} '%%MusicBrainz/Track Id'""")
         if not album_ids:
             return {}
         c = MusicDatabase.getCursor()
-        sql = text('SELECT album_id, rating '
-                   '  FROM albums_ratings '
-                   ' WHERE user_id = :user_id '
-                   '   AND album_id in :album_ids')
+        sel = (select([AlbumsRatings.c.album_id, AlbumsRatings.c.rating])
+               .where(and_(AlbumsRatings.c.user_id == user_id,
+                           AlbumsRatings.c.album_id.in_(album_ids))))
 
-        r = c.execute(sql.bindparams(user_id=user_id,
-                                     album_ids=tuple(album_ids)))
+        r = c.execute(sel)
 
         result = {row['album_id']: (row['rating'], 'user')
                   for row in r.fetchall()}
@@ -2009,14 +1635,12 @@ or name {like} '%%MusicBrainz/Track Id'""")
         if not rem_album_ids:
             return result
 
-        sql = text('SELECT album_id, AVG(rating) avgrating'
-                   '  FROM albums_ratings '
-                   ' WHERE user_id != :user_id '
-                   '   AND album_id in :album_ids'
-                   ' GROUP BY album_id')
-
-        r = c.execute(sql.bindparams(user_id=user_id,
-                                     album_ids=rem_album_ids))
+        sel = (select([AlbumsRatings.c.album_id,
+                       func.avg(AlbumsRatings.c.rating).label('avgrating')])
+               .where(and_(AlbumsRatings.c.user_id != user_id,
+                           AlbumsRatings.c.album_id.in_(rem_album_ids)))
+               .group_by(AlbumsRatings.c.album_id))
+        r = c.execute(sel)
 
         result.update({row['album_id']: (float(row['avgrating']), 'avg')
                        for row in r.fetchall()})

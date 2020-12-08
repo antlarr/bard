@@ -3,6 +3,9 @@ from collections import namedtuple
 from sqlalchemy import text, insert, select, and_, desc, union, distinct
 from bard.config import config
 from bard.utils import alignColumns
+from bard.db.core import Songs, Tags, AlbumSongs, AlbumRelease, SongsMB, \
+    Properties, PlaylistSongs
+from bard.db.musicbrainz import Medium, Release, Track, ArtistCredit
 import os.path
 
 MBDataTuple = namedtuple('MBDataTuple',
@@ -11,9 +14,9 @@ MBDataTuple = namedtuple('MBDataTuple',
                           'recordingid', 'confirmed'])
 
 FullSongsWebQuery = namedtuple('FullSongsWebQuery',
-                               ['columns', 'tables', 'where', 'order_by',
-                                'values', 'limit', 'offset'])
-FullSongsWebQuery.__new__.__defaults__ = ('', '', '', '', {}, None, None)
+                               ['columns', 'conditions', 'order_by',
+                                'limit', 'offset'])
+FullSongsWebQuery.__new__.__defaults__ = ([], [], [], None, None)
 
 MediumFormatEnum = DatabaseEnum('medium_format', schema='musicbrainz')
 ReleaseStatusEnum = DatabaseEnum('release_status', schema='musicbrainz')
@@ -154,21 +157,19 @@ def getSongMusicBrainzIDs(songid, tags=None):
 
 class MusicBrainzDatabase:
     @staticmethod
-    def songTags(songIDs=None):
-        c = MusicDatabase.getCursor()
+    def songTags(songIDs=None, *, connection):
         if songIDs:
-            sql = text('SELECT song_id, name, value FROM tags '
-                       'WHERE song_id IN :id_list '
-                       'ORDER BY song_id, pos')
-            result = c.execute(sql, {'id_list': tuple(songIDs)})
+            sel = (select([Tags.c.song_id, Tags.c.name, Tags.c.value])
+                   .where(Tags.c.song_id.in_(songIDs))
+                   .order_by(Tags.c.song_id, Tags.c.pos))
         else:
-            sql = text('SELECT song_id, name, value FROM tags '
-                       'ORDER BY song_id, pos')
-            result = c.execute(sql)
+            sel = (select([Tags.c.song_id, Tags.c.name, Tags.c.value])
+                   .order_by(Tags.c.song_id, Tags.c.pos))
+        result = connection.execute(sel)
         tags = {}
-        row = result.fetchone()
+        rows = result.fetchall()
         current_song_id = None
-        while row:
+        for row in rows:
             if row.song_id != current_song_id:
                 if current_song_id:
                     yield current_song_id, tags
@@ -179,12 +180,11 @@ class MusicBrainzDatabase:
             else:
                 tags[row.name] += [row.value]
 
-            row = result.fetchone()
         if current_song_id:
             yield current_song_id, tags
 
     @staticmethod
-    def insertMBArtistIDs(song_id, artistIDs):
+    def insertMBArtistIDs(song_id, artistIDs, *, connection):
         if not artistIDs:
             return
         songs_mb_artistids = table('songs_mb_artistids')
@@ -192,21 +192,21 @@ class MusicBrainzDatabase:
         s = select([songs_mb_artistids.c.artistid]) \
             .where(songs_mb_artistids.c.song_id == song_id)
 
-        result = MusicDatabase.execute(s).fetchall()
+        result = connection.execute(s).fetchall()
 
         if set(artistIDs) == set(x['artistid'] for x in result):
             return
 
         d = songs_mb_artistids.delete() \
                               .where(songs_mb_artistids.c.song_id == song_id)
-        MusicDatabase.execute(d)
+        connection.execute(d)
         for artistID in artistIDs:
             i = insert(songs_mb_artistids).values(song_id=song_id,
                                                   artistid=artistID)
-            MusicDatabase.execute(i)
+            connection.execute(i)
 
     @staticmethod
-    def insertMBAlbumArtistIDs(song_id, albumArtistIDs):
+    def insertMBAlbumArtistIDs(song_id, albumArtistIDs, *, connection):
         if not albumArtistIDs:
             return
         songs_mb_albumartistids = table('songs_mb_albumartistids')
@@ -214,21 +214,21 @@ class MusicBrainzDatabase:
         s = select([songs_mb_albumartistids.c.albumartistid]) \
             .where(songs_mb_albumartistids.c.song_id == song_id)
 
-        result = MusicDatabase.execute(s).fetchall()
+        result = connection.execute(s).fetchall()
 
         if set(albumArtistIDs) == set(x['albumartistid'] for x in result):
             return
 
         d = songs_mb_albumartistids.delete() \
             .where(songs_mb_albumartistids.c.song_id == song_id)
-        MusicDatabase.execute(d)
+        connection.execute(d)
         for artistID in albumArtistIDs:
             i = insert(songs_mb_albumartistids).values(song_id=song_id,
                                                        albumartistid=artistID)
-            MusicDatabase.execute(i)
+            connection.execute(i)
 
     @staticmethod
-    def insertMBWorkIDs(song_id, workIDs):
+    def insertMBWorkIDs(song_id, workIDs, *, connection):
         if not workIDs:
             return
         songs_mb_workids = table('songs_mb_workids')
@@ -236,28 +236,31 @@ class MusicBrainzDatabase:
         s = select([songs_mb_workids.c.workid]) \
             .where(songs_mb_workids.c.song_id == song_id)
 
-        result = MusicDatabase.execute(s).fetchall()
+        result = connection.execute(s).fetchall()
 
         if set(workIDs) == set(x['workid'] for x in result):
             return
 
         d = songs_mb_workids.delete() \
                             .where(songs_mb_workids.c.song_id == song_id)
-        MusicDatabase.execute(d)
+        connection.execute(d)
         for workID in workIDs:
             i = insert(songs_mb_workids).values(song_id=song_id,
                                                 workid=workID)
-            MusicDatabase.execute(i)
+            connection.execute(i)
 
     @staticmethod
-    def insertMusicBrainzTags(song_id, mbIDs):
-        MusicBrainzDatabase.insertMBArtistIDs(song_id, mbIDs.artistids)
+    def insertMusicBrainzTags(song_id, mbIDs, *, connection):
+        MusicBrainzDatabase.insertMBArtistIDs(song_id, mbIDs.artistids,
+                                              connection=connection)
         MusicBrainzDatabase.insertMBAlbumArtistIDs(song_id,
-                                                   mbIDs.albumartistids)
-        MusicBrainzDatabase.insertMBWorkIDs(song_id, mbIDs.workids)
+                                                   mbIDs.albumartistids,
+                                                   connection=connection)
+        MusicBrainzDatabase.insertMBWorkIDs(song_id, mbIDs.workids,
+                                            connection=connection)
         songs_mb = table('songs_mb')
         mbTagRecord = songs_mb.select(songs_mb.c.song_id == song_id)
-        mbTagRecord = MusicDatabase.execute(mbTagRecord).fetchone()
+        mbTagRecord = connection.execute(mbTagRecord).fetchone()
         if mbTagRecord:
             if (mbTagRecord['releasegroupid'] != mbIDs.releasegroupid or
                 mbTagRecord['releaseid'] != mbIDs.releaseid or
@@ -273,7 +276,7 @@ class MusicBrainzDatabase:
                                     releasetrackid=mbIDs.releasetrackid,
                                     recordingid=mbIDs.recordingid,
                                     confirmed=mbIDs.confirmed)
-                MusicDatabase.execute(u)
+                connection.execute(u)
         else:
             print(f'insert mb data for {song_id}')
             i = songs_mb.insert().values(song_id=song_id,
@@ -282,7 +285,7 @@ class MusicBrainzDatabase:
                                          releasetrackid=mbIDs.releasetrackid,
                                          recordingid=mbIDs.recordingid,
                                          confirmed=mbIDs.confirmed)
-            MusicDatabase.execute(i)
+            connection.execute(i)
 
     @staticmethod
     def songsWithoutMBData():
@@ -299,11 +302,14 @@ class MusicBrainzDatabase:
     def updateMusicBrainzIDs(songIDs=None):
         if not songIDs:
             return
-        for song_id, tags in MusicBrainzDatabase.songTags(songIDs):
+        c = MusicDatabase.getConnection()
+        for song_id, tags in MusicBrainzDatabase.songTags(songIDs,
+                                                          connection=c):
             mbIDs = getSongMusicBrainzIDs(song_id, tags)
             if any(mbIDs):
-                MusicBrainzDatabase.insertMusicBrainzTags(song_id, mbIDs)
-                MusicDatabase.commit()
+                MusicBrainzDatabase.insertMusicBrainzTags(song_id, mbIDs,
+                                                          connection=c)
+                c.commit()
 
     @staticmethod
     def checkMusicBrainzTags():
@@ -781,11 +787,11 @@ union select rel.artist_credit_id
             if x['entity0'] != artistID:
                 result1.append((artists[x['entity0']], begin_date, end_date,
                                 [x['name'] for x in attrs] if attrs else None))
-            #    print('###', x)
+                # print('###', x)
             if x['entity1'] != artistID:
                 result2.append((artists[x['entity1']], begin_date, end_date,
                                 [x['name'] for x in attrs] if attrs else None))
-            #    print('   ', x)
+                # print('   ', x)
 
         print('->', result1)
         print('<-', result2)
@@ -1014,25 +1020,29 @@ union select rel.artist_credit_id
     @staticmethod
     def get_album_tracks(albumID):
         c = MusicDatabase.getCursor()
-        sql = ('select ar.album_id, '
-               '       m.position as medium_number,'
-               '       m.format as medium_format_id,'
-               # '       emfv.name as medium_format, '
-               '       m.name as medium_name, '
-               '       t.position as track_position, t.mbid as track_mbid, '
-               '       t.recording_id, t.number_text , t.name, '
-               '       ac.name as artist_name, t.artist_credit_id, '
-               '       t.is_data_track, t.length/1000 as duration'
-               '  from album_release ar, musicbrainz.medium m, '
-               # '       musicbrainz.enum_medium_format_values emfv, '
-               '       musicbrainz.track t, musicbrainz.artist_credit ac '
-               ' where ar.release_id = m.release_id '
-               '   and m.id = t.medium_id '
-               # '   and m.format = emfv.id_value '
-               '   and ar.album_id = :albumID '
-               '   and t.artist_credit_id = ac.id '
-               ' order by m.position, t.position')
-        result = c.execute(text(sql), {'albumID': albumID})
+        columns = [AlbumRelease.c.album_id,
+                   Medium.c.position.label('medium_number'),
+                   Medium.c.format.label('medium_format_id'),
+                   #   emfv.name as medium_format,
+                   Medium.c.name.label('medium_name'),
+                   Track.c.position.label('track_position'),
+                   Track.c.mbid.label('track_mbid'),
+                   Track.c.recording_id,
+                   Track.c.number_text,
+                   Track.c.name,
+                   ArtistCredit.c.name.label('artist_name'),
+                   Track.c.artist_credit_id,
+                   Track.c.is_data_track,
+                   (Track.c.length / 1000).label('duration')]
+
+        sel = (select(columns)
+               .where(and_(AlbumRelease.c.release_id == Medium.c.release_id,
+                           Medium.c.id == Track.c.medium_id,
+                           AlbumRelease.c.album_id == albumID,
+                           Track.c.artist_credit_id == ArtistCredit.c.id))
+               .order_by(Medium.c.position, Track.c.position))
+        result = c.execute(sel)
+
         return result.fetchall()
 
     @staticmethod
@@ -1050,67 +1060,70 @@ union select rel.artist_credit_id
     def get_songs_information_for_webui(*, songIDs=None,
                                         query=FullSongsWebQuery()):
         if songIDs:
-            query = FullSongsWebQuery(where=['als.song_id in :songIDs'],
-                                      order_by=['als.song_id'],
-                                      values={'songIDs': tuple(songIDs)})
+            query = FullSongsWebQuery(
+                conditions=[AlbumSongs.c.song_id.in_(songIDs)],
+                order_by=[AlbumSongs.c.song_id])
 
         c = MusicDatabase.getCursor()
-        cq = (',' + ','.join(query.columns)) if query.columns else ''
-        ct = (',' + ','.join(query.tables)) if query.tables else ''
-        cw = (' AND ' + ' AND '.join(query.where)) if query.where else ''
-        co = ('ORDER BY ' + ','.join(query.order_by)) if query.order_by else ''
-        climit = f'LIMIT {query.limit}' if query.limit else ''
-        coffset = f'OFFSET {query.offset}' if query.offset else ''
-        sql = ('select als.album_id, als.song_id, '
-               '       m.position as medium_number, '
-               '       m.format as medium_format_id, '
-               # '       emfv.name as medium_format, '
-               '       r.name as release_name, '
-               '       m.name as medium_name, '
-               '       t.position as track_position, t.mbid as track_mbid, '
-               '       t.recording_id, t.number_text , t.name, '
-               '       ac.name as artist_name, t.artist_credit_id, '
-               '       t.is_data_track, p.duration, p.format, p.bitrate, '
-               f'       p.bits_per_sample, p.sample_rate, p.channels {cq}'
-               '  from album_songs als, album_release ar, '
-               '       musicbrainz.medium m, '
-               '       musicbrainz.release r, '
-               # '       musicbrainz.enum_medium_format_values emfv, '
-               '       musicbrainz.track t, '
-               '       musicbrainz.artist_credit ac, '
-               f'       songs_mb smb, properties p {ct}'
-               ' where ar.release_id = m.release_id '
-               '   and ar.release_id = r.id'
-               '   and m.id = t.medium_id '
-               # '   and m.format = emfv.id_value '
-               '   and ar.album_id = als.album_id '
-               '   and t.artist_credit_id = ac.id '
-               '   and smb.song_id = als.song_id '
-               '   and p.song_id = als.song_id '
-               '   and smb.releasetrackid = t.mbid '
-               f'  {cw} {co} {climit} {coffset}')
-        result = c.execute(text(sql), query.values)
+
+        columns = [AlbumSongs.c.album_id.label('album_id'),
+                   AlbumSongs.c.song_id.label('song_id'),
+                   Medium.c.position.label('medium_number'),
+                   Medium.c.format.label('medium_format_id'),
+                   #   emfv.name as medium_format,
+                   Release.c.name.label('release_name'),
+                   Medium.c.name.label('medium_name'),
+                   Track.c.position.label('track_position'),
+                   Track.c.mbid.label('track_mbid'),
+                   Track.c.recording_id,
+                   Track.c.number_text,
+                   Track.c.name,
+                   ArtistCredit.c.name.label('artist_name'),
+                   Track.c.artist_credit_id,
+                   Track.c.is_data_track,
+                   Properties.c.duration,
+                   Properties.c.format,
+                   Properties.c.bitrate,
+                   Properties.c.bits_per_sample,
+                   Properties.c.sample_rate,
+                   Properties.c.channels,
+                   *query.columns]
+
+        sel = (select(columns)
+               .where(and_(AlbumRelease.c.release_id == Medium.c.release_id,
+                           AlbumRelease.c.release_id == Release.c.id,
+                           Medium.c.id == Track.c.medium_id,
+                           AlbumRelease.c.album_id == AlbumSongs.c.album_id,
+                           Track.c.artist_credit_id == ArtistCredit.c.id,
+                           SongsMB.c.song_id == AlbumSongs.c.song_id,
+                           Properties.c.song_id == AlbumSongs.c.song_id,
+                           SongsMB.c.releasetrackid == Track.c.mbid,
+                           *query.conditions)))
+
+        if query.order_by:
+            sel = sel.order_by(*query.order_by)
+        if query.limit:
+            sel = sel.limit(query.limit)
+        if query.offset:
+            sel = sel.offset(query.offset)
+        print(sel)
+        result = c.execute(sel)
         return result.fetchall()
 
     @staticmethod
     def get_playlist_songs_information_for_webui(playlistID):
-        query = (FullSongsWebQuery(
-                 columns=['pl.pos as position'],
-                 tables=['playlist_songs pl'],
-                 where=['pl.playlist_id = :playlistID',
-                        'als.song_id = pl.song_id'],
-                 order_by=['pl.pos'],
-                 values={'playlistID': playlistID}))
+        query = FullSongsWebQuery(
+            columns=[PlaylistSongs.c.pos.label('position')],
+            conditions=[PlaylistSongs.c.playlist_id == playlistID,
+                        AlbumSongs.c.song_id == PlaylistSongs.c.song_id],
+            order_by=[PlaylistSongs.c.pos])
         return MusicBrainzDatabase.get_songs_information_for_webui(query=query)
 
     @staticmethod
     def get_album_songs_information_for_webui(albumID):
-        query = (FullSongsWebQuery(
-                 columns=[],
-                 tables=[],
-                 where=['ar.album_id = :albumID'],
-                 order_by=['m.position', 't.position'],
-                 values={'albumID': albumID}))
+        query = FullSongsWebQuery(
+            conditions=[AlbumRelease.c.album_id == albumID],
+            order_by=[Medium.c.position, Track.c.position])
         return MusicBrainzDatabase.get_songs_information_for_webui(query=query)
 
     @staticmethod
@@ -1150,15 +1163,14 @@ union select rel.artist_credit_id
 
     @staticmethod
     def search_songs_for_webui(query, offset=None, page_size=200):
-        query = (FullSongsWebQuery(
-                 tables=['songs s'],
-                 where=['s.path ilike :query',
-                        'als.song_id = s.id'],
-                 order_by=['als.album_id', 'm.position', 't.position'],
-                 values={'query': '%' + query + '%'},
-                 limit=page_size,
-                 offset=offset,
-                 ))
+        query = FullSongsWebQuery(
+            conditions=[Songs.c.path.ilike(f'%{query}%'),
+                        AlbumSongs.c.song_id == Songs.c.id],
+            order_by=[AlbumSongs.c.album_id,
+                      Medium.c.position,
+                      Track.c.position],
+            limit=page_size,
+            offset=offset)
         return MusicBrainzDatabase.get_songs_information_for_webui(query=query)
 
     @staticmethod
@@ -1214,14 +1226,16 @@ union select rel.artist_credit_id
         u = (artist_paths.update()
              .where(artist_paths.c.id == artist_path_id)
              .values(image_filename=image_filename))
-        MusicDatabase.execute(u)
+        c = MusicDatabase.getConnection()
+        c.execute(u)
 
     @staticmethod
     def get_artist_path(artist_path_id):
         artist_paths = table('artist_paths')
         s = (select([artist_paths.c.path])
              .where(artist_paths.c.id == artist_path_id))
-        r = MusicDatabase.execute(s).fetchone()
+        c = MusicDatabase.getConnection()
+        r = c.execute(s).fetchone()
         return r[0] if r else None
 
     @staticmethod
@@ -1229,7 +1243,8 @@ union select rel.artist_credit_id
         artist_paths = table('artist_paths')
         s = (select([artist_paths.c.id])
              .where(artist_paths.c.path == artist_path))
-        r = MusicDatabase.execute(s).fetchone()
+        c = MusicDatabase.getConnection()
+        r = c.execute(s).fetchone()
         return r[0] if r else None
 
     @staticmethod
