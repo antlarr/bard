@@ -499,7 +499,7 @@ def release_group_get_image():
 
     print('Delivering release_group image of release_group %s: %s' %
           (release_group_mbid, path))
-    return send_file(path)
+    return send_file(path) if path else ''
 
 
 @app.route('/api/v1/release_group/info')
@@ -587,7 +587,7 @@ def release_get_image():
 
     print('Delivering release image of release %s: %s' %
           (release_mbid, path))
-    return send_file(path)
+    return send_file(path) if path else ''
 
 
 @app.route('/api/v1/album/tracks')
