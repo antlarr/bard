@@ -1258,6 +1258,11 @@ class Bard:
         backupMusic(target, priorityPatterns)
 
     def analyzeSongs(self, from_song_id=0, verbose=False):
+        if not from_song_id:
+            from_song_id = AnalysisDatabase.lastSongIDWithAnalysis()
+            from_song_id = from_song_id + 1 if from_song_id else 1
+
+        print(f'Analyzing songs from song {from_song_id}...')
         songsData = AnalysisDatabase.songsWithoutAnalysis(from_song_id)
 
         c = MusicDatabase.getCursor()

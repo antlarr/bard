@@ -5,7 +5,8 @@ try:
     from essentia.standard import MusicExtractor
 except ImportError:
     pass
-from sqlalchemy import text
+from sqlalchemy import text, func, select
+from bard.db.analysis import Highlevel
 import os
 import tempfile
 import subprocess
@@ -619,6 +620,16 @@ class AnalysisDatabase:
                    'ORDER BY id')
         result = c.execute(sql)
         return [(x[0], x[1], x[2]) for x in result.fetchall()]
+
+    @staticmethod
+    def lastSongIDWithAnalysis():
+        c = MusicDatabase.getCursor()
+        sel = select([func.max(Highlevel.c.song_id)])
+        result = c.execute(sel)
+        x = result.fetchone()
+        if x:
+            return x[0]
+        return 0
 
     @staticmethod
     def songAnalysis(song_id):
