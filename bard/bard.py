@@ -197,7 +197,8 @@ class Bard:
                                  '.md5', '.gz',
                                  '.fpl', '.wpl', '.accurip', '.db', '.ffp',
                                  '.flv', '.mkv', '.m4v', '.mov', '.mpg',
-                                 '.mpeg', '.avi', '.artist_mbid']
+                                 '.mpeg', '.avi',
+                                 '.artist_mbid', '.releasegroup_mbid']
         self.ignoreExtensions += config['ignore_extensions']
 
         self.excludeDirectories = ['covers', 'info']
