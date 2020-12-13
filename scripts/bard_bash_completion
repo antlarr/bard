@@ -13,7 +13,7 @@ _bard() {
 	cmd="${COMP_WORDS[1]}"
 
 	if [ "$COMP_CWORD" == "1" ]; then
-            opts="find-duplicates find-audio-duplicates compare-dirs compare-files compare-songs fix-mtime fix-checksums fix-ratings add-silences check-songs-existence check-checksums import info ls list list-genres list-similars fix-genres play fix-tags update set-rating stats web passwd backup update-musicbrainz-ids check-musicbrainz-tags cache-musicbrainz-db analyze-songs update-musicbrainz-artists"
+            opts="find-duplicates find-audio-duplicates compare-dirs compare-files compare-songs fix-mtime fix-checksums fix-ratings add-silences check-songs-existence check-checksums import info ls list list-genres list-similars fix-genres play fix-tags update set-rating stats web passwd backup update-musicbrainz-ids check-musicbrainz-tags cache-musicbrainz-db analyze-songs update-musicbrainz-artists process-songs"
             COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
             return 0
 	fi
@@ -102,6 +102,10 @@ _bard() {
                 ;;
                 "update-musicbrainz-artists")
                         opts="-v"
+                        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                ;;
+                "process-songs")
+                        opts="-v \--from-song-id"
                         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
                 ;;
                 *)

@@ -1380,6 +1380,10 @@ class Bard:
         # the database
         pass
 
+    def processSongs(self, from_song_id=None, verbose=False):
+        self.findAudioDuplicates(from_song_id)
+        self.analyzeSongs(from_song_id=from_song_id, verbose=verbose)
+
     def parseCommandLine(self):
         main_parser = ArgumentParser(
             description='Manage your music collection',
@@ -1771,6 +1775,16 @@ update-musicbrainz-artists [-v]
                                 'Recognize artists paths on the collection')
         parser.add_argument('-v', '--verbose', dest='verbose',
                             action='store_true', help='Be verbose')
+        # process-songs command
+        parser = sps.add_parser('process-songs', description='Process songs '
+                                'finding duplicates and doing a high-level '
+                                'audio analysis (actually, a shortcut for '
+                                'find-audio-duplicates and analyze-songs)')
+        parser.add_argument('-v', '--verbose', dest='verbose',
+                            action='store_true', help='Be verbose')
+        parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
+                            default=0, help='Starts processing songs '
+                            'from a specific song_id')
 
         options = main_parser.parse_args()
 
@@ -1880,6 +1894,9 @@ update-musicbrainz-artists [-v]
                             verbose=options.verbose)
         elif options.command == 'update-musicbrainz-artists':
             self.updateMusicBrainzArtists(verbose=options.verbose)
+        elif options.command == 'process-songs':
+            self.processSongs(from_song_id=options.from_song_id,
+                              verbose=options.verbose)
 
 
 def main():
