@@ -1374,7 +1374,7 @@ class Bard:
                     except ValueError:
                         pass
 
-    def initDatabase(self):
+    def initBard(self):
         # This is actually an empty method since just
         # creating a Bard object is enough to initialize
         # the database
@@ -1789,7 +1789,7 @@ update-musicbrainz-artists [-v]
         options = main_parser.parse_args()
 
         if options.command == 'init':
-            self.initDatabase()
+            self.initBard()
         elif options.command == 'find-duplicates':
             self.findDuplicates()
         elif options.command == 'find-duplicates':
