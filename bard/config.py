@@ -55,7 +55,10 @@ def addDefaultValues(config):
                  'ssl_certificate_chain_file']
 
     for key in path_keys:
-        config[key] = os.path.expanduser(config[key])
+        try:
+            config[key] = os.path.expanduser(config[key])
+        except KeyError:
+            config[key] = None
 
 
 config = readConfiguration()
