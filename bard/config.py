@@ -26,6 +26,12 @@ def addDefaultValues(config):
         import socket
         config['host'] = socket.gethostname()
 
+    if 'preferred_locales' not in config:
+        import locale
+        lang, _ = locale.getlocale()
+        lang = lang.split('_')[0]
+        config['preferred_locales'] = [lang]
+
     defaults = {
         'immutableDatabase': False,
         'matchThreshold': 0.8,

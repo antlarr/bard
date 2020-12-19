@@ -7,6 +7,7 @@ from bard.db.core import Songs, Tags, AlbumSongs, AlbumRelease, SongsMB, \
     Properties, PlaylistSongs
 from bard.db.musicbrainz import Medium, Release, Track, ArtistCredit
 import os.path
+from bard.percentage import Percentage
 
 MBDataTuple = namedtuple('MBDataTuple',
                          ['artistids', 'albumartistids', 'workids',
@@ -498,21 +499,26 @@ class MusicBrainzDatabase:
         """Return True if a is a better alias than b."""
         if a and not b:
             return True
-        if a['locale'] == 'es':
-            if b['locale'] != 'es':
-                return True
 
-            if a['primary_for_locale']:
+        try:
+            order_a = config['preferred_locales'].index(a['locale'])
+        except ValueError:
+            if (a['locale'] == b['locale'] and
+                a['primary_for_locale'] and
+                    not b['primary_for_locale']):
                 return True
+            return False
 
-        if a['locale'] == 'en':
-            if b['locale'] not in ('es', 'en'):
-                return True
+        try:
+            order_b = config['preferred_locales'].index(b['locale'])
+        except ValueError:
+            # a is in the preferred_locales and b is not
+            return True
 
-            if b['locale'] == 'en' and a['primary_for_locale']:
-                return True
+        if order_a == order_b:
+            return (a['primary_for_locale'] and not b['primary_for_locale'])
 
-        return False
+        return order_a < order_b
 
     @staticmethod
     def cacheMusicBrainzDB():
@@ -521,29 +527,48 @@ class MusicBrainzDatabase:
         s = select([artist.c.id, artist.c.mbid, artist.c.name,
                     artist.c.sort_name, artist.c.artist_type, artist.c.area_id,
                     artist.c.gender, artist.c.disambiguation])
-        locales = ['es', 'en']
+        locales = config['preferred_locales']
         c = MusicDatabase.getCursor()
-        for a in MusicDatabase.execute(s).fetchall():
-            s2 = (select([aa.c.name, aa.c.sort_name, aa.c.locale,
-                         aa.c.artist_alias_type, aa.c.primary_for_locale])
-                  .where(and_(aa.c.artist_id == a['id'],
-                              aa.c.locale.in_(locales))))
+        artists = {a['id']: a for a in c.execute(s).fetchall()}
+
+        s = (select([aa.c.artist_id, aa.c.name, aa.c.sort_name, aa.c.locale,
+                     aa.c.artist_alias_type, aa.c.primary_for_locale])
+             .where(and_(aa.c.artist_id.in_(artists.keys()),
+                         aa.c.locale.in_(locales))))
+        current = {}
+        aliases = {}
+        for x in c.execute(s).fetchall():
+            aliases.setdefault(x['artist_id'], []).append(x)
+
+        percentage = Percentage()
+        percentage.max_value = len(artists)
+        for i, a in enumerate(artists.values()):
             current = {}
-            for x in MusicDatabase.execute(s2).fetchall():
-                if MusicBrainzDatabase.is_better_alias(x, current):
-                    current = {'locale_name': x['name'],
-                               'locale_sort_name': x['sort_name'],
-                               'locale': x['locale'],
-                               'artist_alias_type': x['artist_alias_type']}
-            if not current:
+            try:
+                current_artist_aliases = aliases[a['id']]
+            except KeyError:
                 current = {'locale_name': a['name'],
                            'locale_sort_name': a['sort_name'],
                            'locale': None,
                            'artist_alias_type': None}
+            else:
+                for x in current_artist_aliases:
+                    if MusicBrainzDatabase.is_better_alias(x, current):
+                        current = {'locale_name': x['name'],
+                                   'locale_sort_name': x['sort_name'],
+                                   'locale': x['locale'],
+                                   'artist_alias_type': x['artist_alias_type'],
+                                   'primary_for_locale':
+                                       x['primary_for_locale']}
+                del current['primary_for_locale']
 
             current['id'] = a['id']
             MusicDatabase.insert_or_update('artists_mb', current, connection=c)
-        MusicDatabase.commit()
+            percentage.set_value(i)
+
+        c.commit()
+        percentage.set_value(percentage.max_value)
+        print('')
 
     @staticmethod
     def get_letter_offset_for_artist(letter, artist_filter='all'):
