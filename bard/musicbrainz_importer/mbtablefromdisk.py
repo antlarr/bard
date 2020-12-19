@@ -99,7 +99,7 @@ class MBTableFromDisk:
 
         if column in self.indexed_positions:
             try:
-                pos = self.indexed_positions[column][_id]
+                pos = self.indexed_positions[column][value]
             except KeyError:
                 raise KeyError('Error getting MBTableFromDisk(%s)[%s:%s] ' %
                                (self.name, column, str(value)))
