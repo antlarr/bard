@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import mbtable
+from bard.musicbrainz_importer import mbtable
 
 
 def tobytes(value):

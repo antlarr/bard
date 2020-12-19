@@ -12,12 +12,12 @@ from functools import partial
 from bard.percentage import Percentage
 from bard.musicdatabase import MusicDatabase, table
 from bard.musicbrainz_database import MusicBrainzDatabase
-from mbtableinmemory import MBTableInMemory
-from mbtableiter import MBTableIter
-from mbtablecached import MBTableCached
-from mbtablefromdisk import MBTableFromDisk
-from mbenums import musicbrainz_enums
-from mboptions import MBOptions
+from bard.musicbrainz_importer.mbtableinmemory import MBTableInMemory
+from bard.musicbrainz_importer.mbtableiter import MBTableIter
+from bard.musicbrainz_importer.mbtablecached import MBTableCached
+from bard.musicbrainz_importer.mbtablefromdisk import MBTableFromDisk
+from bard.musicbrainz_importer.mbenums import musicbrainz_enums
+from bard.musicbrainz_importer.mboptions import MBOptions
 from sqlalchemy import text, and_, select
 import concurrent.futures
 from multiprocessing import Lock

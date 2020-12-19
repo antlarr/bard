@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import mbtable
-from mbtablecached import tobytes
-from largedictintint import LargeDictOfIntToInt
+from bard.musicbrainz_importer import mbtable
+from bard.musicbrainz_importer.mbtablecached import tobytes
+from bard.musicbrainz_importer.largedictintint import LargeDictOfIntToInt
 
 
 class MBTableFromDisk:

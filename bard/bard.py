@@ -37,6 +37,7 @@ from bard.album import albumPath
 from bard.playlistmanager import PlaylistManager
 from bard.analysis_database import AnalysisDatabase, SongAnalysis, \
     AnalysisImporter
+from bard.musicbrainz_importer.mbimporter import MusicBrainzImporter
 
 ComparisonResult = namedtuple('ComparisonResult', ['offset', 'similarity'])
 
@@ -1384,6 +1385,20 @@ class Bard:
         self.findAudioDuplicates(from_song_id)
         self.analyzeSongs(from_song_id=from_song_id, verbose=verbose)
 
+    def updateMusicBrainzDBDump(self, verbose):
+        importer = MusicBrainzImporter()
+        print('Downloading Musicbrainz database dumps...')
+        importer.retrieve_musicbrainz_dumps()
+
+    def importMusicBrainzData(self, verbose):
+        importer = MusicBrainzImporter()
+
+        print('Loading data to import...')
+        importer.load_data_to_import()
+        print('\n\nImporting data from musicbrainz...')
+        importer.import_everything()
+        print('Data from musicbrainz imported')
+
     def parseCommandLine(self):
         main_parser = ArgumentParser(
             description='Manage your music collection',
@@ -1785,6 +1800,18 @@ update-musicbrainz-artists [-v]
         parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
                             default=0, help='Starts processing songs '
                             'from a specific song_id')
+        parser = sps.add_parser('mb-update', description='Update the local '
+                                'copy of the MusicBrainz database')
+        parser.add_argument('-v', '--verbose', dest='verbose',
+                            action='store_true', help='Be verbose')
+        parser = sps.add_parser('mb-import', description='Import MusicBrainz '
+                                'data')
+        parser.add_argument('-v', '--verbose', dest='verbose',
+                            action='store_true', help='Be verbose')
+        parser.add_argument('--update', dest='update',
+                            action='store_true', help='Before importing the '
+                            'MusicBrainz data, update the local copy from '
+                            'which the data is imported')
 
         options = main_parser.parse_args()
 
@@ -1897,6 +1924,12 @@ update-musicbrainz-artists [-v]
         elif options.command == 'process-songs':
             self.processSongs(from_song_id=options.from_song_id,
                               verbose=options.verbose)
+        elif options.command == 'mb-update':
+            self.updateMusicBrainzDBDump(verbose=options.verbose)
+        elif options.command == 'mb-import':
+            if options.update:
+                self.updateMusicBrainzDBDump(verbose=options.verbose)
+            self.importMusicBrainzData(verbose=options.verbose)
 
 
 def main():
