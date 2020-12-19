@@ -233,10 +233,10 @@ class MusicDatabase:
         except KeyError:
             database = 'sqlite'
         self.database = database
-        ro = config['immutableDatabase']
+        ro = config['immutable_database']
 
         if database == 'sqlite':
-            _dbpath = config['databasePath']
+            _dbpath = config['database_path']
             databasepath = os.path.expanduser(os.path.expandvars(_dbpath))
             if not os.path.isdir(os.path.dirname(databasepath)):
                 os.makedirs(os.path.dirname(databasepath))
@@ -324,7 +324,7 @@ class MusicDatabase:
             alembic_cfg.attributes['connection'] = None
 
     def createDatabase(self, alembic_cfg):
-        if config['immutableDatabase']:
+        if config[immutable_database']:
             print("Error: Can't create database: "
                   "The database is configured as immutable")
             return
@@ -340,7 +340,7 @@ class MusicDatabase:
 
     @staticmethod
     def addSong(song):  # noqa
-        if config['immutableDatabase']:
+        if config['immutable_database']:
             print("Error: Can't add song to DB: "
                   "The database is configured as immutable")
             return
@@ -614,7 +614,7 @@ class MusicDatabase:
 
     @staticmethod
     def removeSong(song=None, byID=None):
-        if config['immutableDatabase']:
+        if config['immutable_database']:
             print("Error: Can't remove song %d from DB: "
                   "The database is configured as immutable" % song.id)
             return
@@ -659,7 +659,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
 
     @staticmethod
     def addCover(pathToSong, pathToCover):
-        if config['immutableDatabase']:
+        if config['immutable_database']:
             print("Error: Can't add cover to song: "
                   "The database is configured as immutable")
             return
@@ -681,7 +681,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
 
     @classmethod
     def updateFingerprint(cls, songID, fingerprint):
-        if config['immutableDatabase']:
+        if config['immutable_database']:
             print("Error: Can't update song fingerprint: "
                   "The database is configured as immutable")
             return
@@ -958,14 +958,14 @@ or name {like} '%%MusicBrainz/Track Id'""")
 
     @staticmethod
     def commit():
-        if config['immutableDatabase']:
+        if config['immutable_database']:
             MusicDatabase.getConnection().rollback()
             return
         MusicDatabase.getConnection().commit()
 
     @staticmethod
     def updateFileSha256sumLastCheckTime(songid):
-        if config['immutableDatabase']:
+        if config['immutable_database']:
             print("Error: Can't update checksum's last check time: "
                   "The database is configured as immutable")
             return
@@ -977,7 +977,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
 
     @staticmethod
     def addFileSha256sum(songid, sha256sum):
-        if config['immutableDatabase']:
+        if config['immutable_database']:
             print("Error: Can't add file SHA256: The database is configured "
                   "as immutable")
             return
@@ -992,7 +992,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
 
     @staticmethod
     def addAudioTrackSha256sum(songid, audioSha256sum):
-        if config['immutableDatabase']:
+        if config['immutable_database']:
             print("Error: Can't add file SHA256: "
                   "The database is configured as immutable")
             return
@@ -1004,7 +1004,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
 
     @staticmethod
     def addSongDecodeProperties(songid, properties):
-        if config['immutableDatabase']:
+        if config['immutable_database']:
             print("Error: Can't add decode properties: "
                   "The database is configured as immutable")
             return
@@ -1078,7 +1078,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
 
     @staticmethod
     def addAudioSilences(songid, silence_at_start, silence_at_end):
-        if config['immutableDatabase']:
+        if config['immutable_database']:
             print("Error: Can't set song silences: "
                   "The database is configured as immutable")
             return
@@ -1090,7 +1090,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
 
     @staticmethod
     def addSongsSimilarity(songid1, songid2, offset, similarity):
-        if config['immutableDatabase']:
+        if config['immutable_database']:
             print("Error: Can't add song similarity: "
                   "The database is configured as immutable")
             return
@@ -1119,7 +1119,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
 
     @staticmethod
     def removeSongsSimilarity(songid1, songid2):
-        if config['immutableDatabase']:
+        if config['immutable_database']:
             print("Error: Can't add song similarity: "
                   "The database is configured as immutable")
             return

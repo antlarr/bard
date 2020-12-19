@@ -141,9 +141,9 @@ def compare_AudioSegments(audio1, audio2, showAudioOffsets=True):
     from bard.bard_ext import FingerprintManager
     fpm = FingerprintManager()
     fpm.setMaxOffset(100)
-    fpm.setCancelThreshold(config['storeThreshold'])
-    fpm.setShortSongCancelThreshold(config['shortSongStoreThreshold'])
-    fpm.setShortSongLength(config['shortSongLength'])
+    fpm.setCancelThreshold(config['store_threshold'])
+    fpm.setShortSongCancelThreshold(config['short_song_store_threshold'])
+    fpm.setShortSongLength(config['short_song_length'])
     fpm.addSong(1, dfpa1[0], len(audio1) / 1000)
     fpm.addSong(2, dfpa2[0], len(audio2) / 1000)
 
@@ -246,7 +246,7 @@ class Bard:
 
     def addSong(self, path, rootDir=None, removedSongsAudioSHA256={},
                 commit=True, verbose=False):
-        if config['immutableDatabase']:
+        if config['immutable_database']:
             print("Error: Can't add song %s : "
                   "The database is configured as immutable" % path)
             return None
@@ -290,7 +290,7 @@ class Bard:
 
     def addDirectoryRecursively(self, directory, verbose=False,
                                 removedSongsSHA256={}):
-        if config['immutableDatabase']:
+        if config['immutable_database']:
             print("Error: Can't add directory %s : "
                   "The database is configured as immutable" % directory)
             return None
@@ -505,7 +505,7 @@ class Bard:
                     MusicDatabase.removeSong(song)
                     continue
 
-                if not config['immutableDatabase']:
+                if not config['immutable_database']:
                     c = MusicDatabase.getCursor()
                     sql = text('UPDATE songs set mtime = :mtime '
                                'WHERE id = :id')
@@ -728,10 +728,10 @@ class Bard:
         info = {}
         print_stats = True
         verbose = True
-        matchThreshold = config['matchThreshold']
-        storeThreshold = config['storeThreshold']
-        shortSongStoreThreshold = config['shortSongStoreThreshold']
-        shortSongLength = config['shortSongLength']
+        matchThreshold = config['match_threshold']
+        storeThreshold = config['store_threshold']
+        shortSongStoreThreshold = config['short_song_store_threshold']
+        shortSongLength = config['short_song_length']
 
         song_ids_without_fingerprints = \
             MusicDatabase.songIDsWithoutFingerprints()
@@ -946,10 +946,10 @@ class Bard:
               TerminalColors.First + str(id1) + TerminalColors.ENDC +
               ' and ' +
               TerminalColors.Second + str(id2) + TerminalColors.ENDC)
-        matchThreshold = config['matchThreshold']
-        storeThreshold = config['storeThreshold']
-        shortSongStoreThreshold = config['shortSongStoreThreshold']
-        shortSongLength = config['shortSongLength']
+        matchThreshold = config['match_threshold']
+        storeThreshold = config['store_threshold']
+        shortSongStoreThreshold = config['short_song_store_threshold']
+        shortSongLength = config['short_song_length']
         from bard.bard_ext import FingerprintManager
         fpm = FingerprintManager()
         fpm.setMaxOffset(100)
@@ -1192,7 +1192,7 @@ class Bard:
         if not any([r1, r2, r3]):
             print('Musicbrainz tags are ok!')
             print('This means that every song in the '
-                  'musicbrainzTaggedMusicPaths directories\n'
+                  'musicbrainz_tagged_music_paths directories\n'
                   'is tagged correctly and every directory only '
                   'contains one release.')
 
@@ -1235,8 +1235,8 @@ class Bard:
         if use_ssl:
             import ssl
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-            certpemfile = config['sslCertificateChainFile']
-            serverkeyfile = config['sslCertificateKeyFile']
+            certpemfile = config['ssl_certificate_chain_file']
+            serverkeyfile = config['ssl_certificate_key_file']
 
             print(certpemfile)
             print(serverkeyfile)
@@ -1353,7 +1353,7 @@ class Bard:
              path_id, connection=connection))
 
     def updateMusicBrainzArtists(self, verbose=False):
-        paths = config['musicPaths']
+        paths = config['music_paths']
         for path in paths:
             if not os.path.isdir(path):
                 continue
@@ -1437,7 +1437,7 @@ import [file_or_directory [file_or_directory ...]]
                     import new (or update) music. You can specify the
                     files/directories to import as arguments. If no
                     arguments are given in the command line, the
-                    musicPaths entries in the configuration file are used
+                    music_paths entries in the configuration file are used
 info [-p] [-a|--show-analysis] <file | song id>
                     shows information about a song from the database
 list|ls [-l] [-d] [-i|--id] [--duration] [-r root] [-g genre] [--rating rating]
@@ -1596,7 +1596,7 @@ update-musicbrainz-artists [-v]
                                 description='Import new (or update) music. '
                                 'You can specify the files/directories to '
                                 'import as arguments. If no arguments are '
-                                'given in the command line, the musicPaths '
+                                'given in the command line, the music_paths '
                                 'entries in the configuration file are used')
         parser.add_argument('paths', nargs='*', metavar='file_or_directory')
         # info command
@@ -1831,7 +1831,7 @@ update-musicbrainz-artists [-v]
         elif options.command == 'check-songs-existence':
             paths = options.paths
             if not paths:
-                paths = config['musicPaths']
+                paths = config['music_paths']
             self.checkSongsExistenceInPaths(paths, verbose=True,
                                             callback=self.db.removeSong)
         elif options.command == 'check-checksums':
@@ -1888,11 +1888,11 @@ update-musicbrainz-artists [-v]
         elif options.command == 'import':
             paths = options.paths
             if not paths:
-                paths = config['musicPaths']
+                paths = config['music_paths']
 
             self.add(paths)
         elif options.command == 'update':
-            paths = config['musicPaths']
+            paths = config['music_paths']
             self.update(paths, verbose=options.verbose)
         elif options.command == 'set-rating':
             self.setRating(options.paths, options.rating, options.playing)

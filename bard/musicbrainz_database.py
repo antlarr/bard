@@ -323,7 +323,7 @@ class MusicBrainzDatabase:
                    '                    AND song_id = id)'
                    '     ORDER BY id')
         table = []
-        for root in config['musicbrainzTaggedMusicPaths']:
+        for root in config['musicbrainz_tagged_music_paths']:
             result = c.execute(sql, {'root': root})
             table.extend((str(song_id), path)
                          for song_id, path in result.fetchall())

@@ -1,9 +1,16 @@
 {
 # The path to the bard sqlite database
-    "databasePath": "~/.local/share/bard/music.db",
+    "database_path": "~/.local/share/bard/music.db",
 
-# musicPaths contains a list of paths where music is stored
-    "musicPaths": [
+# To use a postgresql database instead of sqlite, use the following variables
+# and comment out the "database_path" entry:
+#    "database": "postgresql",
+#    "database_name" : "bard",
+#    "database_user" : "bard",
+#    "database_password" : "bard123",
+
+# music_paths contains a list of paths where music is stored
+    "music_paths": [
         "~/Music",
 #       "~/Music2",
     ]

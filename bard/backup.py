@@ -838,7 +838,7 @@ class BackupMusic:
 def backupMusic(target, priorityPatterns):
     print(f'Backup to {target}')
     target_config = config['backups'][target]
-    for path in config['musicPaths']:
+    for path in config['music_paths']:
         try:
             target = target_config[path]
         except KeyError:

@@ -33,15 +33,15 @@ def addDefaultValues(config):
         config['preferred_locales'] = [lang]
 
     defaults = {
-        'immutableDatabase': False,
-        'matchThreshold': 0.8,
-        'storeThreshold': 0.60,
-        'shortSongStoreThreshold': 0.68,
-        'shortSongLength': 53,
+        'immutable_database': False,
+        'match_threshold': 0.8,
+        'store_threshold': 0.60,
+        'short_song_store_threshold': 0.68,
+        'short_song_length': 53,
         'port': 5000,
         'use_ssl': False,
-        'sslCertificateKeyFile': '~/.config/bard/certs/server.key',
-        'sslCertificateChainFile': '~/.config/bard/certs/cert.pem',
+        'ssl_certificate_key_file': '~/.config/bard/certs/server.key',
+        'ssl_certificate_chain_file': '~/.config/bard/certs/cert.pem',
         'enable_internal_checks': False,
         'ignore_extensions': [],
     }
@@ -50,9 +50,9 @@ def addDefaultValues(config):
         if key not in config:
             config[key] = value
 
-    path_keys = ['databasePath',
-                 'sslCertificateKeyFile',
-                 'sslCertificateChainFile']
+    path_keys = ['database_path',
+                 'ssl_certificate_key_file',
+                 'ssl_certificate_chain_file']
 
     for key in path_keys:
         config[key] = os.path.expanduser(config[key])
@@ -63,8 +63,8 @@ addDefaultValues(config)
 
 
 def translatePath(path):
-    if config['translatePaths']:
-        for (src, tgt) in config['pathTranslationMap']:
+    if config['translate_paths']:
+        for (src, tgt) in config['path_translation_map']:
             src = src.rstrip('/')
             tgt = tgt.rstrip('/')
             if path.startswith(src):
