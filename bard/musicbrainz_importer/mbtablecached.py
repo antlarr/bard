@@ -89,6 +89,7 @@ class MBTableCached:
         for line in self.lines:
             cols = line.split(b'\t')
             if cols[position] == value:
-                r.append(mbtable.processLine(line.decode('utf-8'), self.columns))
+                r.append(mbtable.processLine(line.decode('utf-8'),
+                                             self.columns))
 
         return r

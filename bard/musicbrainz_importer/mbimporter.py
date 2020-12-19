@@ -1167,8 +1167,8 @@ class MusicBrainzImporter:
                 try:
                     tgt_entity_ids = conversion[item['id']]
                 except KeyError:
-                    print(f'{entity} id {item["id"]} cannot be converted '
-                          f'to {tgt_column}')
+                    print(f'{entity} id {item["id"]} cannot be converted to '
+                          f'{tgt_column}')
                     continue
             else:
                 tgt_entity_ids = [item['id']]

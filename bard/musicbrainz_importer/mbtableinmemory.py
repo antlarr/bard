@@ -45,7 +45,8 @@ class MBTableInMemory:
         try:
             return self.data[_id]
         except KeyError:
-            print('Error getting MBTableInMemory(%s)[%s]' % (self.name, str(_id)))
+            print('Error getting MBTableInMemory(%s)[%s]' % (self.name,
+                                                             str(_id)))
             raise
 
     def getbygid(self, gid):
@@ -58,8 +59,8 @@ class MBTableInMemory:
         try:
             _id = self.converters[column][value]
         except KeyError:
-            print('Error getting MBTableInMemory(%s)[%s][%s]' % (self.name, column,
-                                                         value))
+            print('Error getting MBTableInMemory(%s)[%s][%s]' % (self.name,
+                  column, value))
             raise
         return self.data[_id]
 

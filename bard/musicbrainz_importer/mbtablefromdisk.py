@@ -72,8 +72,8 @@ class MBTableFromDisk:
         try:
             pos = self.indexed_positions['id'][_id]
         except KeyError:
-            raise KeyError('Error getting MBTableFromDisk(%s)[%s]: No id avail' %
-                       (self.name, str(_id)))
+            raise KeyError('Error getting MBTableFromDisk(%s)[%s]: '
+                           'No id avail' % (self.name, str(_id)))
         self.fh.seek(pos)
         line = self.fh.readline()
 
@@ -147,7 +147,8 @@ class MBTableFromDisk:
                 line = self.fh.readline()
                 cols = line.rstrip(b'\n').split(b'\t')
                 if cols[col_position] == value:
-                    r.append(mbtable.processLine(line.decode('utf-8'), self.columns))
+                    r.append(mbtable.processLine(line.decode('utf-8'),
+                                                 self.columns))
             return r
 
         value = tobytes(value)
@@ -156,6 +157,7 @@ class MBTableFromDisk:
         for line in self.fh.readlines():
             cols = line.rstrip(b'\n').split(b'\t')
             if cols[col_position] == value:
-                r.append(mbtable.processLine(line.decode('utf-8'), self.columns))
+                r.append(mbtable.processLine(line.decode('utf-8'),
+                                             self.columns))
 
         return r

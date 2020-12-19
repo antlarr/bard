@@ -3,7 +3,6 @@
 from mbimporter import MusicBrainzImporter
 from bard.musicdatabase import MusicDatabase
 from bard.musicbrainz_database import MusicBrainzDatabase
-import sys
 import os.path
 import re
 
@@ -22,6 +21,7 @@ def get_ids_in_songs_mb(column):
     sql = f'select distinct {column} from songs_mb'
     result = c.execute(sql)
     return set(x for (x,) in result.fetchall())
+
 
 def get_song_paths_from_songs_mb(column, uuids):
     c = MusicDatabase.getCursor()

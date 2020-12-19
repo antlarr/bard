@@ -14,10 +14,12 @@ def to_str(x):
         return None
     return x.decode('utf-8')
 
+
 def to_uuid(x):
     if x == b'\\N':
         return None
     return UUID(x.decode('ascii'))
+
 
 def to_bool(x):
     if x == b'\\N':
