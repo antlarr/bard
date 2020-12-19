@@ -25,7 +25,7 @@ class Percentage:
 
     def print_percentage(self):
         tmp = self.format % ((self.value - self.min_value) * 100.0 /
-                        (self.max_value - self.min_value)) + '%'
+                             (self.max_value - self.min_value)) + '%'
         if tmp != self.last_text:
             self.remove_print()
             print(tmp, end='', flush=True)

@@ -24,7 +24,7 @@ def importData(verbose):
     importer.load_data_to_import()
     time2 = datetime.now()
 
-    print(str(time2 - time1))
+    print('Time to load data to import:', str(time2 - time1))
 
     importer.import_everything()
     time2 = datetime.now()

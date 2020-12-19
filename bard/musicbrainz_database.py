@@ -390,7 +390,6 @@ class MusicBrainzDatabase:
         s = select([songs_mb_artistids.c.artistid]).distinct()
 
         result_artists = MusicDatabase.execute(s).fetchall()
-        print(len(result_artists))
         s1 = set(x['artistid'] for x in result_artists)
 
         songs_mb_albumartistids = table('songs_mb_albumartistids')
@@ -398,9 +397,7 @@ class MusicBrainzDatabase:
         s = select([songs_mb_albumartistids.c.albumartistid]).distinct()
 
         result_albumartists = MusicDatabase.execute(s).fetchall()
-        print(len(result_albumartists))
         r = s1.union(x['albumartistid'] for x in result_albumartists)
-        print('artists', len(r))
         return r
 
     @staticmethod
@@ -445,9 +442,7 @@ class MusicBrainzDatabase:
         s = select([songs_mb_workids.c.workid]).distinct()
 
         result = MusicDatabase.execute(s).fetchall()
-        print('works', len(result))
-        r = set(x['workid'] for x in result)
-        return r
+        return set(x['workid'] for x in result)
 
     @staticmethod
     def get_range_artists(offset=0, page_size=500, metadata=False,
@@ -799,7 +794,7 @@ union select rel.artist_credit_id
 
         artists = {x['id']: dict(x)
                    for x in MusicBrainzDatabase.get_artists_info(ids)}
-        print(artists)
+        # print(artists)
 
         for x in r:
             begin_date = (x['begin_date_year'],
@@ -818,8 +813,8 @@ union select rel.artist_credit_id
                                 [x['name'] for x in attrs] if attrs else None))
                 # print('   ', x)
 
-        print('->', result1)
-        print('<-', result2)
+        # print('->', result1)
+        # print('<-', result2)
         return (result1, result2)
 
     @staticmethod
@@ -970,7 +965,7 @@ union select rel.artist_credit_id
                    ' group by name, value')
         r = c.execute(sql, {'albumID': release['album_id']})
         album = {x['name']: x['value'] for x in r.fetchall()}
-        print(release, album)
+        # print(release, album)
         try:
             usereleasecomment = int(album['usereleasecomment'])
         except KeyError:
@@ -1000,9 +995,6 @@ union select rel.artist_credit_id
                 if uselabel == 1:
                     result.append(release_label['label_name'])
                 else:
-                    print(release_label)
-                    print(release_label['label_name'])
-                    print(release_label['catalog_number'])
                     result.append(release_label['label_name'] + ':' +
                                   release_label['catalog_number'])
 
@@ -1131,7 +1123,7 @@ union select rel.artist_credit_id
             sel = sel.limit(query.limit)
         if query.offset:
             sel = sel.offset(query.offset)
-        print(sel)
+        # print(sel)
         result = c.execute(sel)
         return result.fetchall()
 
@@ -1302,8 +1294,9 @@ union select rel.artist_credit_id
                  .where(artist_credits_mb.c.artist_credit_id ==
                         artist_credit_id))
             r = connection.execute(s).fetchone()
-            if (r and r[0] == path_id):
-                # print(f'artist credit id {artist_credit_id} already has path {path_id}')
+            if r and r[0] == path_id:
+                # print(f'artist credit id {artist_credit_id} '
+                #       f'already has path {path_id}')
                 continue
             print(f'Adding path {path_id} to artist credit {artist_credit_id}')
             u = (artist_credits_mb.update()

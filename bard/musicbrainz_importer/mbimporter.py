@@ -374,9 +374,10 @@ def add_filter_missing_entities(tablename, entity0, entity1):
 
 
 class MusicBrainzImporter:
-    def __init__(self):
+    def __init__(self, verbose=False):
         """Create a MusicBrainzImporter object."""
         self.directory = os.path.expanduser('~/.local/share/bard')
+        self.verbose = verbose
         self.names = None
         self.entities = {}
         self.initialize_l_table_filters()
@@ -421,7 +422,7 @@ class MusicBrainzImporter:
         latest = urllib.request.urlopen(url + "/LATEST")
         latest = latest.read().decode('utf-8').strip('\n')
 
-        print(latest)
+        print('Date of latest dump:', latest)
         return url + "/" + latest, latest
 
     @staticmethod
@@ -441,7 +442,7 @@ class MusicBrainzImporter:
         print('Retrieving MusicBrainz dump file: ', filename)
         (filename, headers) = urllib.request.urlretrieve(url, filename, proc)
         urllib.request.urlcleanup()
-        print('Done')
+        print(' Done')
 
     def extract_mbdump_file(self, filename):
         filename = os.path.join(self.directory, filename)
@@ -467,7 +468,6 @@ class MusicBrainzImporter:
         self.load_musicbrainz_schema_importer_names()
         filename = os.path.join(self.directory, 'mbdump', tablename)
         columns = self.names[tablename]
-        print(columns)
         tableClasses = {'track': MBTableFromDisk,
                         'recording': MBTableFromDisk,
                         'url': MBTableFromDisk,
@@ -504,9 +504,9 @@ class MusicBrainzImporter:
 
         table.loadFromFile(filename)
 
-        print('##########################################################  ' +
-              f'Read {type(table).__name__}({tablename}). Size:',
-              getsize(table), '. len: ', len(table))
+        # print('#######################################################  ' +
+        #       f'Read {type(table).__name__}({tablename}). Size:',
+        #       getsize(table), '. len: ', len(table))
 
         return table
 
@@ -727,7 +727,8 @@ class MusicBrainzImporter:
         enumtable = table_translations[tablename]
         filename = os.path.join(self.directory, 'mbdump', enumtable)
         columns = self.names[enumtable]
-        print(columns)
+        if self.verbose:
+            print(columns)
         table = MBTableIter(tablename, columns)
 
         table.loadFromFile(filename)
@@ -990,7 +991,6 @@ class MusicBrainzImporter:
         self.ids['label'] = set()
         for entity, uuids in self.uuids.items():
             _, self.ids[entity] = self.convert_uuids_to_ids(entity, uuids)
-            print(entity, len(self.ids[entity]), 'ids')
 
         # futures = []
         # with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -1011,7 +1011,6 @@ class MusicBrainzImporter:
 
         if mediums:
             self.ids['medium'] = self.get_mediums_from_release_ids()
-            print('-------')
             print('tracks: ', len(self.ids['track']))
             print('recording: ', len(self.ids['recording']))
             # Add all recordings from all mediums so we can show
@@ -1038,17 +1037,22 @@ class MusicBrainzImporter:
                     self.get_artist_credit_ids_for_entity, ent)
                     for ent in entities}
 
-                print('Waiting for threads to finish...')
+                if self.verbose:
+                    print('Waiting for threads to finish...')
                 for future in concurrent.futures.as_completed(futures):
                     entity, ids = future.result()
                     self.ids['artist_credit'].update(ids)
-                    print(f'entity {entity} finished')
-                    print('artist_credit ids', len(self.ids['artist_credit']))
+                    if self.verbose:
+                        print('artist_credit ids: '
+                              f"{len(self.ids['artist_credit'])} after "
+                              f'adding ids from {entity}')
 
-            print('artist ids', len(self.ids['artist']))
+            print(f"artist_credit ids: {len(self.ids['artist_credit'])}")
+            if self.verbose:
+                print('artist ids:', len(self.ids['artist']))
             ids = self.get_artists_from_artist_credit_ids()
             self.ids['artist'].update(ids)
-            print('artist ids', len(self.ids['artist']))
+            print('artist ids: ', len(self.ids['artist']))
 
         if linked_entities:
             for entity, relations in related_entities_to_import.items():
@@ -1063,7 +1067,8 @@ class MusicBrainzImporter:
                     except KeyError:
                         self.ids[tablename] = table_ids
 
-                    print(entity, rel, len(self.ids[entity]), ' + ids')
+                    print(f'{entity} {rel} {tablename} ids:',
+                          len(self.ids[entity]))
 
             self.ids['link_attribute_type'] = \
                 self.get_link_attribute_types_from_link_attributes()
@@ -1073,7 +1078,8 @@ class MusicBrainzImporter:
             self.parent_ids['link_attribute_type'] = \
                 parent_link_attribute_types
 
-        print(sorted(self.ids.keys()))
+        if self.verbose:
+            print('Entities to import:', sorted(self.ids.keys()))
 
     def import_table(self, tablename):
         if tablename not in self.ids:
