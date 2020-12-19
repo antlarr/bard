@@ -443,7 +443,7 @@ def artist_info():
     print('id', artistID)
     result = MusicBrainzDatabase.get_artist_info(artistID=artistID)
     result_aliases = MusicBrainzDatabase.get_artist_aliases(
-        artistID, locales=['es', 'en'])
+        artistID, locales=config['preferred_locales'])
     return jsonify(structFromArtist(result, result_aliases))
 
 
