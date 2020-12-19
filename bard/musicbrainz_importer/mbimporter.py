@@ -1093,18 +1093,10 @@ class MusicBrainzImporter:
                    '  FROM songs_mb, musicbrainz.recording mr '
                    ' WHERE mr.mbid = songs_mb.recordingid ORDER BY 1')
         pairs = c.execute(sql)
-        recording_id, song_id = pairs.fetchone()
-        last_recording_id = recording_id
-        songs = [song_id]
         result = {}
         for recording_id, song_id in pairs.fetchall():
-            if recording_id != last_recording_id:
-                result[last_recording_id] = songs
-                songs = [song_id]
-                last_recording_id = recording_id
-            else:
-                songs.append(song_id)
-        result[last_recording_id] = songs
+            result.setdefault(recording_id, []).append(song_id)
+
         return result
 
     def get_album_ids_for_release_groups_dict(self):
