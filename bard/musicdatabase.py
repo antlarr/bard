@@ -324,7 +324,7 @@ class MusicDatabase:
             alembic_cfg.attributes['connection'] = None
 
     def createDatabase(self, alembic_cfg):
-        if config[immutable_database']:
+        if config['immutable_database']:
             print("Error: Can't create database: "
                   "The database is configured as immutable")
             return
