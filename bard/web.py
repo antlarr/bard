@@ -1,6 +1,5 @@
 from flask import Flask, request, Response, render_template, \
-    jsonify, abort, redirect, send_file
-from jinja2 import FileSystemLoader
+    jsonify, abort, redirect, send_file, send_from_directory
 import jinja2.exceptions
 from flask_cors import CORS
 from flask_login import LoginManager, login_required, login_user, \
@@ -28,9 +27,8 @@ import re
 import werkzeug
 
 
-app = Flask(__name__, static_url_path='/kakaka')
+app = Flask(__name__, static_url_path="/static", static_folder='web-root')
 
-app.jinja_loader = FileSystemLoader('templates')
 CORS(app)
 
 login_manager = LoginManager()
@@ -376,21 +374,9 @@ def hello():
 
 @app.route('/favicon.ico')
 def serve_favicon():
-    filename = 'favicon.ico'
-    localfilename = 'web-root/%s' % filename
-    print(localfilename)
-    s = open(localfilename, 'rb').read()
-    mime = mimetypes.guess_type(localfilename)
-    return Response(s, mimetype=mime[0])
-
-
-@app.route('/static/<path:filename>')
-def static_file(filename):
-    localfilename = 'web-root/%s' % filename
-    print(localfilename)
-    s = open(localfilename, 'rb').read()
-    mime = mimetypes.guess_type(localfilename)
-    return Response(s, mimetype=mime[0])
+    return send_from_directory(os.path.join(app.root_path, 'web-root'),
+                               'favicon.ico',
+                               mimetype='image/vnd.microsoft.icon')
 
 
 @app.route('/api/v1/artists/list')
