@@ -22,9 +22,9 @@ def addDefaultValues(config):
     if 'username' not in config:
         config['username'] = pwd.getpwuid(os.getuid()).pw_name
 
-    if 'host' not in config:
+    if 'hostname' not in config:
         import socket
-        config['host'] = socket.gethostname()
+        config['hostname'] = socket.gethostname()
 
     if 'preferred_locales' not in config:
         import locale
