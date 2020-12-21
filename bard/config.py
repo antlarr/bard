@@ -40,10 +40,14 @@ def addDefaultValues(config):
         'short_song_length': 53,
         'port': 5000,
         'use_ssl': False,
+        'database': 'sqlite',
+        'database_path': '~/.local/share/bard/music.db',
         'ssl_certificate_key_file': '~/.config/bard/certs/server.key',
         'ssl_certificate_chain_file': '~/.config/bard/certs/cert.pem',
         'enable_internal_checks': False,
         'ignore_extensions': [],
+        'translate_paths': False,
+        'path_translation_map': {},
     }
 
     for key, value in defaults.items():
@@ -51,12 +55,18 @@ def addDefaultValues(config):
             config[key] = value
 
     path_keys = ['database_path',
+                 'music_paths',
+                 'musicbrainz_tagged_music_paths',
                  'ssl_certificate_key_file',
                  'ssl_certificate_chain_file']
 
     for key in path_keys:
         try:
-            config[key] = os.path.expanduser(config[key])
+            if isinstance(config[key], list):
+                config[key] = [os.path.expanduser(path)
+                               for path in config[key]]
+            else:
+                config[key] = os.path.expanduser(config[key])
         except KeyError:
             config[key] = None
 
