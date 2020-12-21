@@ -814,7 +814,9 @@ class Bard:
         for (songID, fingerprint, sha256sum, audioSha256sum, path,
                 completeness, duration) in result.fetchall():
             # print('.', songID, end='', flush=True)
-            dfp = chromaprint.decode_fingerprint(fingerprint.tobytes())
+            if not isinstance(fingerprint, bytes):
+                fingerprint = fingerprint.tobytes()
+            dfp = chromaprint.decode_fingerprint(fingerprint)
             if not dfp[0]:
                 print("Error calculating fingerprint of song %s (%s)" %
                       (songID, path))
