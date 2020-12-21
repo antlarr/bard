@@ -397,6 +397,8 @@ class MusicBrainzImporter:
         del extra_filters['l_artist_release']
         del extra_filters['l_artist_release_group']
         mbtable = self.read_entity_table('link_type')
+        if not mbtable:
+            return
 
         for entities, link_names in follow_links_to_import.items():
             link_type_ids = set()
@@ -502,7 +504,10 @@ class MusicBrainzImporter:
         else:
             table = MBTableClass(tablename, columns)
 
-        table.loadFromFile(filename)
+        try:
+            table.loadFromFile(filename)
+        except FileNotFoundError:
+            return None
 
         # print('#######################################################  ' +
         #       f'Read {type(table).__name__}({tablename}). Size:',
@@ -511,10 +516,8 @@ class MusicBrainzImporter:
         return table
 
     def read_entity_table(self, entity):
-        try:
+        if entity in self.entities and self.entities[entity]:
             return self.entities[entity]
-        except KeyError:
-            pass
 
         self.entities[entity] = self.read_mbdump_table(entity)
         return self.entities[entity]
