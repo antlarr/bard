@@ -23,6 +23,7 @@ from bard.generatedplaylist import GeneratedPlaylist
 import mimetypes
 import base64
 import os.path
+import os
 import re
 import werkzeug
 
@@ -52,7 +53,8 @@ def read_or_generate_key():
 
     secret_key = os.urandom(16)
 
-    with open(os.open(key_file, os.O_CREAT | os.O_WRONLY, 0o600)) as fh:
+    flags = os.O_CREAT | os.O_WRONLY
+    with os.fdopen(os.open(key_file, flags, 0o600), 'w') as fh:
         fh.write('# Private key for web sessions\n')
         fh.write('# If this file is removed, a new key will be generated\n')
         fh.write('key=' + base64.encodebytes(secret_key).decode('utf8') + '\n')
