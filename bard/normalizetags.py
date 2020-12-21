@@ -11,6 +11,7 @@ import mutagen.wavpack
 import mutagen.oggvorbis
 import mutagen.oggopus
 import mutagen.musepack
+import mutagen.wave
 
 
 def extractFirstElementOfTuple(x):
@@ -226,7 +227,8 @@ formatToType = {
     'opus': mutagen.oggopus.OggOpus,
     'wv': mutagen.wavpack.WavPack,
     'ape': mutagen.monkeysaudio.MonkeysAudio,
-    'mpc': mutagen.musepack.Musepack}
+    'mpc': mutagen.musepack.Musepack,
+    'wav': mutagen.wave.WAVE}
 
 
 def removeFromNullChar(s):

@@ -242,7 +242,8 @@ class Song:
             mutagen.oggopus.OggOpus: 'opus',
             mutagen.wavpack.WavPack: 'wv',
             mutagen.monkeysaudio.MonkeysAudio: 'ape',
-            mutagen.musepack.Musepack: 'mpc', }
+            mutagen.musepack.Musepack: 'mpc',
+            mutagen.wave.WAVE: 'wav', }
         self._format = formattext[type(self.metadata)]
 
         audiodata, properties = decodeAudio(filething)
