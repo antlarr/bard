@@ -1233,6 +1233,7 @@ class Bard:
         from werkzeug.serving import run_simple
 
         MusicDatabase.table('users')
+        context = None
         use_ssl = config['use_ssl']
         if use_ssl:
             import ssl
@@ -1242,9 +1243,10 @@ class Bard:
 
             print(certpemfile)
             print(serverkeyfile)
-            context.load_cert_chain(certpemfile, serverkeyfile)
-        else:
-            context = None
+            if os.path.exists(certpemfile) and os.path.exists(serverkeyfile):
+                context.load_cert_chain(certpemfile, serverkeyfile)
+            else:
+                print(f'{certpemfile} and/or {serverkeyfile} not found')
 
         app.bard = self
         init_flask_app()
