@@ -1726,6 +1726,9 @@ update-musicbrainz-artists [-v]
                                 '/deleted files')
         parser.add_argument('-v', '--verbose', dest='verbose',
                             action='store_true', help='Be verbose')
+        parser.add_argument('--process', dest='process',
+                            action='store_true', help='Shortcut to '
+                            'process-audio after the update finishes')
         # set-rating command
         parser = sps.add_parser('set-rating',
                                 description='Set rating for a song or songs')
@@ -1898,6 +1901,8 @@ update-musicbrainz-artists [-v]
         elif options.command == 'update':
             paths = config['music_paths']
             self.update(paths, verbose=options.verbose)
+            if options.process:
+                self.processSongs(verbose=options.verbose)
         elif options.command == 'set-rating':
             self.setRating(options.paths, options.rating, options.playing)
         elif options.command == 'stats':

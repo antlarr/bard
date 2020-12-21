@@ -72,7 +72,7 @@ _bard() {
                 ;;
                 "update")
 			_bard_compfile
-                        opts="-v"
+                        opts="-v \--process"
 			COMPREPLY=( "${COMPREPLY[@]}" $(compgen -W "${opts}" -- ${cur})  )
                 ;;
                 "set-rating")
