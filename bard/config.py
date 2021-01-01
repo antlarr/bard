@@ -5,20 +5,19 @@ import json
 import pwd
 
 
-def readConfiguration():
-    cfgfile = os.path.expanduser(os.getenv('BARDCONFIGFILE', '~/.config/bard'))
-    if not os.path.isfile(cfgfile):
-        raise FileNotFoundError('Configuration file not found.'
-                                'Please configure the application at %s'
-                                % cfgfile)
+def read_configuration(config_path):
+    if not os.path.isfile(config_path):
+        return None
 
-    data = ''.join([line for line in open(cfgfile).readlines()
+    data = ''.join([line for line in open(config_path).readlines()
                     if not re.match(r'\s*(#|//)', line)])
 
-    return json.loads(data)
+    r = json.loads(data)
+    r['config_path'] = config_path
+    return r
 
 
-def addDefaultValues(config):
+def add_default_values(config):
     if 'username' not in config:
         config['username'] = pwd.getpwuid(os.getuid()).pw_name
 
@@ -71,8 +70,18 @@ def addDefaultValues(config):
             config[key] = None
 
 
-config = readConfiguration()
-addDefaultValues(config)
+def get_configuration_file_path():
+    return os.path.expanduser(os.getenv('BARDCONFIGFILE', '~/.config/bard'))
+
+
+def load_configuration():
+    config_path = get_configuration_file_path()
+    global config
+    config = read_configuration(config_path)
+    if config:
+        add_default_values(config)
+
+    return config
 
 
 def translatePath(path):

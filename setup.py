@@ -73,7 +73,7 @@ setup(
         "importlib_resources; python_version < '3.7'"
     ],
     data_files=[('share/doc/packages/bard/',
-                 ['config/bard', 'README.md'])],
+                 ['README.md'])],
     scripts=["scripts/bard"],
     license="GPL-3.0-only AND MIT",
     ext_modules=[bard_ext, bard_audiofile],

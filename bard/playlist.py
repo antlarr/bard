@@ -1,5 +1,5 @@
 from bard.musicdatabase import MusicDatabase, DatabaseEnum, table
-from bard.config import config
+import bard.config as config
 from sqlalchemy import text, exc, and_
 import sqlite3
 from sqlalchemy.engine.result import RowProxy
@@ -20,7 +20,7 @@ class Playlist:
         self.store_songs_in_db = True
         self.name = None
         if not owner_id:
-            username = config['username']
+            username = config.config['username']
             self.owner_id = MusicDatabase.getUserID(username)
         else:
             self.owner_id = owner_id

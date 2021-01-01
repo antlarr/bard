@@ -1,5 +1,5 @@
 from bard.musicdatabase import MusicDatabase
-from bard.config import config
+import bard.config as config
 from bcrypt import hashpw, gensalt
 import getpass
 
@@ -30,7 +30,7 @@ class User:
 
 def requestNewPassword(username):
     if not username:
-        username = config['username']
+        username = config.config['username']
     userID = MusicDatabase.getUserID(username)
 
     prompt = f'Enter the new password for user \'{username}\': '

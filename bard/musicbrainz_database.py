@@ -1,7 +1,7 @@
 from bard.musicdatabase import MusicDatabase, DatabaseEnum, table
 from collections import namedtuple
 from sqlalchemy import text, insert, select, and_, desc, union, distinct
-from bard.config import config
+import bard.config as config
 from bard.utils import alignColumns
 from bard.db.core import Songs, Tags, AlbumSongs, AlbumRelease, SongsMB, \
     Properties, PlaylistSongs
@@ -323,7 +323,7 @@ class MusicBrainzDatabase:
                    '                    AND song_id = id)'
                    '     ORDER BY id')
         table = []
-        for root in config['musicbrainz_tagged_music_paths']:
+        for root in config.config['musicbrainz_tagged_music_paths']:
             result = c.execute(sql, {'root': root})
             table.extend((str(song_id), path)
                          for song_id, path in result.fetchall())
@@ -496,7 +496,7 @@ class MusicBrainzDatabase:
             return True
 
         try:
-            order_a = config['preferred_locales'].index(a['locale'])
+            order_a = config.config['preferred_locales'].index(a['locale'])
         except ValueError:
             if (a['locale'] == b['locale'] and
                 a['primary_for_locale'] and
@@ -505,7 +505,7 @@ class MusicBrainzDatabase:
             return False
 
         try:
-            order_b = config['preferred_locales'].index(b['locale'])
+            order_b = config.config['preferred_locales'].index(b['locale'])
         except ValueError:
             # a is in the preferred_locales and b is not
             return True
@@ -522,7 +522,7 @@ class MusicBrainzDatabase:
         s = select([artist.c.id, artist.c.mbid, artist.c.name,
                     artist.c.sort_name, artist.c.artist_type, artist.c.area_id,
                     artist.c.gender, artist.c.disambiguation])
-        locales = config['preferred_locales']
+        locales = config.config['preferred_locales']
         c = MusicDatabase.getCursor()
         artists = {a['id']: a for a in c.execute(s).fetchall()}
 

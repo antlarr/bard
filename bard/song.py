@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from bard.config import config, translatePath
+import bard.config as config
 from bard.utils import extractFrontCover, md5FromData, \
     calculateFileSHA256, manualAudioCmp, \
     calculateSHA256_data, \
@@ -272,7 +272,7 @@ class Song:
         if properties.messages:
             print('\n'.join([str(x) for x in properties.messages]))
 
-        if config['enable_internal_checks']:
+        if config.config['enable_internal_checks']:
             ffprobe_metadata = FFProbeMetadata(self.path())
             try:
                 tmp_bits = int(ffprobe_metadata[
@@ -375,7 +375,7 @@ class Song:
     def path(self):
         if not self._path:
             return ''
-        return translatePath(self._path)
+        return config.translatePath(self._path)
 
     def filename(self):
         return os.path.basename(self._path)

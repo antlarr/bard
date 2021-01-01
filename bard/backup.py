@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from bard.config import config
+import bard.config as config
 from bard.musicdatabase import MusicDatabase
 from bard.musicdatabase_songs import getSongsFromIDorPath, getSongsAtPath
 from bard.utils import calculateSHA256_data, printSongsInfo, alignColumns,\
@@ -837,8 +837,8 @@ class BackupMusic:
 
 def backupMusic(target, priorityPatterns):
     print(f'Backup to {target}')
-    target_config = config['backups'][target]
-    for path in config['music_paths']:
+    target_config = config.config['backups'][target]
+    for path in config.config['music_paths']:
         try:
             target = target_config[path]
         except KeyError:

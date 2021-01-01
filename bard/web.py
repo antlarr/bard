@@ -6,7 +6,7 @@ from flask_login import LoginManager, login_required, login_user, \
     logout_user, current_user
 from bard.user import User
 from bard.web_utils import get_redirect_target
-from bard.config import config
+import bard.config as config
 from PIL import Image
 from bard.musicdatabase_songs import getSongs
 from bard.musicbrainz_database import MusicBrainzDatabase, MediumFormatEnum, \
@@ -99,9 +99,9 @@ def load_user_from_request(request):
 
 
 def base_href():
-    use_ssl = config['use_ssl']
-    hostname = config['hostname']
-    port = config['port']
+    use_ssl = config.config['use_ssl']
+    hostname = config.config['hostname']
+    port = config.config['port']
     protocol = {False: 'http', True: 'https'}[use_ssl]
     return f'{protocol}://{hostname}:{port}'
 
@@ -431,7 +431,7 @@ def artist_info():
     print('id', artistID)
     result = MusicBrainzDatabase.get_artist_info(artistID=artistID)
     result_aliases = MusicBrainzDatabase.get_artist_aliases(
-        artistID, locales=config['preferred_locales'])
+        artistID, locales=config.config['preferred_locales'])
     return jsonify(structFromArtist(result, result_aliases))
 
 
@@ -507,6 +507,7 @@ def release_group_releases():
         return None
     rgID = request.args.get('id', type=int)
     print('id', rgID)
+    use_bard_tags = config.config['use_bard_tags']
     MBD = MusicBrainzDatabase
     releases = MBD.get_release_group_releases(rgID)
     release_group_info = MBD.get_release_group_info(rgID)
@@ -520,7 +521,8 @@ def release_group_releases():
         rel['audio_properties'] = [album_properties_to_string(x)
                                    for x in MusicDatabase.getAlbumProperties(
                                        release['album_id'])]
-        rel['album_disambiguation'] = MBD.getAlbumDisambiguation(release)
+        rel['album_disambiguation'] = (MBD.getAlbumDisambiguation(release,
+                                       use_uselabel=use_bard_tags))
         rel['tracks_count'] = MBD.get_release_tracks_count(release['id'])
         release_events = MBD.get_release_events(rel['id'])
         if rel['language']:

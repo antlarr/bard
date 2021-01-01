@@ -30,7 +30,7 @@ import argparse
 import subprocess
 from dataclasses import dataclass
 from argparse import ArgumentParser
-from bard.config import config, translatePath
+import bard.config as config
 from bard.user import requestNewPassword
 from bard.musicbrainz_database import MusicBrainzDatabase
 from bard.album import albumPath
@@ -38,6 +38,11 @@ from bard.playlistmanager import PlaylistManager
 from bard.analysis_database import AnalysisDatabase, SongAnalysis, \
     AnalysisImporter
 from bard.musicbrainz_importer.mbimporter import MusicBrainzImporter
+try:
+    import importlib.resources as importlib_resources
+except ImportError:
+    # In PY<3.7 fall-back to backported `importlib_resources`.
+    import importlib_resources
 
 ComparisonResult = namedtuple('ComparisonResult', ['offset', 'similarity'])
 
@@ -56,7 +61,7 @@ class Query:
     def __post_init__(self):
         if ((self.rating or self.my_rating or self.others_rating) and
                 not self.user_id):
-            self.user_id = MusicDatabase.getUserID(config['username'])
+            self.user_id = MusicDatabase.getUserID(config.config['username'])
 
     def __bool__(self):
         return bool(self.root or self.genre or self.my_rating or
@@ -138,12 +143,15 @@ def compare_AudioSegments(audio1, audio2, showAudioOffsets=True):
     dfpa1 = chromaprint.decode_fingerprint(fpa1)
     dfpa2 = chromaprint.decode_fingerprint(fpa2)
 
+    store_threshold = config.config['store_threshold']
+    short_song_store_threshold = config.config['short_song_store_threshold']
+    short_song_length = config.config['short_song_length']
     from bard.bard_ext import FingerprintManager
     fpm = FingerprintManager()
     fpm.setMaxOffset(100)
-    fpm.setCancelThreshold(config['store_threshold'])
-    fpm.setShortSongCancelThreshold(config['short_song_store_threshold'])
-    fpm.setShortSongLength(config['short_song_length'])
+    fpm.setCancelThreshold(store_threshold)
+    fpm.setShortSongCancelThreshold(short_song_store_threshold)
+    fpm.setShortSongLength(short_song_length)
     fpm.addSong(1, dfpa1[0], len(audio1) / 1000)
     fpm.addSong(2, dfpa2[0], len(audio2) / 1000)
 
@@ -183,8 +191,16 @@ class Bard:
 
     def __init__(self):
         """Construct a Bard object."""
-        self.db = MusicDatabase()
+        self.db = None
+        self.ignoreExtensions = []
+        self.excludeDirectories = []
+        self.playlist_manager = None
 
+        config.load_configuration()
+        if config.config is None:
+            return None
+
+        self.db = MusicDatabase()
         self.ignoreExtensions = ['.jpg', '.jpeg', '.bmp', '.tif', '.png',
                                  '.gif',
                                  '.m3u', '.pls', '.cue', '.m3u8', '.au',
@@ -200,7 +216,7 @@ class Bard:
                                  '.flv', '.mkv', '.m4v', '.mov', '.mpg',
                                  '.mpeg', '.avi',
                                  '.artist_mbid', '.releasegroup_mbid']
-        self.ignoreExtensions += config['ignore_extensions']
+        self.ignoreExtensions += config.config['ignore_extensions']
 
         self.excludeDirectories = ['covers', 'info']
         self.playlist_manager = PlaylistManager()
@@ -246,7 +262,7 @@ class Bard:
 
     def addSong(self, path, rootDir=None, removedSongsAudioSHA256={},
                 commit=True, verbose=False):
-        if config['immutable_database']:
+        if config.config['immutable_database']:
             print("Error: Can't add song %s : "
                   "The database is configured as immutable" % path)
             return None
@@ -290,7 +306,7 @@ class Bard:
 
     def addDirectoryRecursively(self, directory, verbose=False,
                                 removedSongsSHA256={}):
-        if config['immutable_database']:
+        if config.config['immutable_database']:
             print("Error: Can't add directory %s : "
                   "The database is configured as immutable" % directory)
             return None
@@ -375,7 +391,7 @@ class Bard:
             playingSongs = self.getCurrentlyPlayingSongs()
             songs.extend(playingSongs)
 
-        userID = MusicDatabase.getUserID(config['username'])
+        userID = MusicDatabase.getUserID(config.config['username'])
 
         for song in songs:
             print_song_info(song, userID, show_analysis)
@@ -453,7 +469,7 @@ class Bard:
             total_songs = 30
             songs = getMusic('')
             probabilities = []
-            userID = MusicDatabase.getUserID(config['username'])
+            userID = MusicDatabase.getUserID(config.config['username'])
             for song in songs:
                 paths.append(song.path())
                 probabilities.append(song.rating(userID) * 1000)
@@ -505,7 +521,7 @@ class Bard:
                     MusicDatabase.removeSong(song)
                     continue
 
-                if not config['immutable_database']:
+                if not config.config['immutable_database']:
                     c = MusicDatabase.getCursor()
                     sql = text('UPDATE songs set mtime = :mtime '
                                'WHERE id = :id')
@@ -728,10 +744,10 @@ class Bard:
         info = {}
         print_stats = True
         verbose = True
-        matchThreshold = config['match_threshold']
-        storeThreshold = config['store_threshold']
-        shortSongStoreThreshold = config['short_song_store_threshold']
-        shortSongLength = config['short_song_length']
+        matchThreshold = config.config['match_threshold']
+        storeThreshold = config.config['store_threshold']
+        shortSongStoreThreshold = config.config['short_song_store_threshold']
+        shortSongLength = config.config['short_song_length']
 
         song_ids_without_fingerprints = \
             MusicDatabase.songIDsWithoutFingerprints()
@@ -948,10 +964,10 @@ class Bard:
               TerminalColors.First + str(id1) + TerminalColors.ENDC +
               ' and ' +
               TerminalColors.Second + str(id2) + TerminalColors.ENDC)
-        matchThreshold = config['match_threshold']
-        storeThreshold = config['store_threshold']
-        shortSongStoreThreshold = config['short_song_store_threshold']
-        shortSongLength = config['short_song_length']
+        matchThreshold = config.config['match_threshold']
+        storeThreshold = config.config['store_threshold']
+        shortSongStoreThreshold = config.config['short_song_store_threshold']
+        shortSongLength = config.config['short_song_length']
         from bard.bard_ext import FingerprintManager
         fpm = FingerprintManager()
         fpm.setMaxOffset(100)
@@ -1162,7 +1178,7 @@ class Bard:
             print('No song selected to set rating to')
             return
 
-        userID = MusicDatabase.getUserID(config['username'])
+        userID = MusicDatabase.getUserID(config.config['username'])
         for song in songs:
             print('Setting rating of %s to %d' % (song.path(), rating))
             song.setUserRating(rating, userID)
@@ -1217,7 +1233,7 @@ class Bard:
             roots = MusicDatabase.getRoots()
             table = []
             for root, count in roots:
-                root = translatePath(root)
+                root = config.translatePath(root)
                 try:
                     size = int(subprocess.check_output(['du', '-sm', root]
                                                        ).split()[0])
@@ -1234,12 +1250,12 @@ class Bard:
 
         MusicDatabase.table('users')
         context = None
-        use_ssl = config['use_ssl']
+        use_ssl = config.config['use_ssl']
         if use_ssl:
             import ssl
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-            certpemfile = config['ssl_certificate_chain_file']
-            serverkeyfile = config['ssl_certificate_key_file']
+            certpemfile = config.config['ssl_certificate_chain_file']
+            serverkeyfile = config.config['ssl_certificate_key_file']
 
             print(certpemfile)
             print(serverkeyfile)
@@ -1250,8 +1266,8 @@ class Bard:
 
         app.bard = self
         init_flask_app()
-        hostname = config['hostname']
-        port = config['port']
+        hostname = config.config['hostname']
+        port = config.config['port']
         return run_simple(hostname, port, app,
                           use_reloader=True, use_debugger=False,
                           use_evalex=True, ssl_context=context,
@@ -1323,7 +1339,7 @@ class Bard:
 
     def fixRatings(self, user_id, from_song_id=0, verbose=False):
         if not user_id:
-            user_id = MusicDatabase.getUserID(config['username'])
+            user_id = MusicDatabase.getUserID(config.config['username'])
 
         print(f'Fixing ratings for user {user_id}...')
         MusicDatabase.add_null_ratings(user_id, from_song_id, verbose)
@@ -1357,7 +1373,7 @@ class Bard:
              path_id, connection=connection))
 
     def updateMusicBrainzArtists(self, verbose=False):
-        paths = config['music_paths']
+        paths = config.config['music_paths']
         for path in paths:
             if not os.path.isdir(path):
                 continue
@@ -1380,10 +1396,26 @@ class Bard:
                         pass
 
     def initBard(self):
-        # This is actually an empty method since just
-        # creating a Bard object is enough to initialize
-        # the database
-        pass
+        # Just creating a Bard object is enough to initialize the database
+        # so there's no need to do anything respect to the database
+
+        config_path = config.get_configuration_file_path()
+        if os.path.exists(config_path):
+            print(f'Config file already exists at {config_path}')
+            return
+        try:
+            with importlib_resources.path('bard', 'config.example') \
+                    as config_example:
+                import shutil
+                shutil.copy(config_example, config_path)
+                print(f'Wrote an example configuration file to {config_path}')
+                print('Please now edit that file and set (at least) the '
+                      'directories where you have music files so bard can '
+                      'find them.')
+        except FileNotFoundError:
+            print('Example config file not found, please copy it manually from'
+                  ' https://raw.githubusercontent.com/antlarr/bard/master/'
+                  f'bard/config.example to {config_path}')
 
     def processSongs(self, from_song_id=None, verbose=False):
         self.findAudioDuplicates(from_song_id)
@@ -1822,6 +1854,12 @@ update-musicbrainz-artists [-v]
 
         options = main_parser.parse_args()
 
+        if not config.config and options.command != 'init':
+            config_path = config.get_configuration_file_path()
+            print('Configuration file not found. '
+                  f'Please configure the application at {config_path}')
+            sys.exit(1)
+
         if options.command == 'init':
             self.initBard()
         elif options.command == 'find-duplicates':
@@ -1838,7 +1876,7 @@ update-musicbrainz-artists [-v]
         elif options.command == 'check-songs-existence':
             paths = options.paths
             if not paths:
-                paths = config['music_paths']
+                paths = config.config['music_paths']
             self.checkSongsExistenceInPaths(paths, verbose=True,
                                             callback=self.db.removeSong)
         elif options.command == 'check-checksums':
@@ -1895,11 +1933,11 @@ update-musicbrainz-artists [-v]
         elif options.command == 'import':
             paths = options.paths
             if not paths:
-                paths = config['music_paths']
+                paths = config.config['music_paths']
 
             self.add(paths)
         elif options.command == 'update':
-            paths = config['music_paths']
+            paths = config.config['music_paths']
             self.update(paths, verbose=options.verbose)
             if options.process:
                 self.processSongs(verbose=options.verbose)

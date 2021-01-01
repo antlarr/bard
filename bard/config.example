@@ -1,0 +1,34 @@
+{
+# The path to the bard sqlite database
+    "database_path": "~/.local/share/bard/music.db",
+
+# To use a postgresql database instead of sqlite, use the following
+# config options and comment out the "database_path" entry:
+#    "database": "postgresql",
+#    "database_name" : "bard",
+#    "database_user" : "bard",
+#    "database_password" : "bard123",
+
+# music_paths contains a list of paths where music is stored
+    "music_paths": [
+        "~/Music",
+#       "~/Music2",
+    ],
+    "musicbrainz_tagged_music_paths": [
+        "/mnt/DD9/media/musica_ok"
+    ],
+
+    "port" : 5000,
+    "use_ssl" : false,
+# If you enable ssl above, be sure to specify where the certificates
+# are in the following config options:
+#    "ssl_certificate_key_file"  : "~/.local/share/bard/certs/server.key",
+#    "ssl_certificate_chain_file": "~/.local/share/bard/certs/cert.pem",
+
+    "backups" : {
+        "otherhost" : {
+            "" : "username@otherhost:/path/to/backup/directory/"
+        }
+    },
+    "use_bard_tags" : false
+}

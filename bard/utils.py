@@ -17,7 +17,7 @@ import mutagen.wavpack
 import chromaprint
 from collections import namedtuple
 from PIL import Image
-from bard.config import config
+import bard.config as config
 from bard.terminalcolors import TerminalColors
 from bard import bard_audiofile
 from pydub.utils import db_to_float
@@ -546,9 +546,9 @@ def decodeAudio(filething):
     else:
         data, properties = bard_audiofile.decode(path=filething)
 
-    if config['enable_internal_checks']:
+    if config.config['enable_internal_checks']:
         files_pydub_cant_decode_correctly = \
-            config['files_pydub_cant_decode_correctly']
+            config.config['files_pydub_cant_decode_correctly']
         if hasattr(filething, 'seek'):
             filething.seek(0)
         audio_segment = AudioSegment.from_file(filething)
