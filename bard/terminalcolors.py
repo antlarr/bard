@@ -63,5 +63,6 @@ class TerminalColors:
     ITALIC = '\033[1m'
     UNDERLINE = '\033[4m'
 
+    @staticmethod
     def rgb(r, g, b):
         return '\033[38;2;{r};{g};{b}m'

@@ -209,7 +209,7 @@ class Song:
                                   (audiodata,))
         return fp
 
-    def loadFile(self, filething):
+    def loadFile(self, filething):  # noqa: C901
         fileinfo = filething if isinstance(filething, str) \
             else 'file-like object'
         if hasattr(filething, 'seek'):
@@ -335,13 +335,13 @@ class Song:
         if self.metadata and getattr(self.metadata, 'cuesheet', None):
             for track in self.metadata.cuesheet.tracks:
                 if (track.track_number == 255 or
-                        track.start_offset == self.metadata.info.total_samples):  # noqa
+                        track.start_offset == self.metadata.info.total_samples):  # noqa: E501
                     continue
                 timepos = (self.metadata.info.length * track.start_offset /
                            self.metadata.info.total_samples)
 
                 try:
-                    title = self.metadata['SUBTRACKTITLES'][track.track_number - 1]  # noqa
+                    title = self.metadata['SUBTRACKTITLES'][track.track_number - 1]  # noqa: E501
                 except (KeyError, IndexError):
                     title = None
                 ct = CueTrack(track.track_number,
@@ -405,9 +405,9 @@ class Song:
         self.loadMetadataInfo()
         return self._format in ['flac', 'wv', 'ape', 'mpc']
 
-    def audioCmp(self, other, forceSimilar=False, interactive=True,
-                 useColors=None, printSongsInfoCallback=None,
-                 forceInteractive=False):
+    def audioCmp(self, other, forceSimilar=False,  # noqa: C901,
+                 interactive=True, useColors=None,
+                 printSongsInfoCallback=None, forceInteractive=False):
         """Compare the audio of this object with the audio of other.
 
         Returns -1 if self has better audio than other,

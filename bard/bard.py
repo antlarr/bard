@@ -740,7 +740,7 @@ class Bard:
                not path.startswith('/tmp/')):
                 self.addSong(path)
 
-    def findAudioDuplicates(self, from_song_id=None, songs=[]):
+    def findAudioDuplicates(self, from_song_id=None, songs=[]):  # noqa: C901
         c = MusicDatabase.getCursor()
         info = {}
         print_stats = True
@@ -944,7 +944,7 @@ class Bard:
             print(('\b' * len(percentage)) + '100% . Done')
             MusicDatabase.commit()
 
-    def compareSongs(self, song1, song2, verbose=False,
+    def compareSongs(self, song1, song2, verbose=False,  # noqa: C901
                      showAudioOffsets=False, storeInDB=False,
                      interactive=False):
         try:
@@ -1436,7 +1436,7 @@ class Bard:
         importer.import_everything()
         print('Data from musicbrainz imported')
 
-    def parseCommandLine(self):
+    def parseCommandLine(self):  # noqa: C901
         main_parser = ArgumentParser(
             description='Manage your music collection',
                         formatter_class=argparse.RawTextHelpFormatter)

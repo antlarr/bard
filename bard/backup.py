@@ -674,7 +674,7 @@ class BackupMusic:
     def listLocalDir(self, path, pending_changes=[], recursive=False):
         self.listDir(path, pending_changes, recursive, remote=False)
 
-    def performBackup(self):
+    def performBackup(self):  # noqa: C901
         size_balance = SizeBalance()
         user_input = ''
 

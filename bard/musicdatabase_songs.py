@@ -31,7 +31,7 @@ def getMusic(where_clause='', where_values=None, tables=[],
     return r
 
 
-def getSongs(path=None, songID=None, query=None, metadata=False):
+def getSongs(path=None, songID=None, query=None, metadata=False):  # noqa: C901
     where = ''
     values = None
     like = MusicDatabase.like

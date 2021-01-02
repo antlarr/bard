@@ -249,7 +249,8 @@ def normalizeTagName(obj, mutagenFile, tag):
     return tag
 
 
-def normalizeTagValue(obj, mutagenFile, tag, removeBinaryData=False):
+def normalizeTagValue(obj, mutagenFile, tag,  # noqa: C901
+                      removeBinaryData=False):
     if isinstance(obj, mutagen.apev2.APETextValue):
         splitted = [x for x in str(obj).split('\x00') if x]
         if len(splitted) == 1:

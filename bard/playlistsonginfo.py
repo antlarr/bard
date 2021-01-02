@@ -1,4 +1,4 @@
-from bard.playlist import Playlist, PlaylistTypes
+from bard.playlist import PlaylistTypes
 from bard.bard import bard
 from bard.musicdatabase import MusicDatabase
 

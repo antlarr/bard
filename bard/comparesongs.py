@@ -45,7 +45,8 @@ def findPairs(songs1, songs2):
     return pairs, songsRemainingFrom1, songsRemainingFrom2
 
 
-def getPairs(data, unique=True, ignoreWorseSongs=False, verbose=False):
+def getPairs(data, unique=True, ignoreWorseSongs=False,  # noqa: C901
+             verbose=False):
     pairs = []
     print('data', data)
     used = []
@@ -63,7 +64,7 @@ def getPairs(data, unique=True, ignoreWorseSongs=False, verbose=False):
             candidates = [x for x in data[song1]]
 
         sortedCandidates = sorted(candidates, key=lambda x: x[1], reverse=True)
-        if verbose: # and 'Maximizing' in song1.path():
+        if verbose:
             i = 0
             for candidateSong, candidateSimilarity in sortedCandidates:
                 i += 1
@@ -81,7 +82,9 @@ def getPairs(data, unique=True, ignoreWorseSongs=False, verbose=False):
                             printSongsInfoCallback=partial(
                                 printSongsInfo, useColors=colors))
                     except CantCompareSongsException:
-                        print('supressed exception CantCompareSongsException:\n    %s\n    %s' % (song1.path(), candidateSong.path()))
+                        print('supressed exception CantCompareSongsException:'
+                              f'\n    {song1.path()}'
+                              f'\n    {candidateSong.path()}')
                         track = True
                         continue
                     if b == -1:
@@ -123,7 +126,8 @@ def prepareSongs(songs):
         x.calculateCompleteness()
 
 
-def compareSongSets(songs1, songs2, useSubsetSemantics=False, verbose=False):
+def compareSongSets(songs1, songs2, useSubsetSemantics=False,  # noqa: C901
+                    verbose=False):
     interactive = True
     prepareSongs(songs1)
     prepareSongs(songs2)
@@ -132,7 +136,7 @@ def compareSongSets(songs1, songs2, useSubsetSemantics=False, verbose=False):
         print('songs2', songs2)
     pairs, newSongs1, newSongs2 = findPairs(songs1, songs2)
     if verbose:
-        print('pairs',pairs)
+        print('pairs', pairs)
         print('new songs in set 1', newSongs1)
         print('new songs in set 2', newSongs2)
     if not songs1 and not songs2:

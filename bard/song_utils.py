@@ -17,7 +17,7 @@ def get_probability_color(prob, prob_from_0_5=False):
     return TerminalColors.Gradient[int(prob * 10)]
 
 
-def print_song_info(song, userID=None, print_analysis=True):
+def print_song_info(song, userID=None, print_analysis=True):  # noqa: C901
     song.loadMetadataInfo()
     print("----------")
     try:

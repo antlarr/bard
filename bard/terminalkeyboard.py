@@ -152,7 +152,8 @@ class Chooser:
         for idx, item in enumerate(self.options):
             if highlight_selected and idx == self.selected:
                 print(TerminalColors.White + '->', item + TerminalColors.ENDC)
-            elif highlight_selected and self.multiselection and idx in self.multiselected:
+            elif (highlight_selected and self.multiselection and
+                  idx in self.multiselected):
                 print(TerminalColors.Yellow + '  ', item + TerminalColors.ENDC)
             else:
                 print('  ', item)
