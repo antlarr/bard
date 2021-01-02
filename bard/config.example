@@ -17,6 +17,7 @@
     "musicbrainz_tagged_music_paths": [
         "/mnt/DD9/media/musica_ok"
     ],
+#    "ignore_files": ["*.foo"],
 
     "port" : 5000,
     "use_ssl" : false,

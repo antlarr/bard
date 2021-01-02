@@ -28,6 +28,7 @@ import random
 import mutagen
 import argparse
 import subprocess
+import fnmatch
 from dataclasses import dataclass
 from argparse import ArgumentParser
 import bard.config as config
@@ -192,7 +193,7 @@ class Bard:
     def __init__(self):
         """Construct a Bard object."""
         self.db = None
-        self.ignoreExtensions = []
+        self.ignore_files = []
         self.excludeDirectories = []
         self.playlist_manager = None
 
@@ -201,22 +202,22 @@ class Bard:
             return None
 
         self.db = MusicDatabase()
-        self.ignoreExtensions = ['.jpg', '.jpeg', '.bmp', '.tif', '.png',
-                                 '.gif',
-                                 '.m3u', '.pls', '.cue', '.m3u8', '.au',
-                                 '.mid', '.kar', '.lyrics',
-                                 '.url', '.lnk', '.ini', '.rar', '.zip',
-                                 '.war', '.swp',
-                                 '.txt', '.nfo', '.doc', '.rtf', '.pdf',
-                                 '.html', '.log', '.htm',
-                                 '.sfv', '.sfw', '.directory', '.sh',
-                                 '.contents', '.torrent', '.cue_', '.nzb',
-                                 '.md5', '.gz',
-                                 '.fpl', '.wpl', '.accurip', '.db', '.ffp',
-                                 '.flv', '.mkv', '.m4v', '.mov', '.mpg',
-                                 '.mpeg', '.avi',
-                                 '.artist_mbid', '.releasegroup_mbid']
-        self.ignoreExtensions += config.config['ignore_extensions']
+        self.ignore_files = ['*.jpg', '*.jpeg', '*.bmp', '*.tif', '*.png',
+                             '*.gif',
+                             '*.m3u', '*.pls', '*.cue', '*.m3u8', '*.au',
+                             '*.mid', '*.kar', '*.lyrics',
+                             '*.url', '*.lnk', '*.ini', '*.rar', '*.zip',
+                             '*.war', '*.swp',
+                             '*.txt', '*.nfo', '*.doc', '*.rtf', '*.pdf',
+                             '*.html', '*.log', '*.htm',
+                             '*.sfv', '*.sfw', '.directory', '*.sh',
+                             '*.contents', '*.torrent', '*.cue_', '*.nzb',
+                             '*.md5', '*.gz',
+                             '*.fpl', '*.wpl', '*.accurip', '*.db', '*.ffp',
+                             '*.flv', '*.mkv', '*.m4v', '*.mov', '*.mpg',
+                             '*.mpeg', '*.avi',
+                             '.artist_mbid', '.releasegroup_mbid']
+        self.ignore_files += config.config['ignore_files']
 
         self.excludeDirectories = ['covers', 'info']
         self.playlist_manager = PlaylistManager()
@@ -317,8 +318,8 @@ class Bard:
             filenames.sort()
             dirnames.sort()
             for filename in filenames:
-                if True in [filename.lower().endswith(ext)
-                            for ext in self.ignoreExtensions]:
+                if any(fnmatch.fnmatch(filename.lower(), pattern)
+                       for pattern in self.ignore_files):
                     continue
 
                 path = os.path.join(dirpath, filename)

@@ -44,7 +44,7 @@ def add_default_values(config):
         'ssl_certificate_key_file': '~/.config/bard/certs/server.key',
         'ssl_certificate_chain_file': '~/.config/bard/certs/cert.pem',
         'enable_internal_checks': False,
-        'ignore_extensions': [],
+        'ignore_files': [],
         'translate_paths': False,
         'path_translation_map': {},
     }
