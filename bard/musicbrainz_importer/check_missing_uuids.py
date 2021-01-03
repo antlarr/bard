@@ -3,6 +3,7 @@
 from mbimporter import MusicBrainzImporter
 from bard.musicdatabase import MusicDatabase
 from bard.musicbrainz_database import MusicBrainzDatabase
+import bard.config as config
 import sys
 import os.path
 import re
@@ -17,6 +18,7 @@ def albumdirectory(path):
     return dirname2 if medium_pattern.match(basename) else dirname
 
 
+config.load_configuration()
 db = MusicDatabase()
 mbdb = MusicBrainzDatabase()
 
