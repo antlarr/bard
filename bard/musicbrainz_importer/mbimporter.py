@@ -18,6 +18,8 @@ from bard.musicbrainz_importer.mbtablecached import MBTableCached
 from bard.musicbrainz_importer.mbtablefromdisk import MBTableFromDisk
 from bard.musicbrainz_importer.mbenums import musicbrainz_enums
 from bard.musicbrainz_importer.mboptions import MBOptions
+from bard.musicbrainz_importer.parse_sql_utils import \
+    extract_tables_from_sql_script
 from sqlalchemy import text, and_, select
 import concurrent.futures
 from multiprocessing import Lock
@@ -421,8 +423,8 @@ class MusicBrainzImporter:
     def get_fullexport_latest_directory():
         url = "http://ftp.musicbrainz.org/pub/musicbrainz/data/fullexport"
 
-        latest = urllib.request.urlopen(url + "/LATEST")
-        latest = latest.read().decode('utf-8').strip('\n')
+        with urllib.request.urlopen(url + "/LATEST") as response:
+            latest = response.read().decode('utf-8').strip('\n')
 
         print('Date of latest dump:', latest)
         return url + "/" + latest, latest
@@ -458,11 +460,24 @@ class MusicBrainzImporter:
         MusicBrainzImporter.retrieve_mbdump_file('mbdump-derived.tar.bz2')
         self.extract_mbdump_file('mbdump-derived.tar.bz2')
 
+    def create_musicbrainz_schema_importer_names(self, filename):
+        url = ('https://raw.githubusercontent.com/metabrainz/'
+               'musicbrainz-server/master/admin/sql/CreateTables.sql')
+        with urllib.request.urlopen(url) as response:
+            contents = response.read().decode('utf-8')
+
+        tables = extract_tables_from_sql_script(contents)
+
+        with open(filename, 'w') as f:
+            f.write(json.dumps(tables, sort_keys=True, indent=4))
+
     def load_musicbrainz_schema_importer_names(self):
         if self.names:
             return
         filename = os.path.join(self.directory,
                                 'musicbrainz_schema_importer_names')
+        if not os.path.exists(filename):
+            self.create_musicbrainz_schema_importer_names(filename)
         with open(filename) as f:
             self.names = json.load(f)
 
