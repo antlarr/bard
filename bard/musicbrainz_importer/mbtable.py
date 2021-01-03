@@ -46,7 +46,7 @@ def decoder_for_type(x, col_name):
         return to_bool
     elif x == 'datetime':
         return to_datetime
-    elif x == 'str' and col_name == 'gid':
+    elif x == 'uuid':
         return to_uuid
     else:
         return to_str

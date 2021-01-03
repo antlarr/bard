@@ -21,7 +21,7 @@ def find_matching_parenthesis(text, pos):
 def convert_type(t):
     t = t.lower()
     types = [('integer', 'int'),
-             ('uuid', 'str'),
+             ('uuid', 'uuid'),
              ('varchar', 'str'),
              ('text', 'str'),
              ('char', 'str'),
