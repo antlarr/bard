@@ -91,7 +91,7 @@ collection again if you change to use another database.
 
 ```bard update```
 
-will update the internal database with new and modified filed from the directories into the configuration file.
+will update the internal database with new and modified files from the directories into the configuration file.
 The music files will be read and information like format, embeeded tags, audio quality, file hash, decoded
 audio hash, audio fingerprint, etc. will be extracted and stored in the database.
 
@@ -173,9 +173,12 @@ The recommended workflow to organize your music is this:
    to the organized folder. I cannot stress enough the importance of correct songs having correct MusicBrainz tags. Note that this
    for example disambiguates Artists who are called the same and even different versions of songs, not only live or studio versions
    but also really different versions of songs that some artists sometime record.
-5) After organizing files, you have to run `bard update` so bard notices the files were moved around. Note that Bard will usually
+5) After organizing files, you have to run `bard update` so bard notices the files were moved. Note that Bard will usually
    detect that files were moved and just update their location keeping their ID and extracted analysis information. Bard will detect
    moved files even if their tags or cover art are modified since it checks the audio hash for this.
+6) The Bard plugin for Picard will write a hidden `.artist_mbid` file to artist directories. On those directories, you can optionally
+   place a file named "artist.jpg" with the corresponding artist image. This will be processed by the `update-musicbrainz-artists`
+   command so the web interface will use that image for that artist. It's obviously recommended to use those image files.
 
 You can use `bard stats` to get statistics on your collection, including the percentage of songs correctly organized (having MusicBrainz tags)
 
@@ -205,6 +208,24 @@ can be seen from the command line, but the web interface is currently restricted
 
 Currently backups are only done to a different computer which can be accessed using ssh. Check the [backup documentation](docs/backups.md) for more information.
 
+# The web interface
+
+First, remember to periodically run ```bard update-musicbrainz-artists``` to update the artist images located next in artist folders as explained in the recommended workflow above.
+
+Then, you want to set a password to your user. You can do this by running ```bard passwd```. Bard will request the password and store it (hashed) in the database. When logging into the
+web interface, use your username and password to authenticate. If you want to use a different username from your unix username, set the `username` config option to that and run
+```bard passwd yourusername``` to specify the username you want to change the password to.
+
+```bard web```
+
+If you have Bard installed in your system, you can start the web interface by running `bard web`. Then you can point your web browser to the hostname used
+in the configuration and port 5000 (by default, unless changed in the configuration).
+
+The web interface is kind-of usable. You can browse your artists, see their release groups, releases and tracks within the releases. You can also play songs, create playlists, drag and drop
+songs from releases to your playlists, set ratings and perform searches (on path names, which usually include the artist names the release names as well as the track names). But also
+there are many things you will be missing. Most noticeable missing features in the web ui are: Removing songs from playlists, reordering songs within a playlist, removing playlists, view
+song information, etc. I also plan to support playing music through Sonos and Chromecast devices at some point but that doesn't work yet neither.
+
 # About music sources
 
 Please, always use music from legal sources and support the artists.
@@ -212,4 +233,4 @@ Please, always use music from legal sources and support the artists.
 # License
 
 Bard is distributed under the GPL v3.0 license.
-The web interface uses [jQuery](https://jquery.org/), which is licensed under a MIT license.
+The web interface uses [jQuery](https://jquery.com/), which is licensed under a MIT license.
