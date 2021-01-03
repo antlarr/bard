@@ -1,0 +1,107 @@
+$noop(
+Tags that can be used:
+albumgenre: Force this value to be used as genre for Various Artists' genre path instead of the individual songs' genres
+comment_bitrate: When using useformat==2, force this value instead of the bitrate read from the files
+forcemedia: text : Force usemedia to use this text as media value
+forcealbum: text : Force mixes and usepersonalalbum to use this as album value instead of the album tag
+forcealbumartist: text: Force to use this value for the albumartist directory name
+_bard_albumartist_folder: text : Set by the bard plugin. If set, it's used as albumartist.
+forceartistinfilename: 0|1 : Force writing the artist to the filename as if multiartist was set
+forcecomplete: 0|1 : Force the album to be considered complete even if not all tracks have files, so no \"incomplete\" text is added to the directory.
+forceformat: text : Force format text
+mixes: 0|1 : The album is a personal mix that must be placed at Various Artists/Mixes
+usebarcode: 0|1 : Adds the barcode to the album
+userecordingcomment: 0|1 : Adds the comment tag to the filename suffix
+useformat: 0|1|2 : Adds format, bitrate, etc to the album
+uselabel: 0|1|2 : Adds the label names to the album suffix. With 2, also adds catalog#
+usemedia: 0|1 : Adds media information, CD|LP|etc., to the album
+usenormalizedalbumartist: 0|1 : Use _aaeStdAlbumArtists instead of albumartist . Note forcealbumartist has preference in any case
+usereleasecomment: 0|1|2|3 : With 1, adds the release dissambiguation text to the album suffix. With 2, adds the comment tag to the album suffix. With 3, use the release group comment.
+usereleasecountry: 0|1 : Adds the release country to the album
+usereleasegroup: 0|1 : Adds the release group as as intermediary directory to group releases inside inner folders
+usetotaltracks: 0|1 : Adds the number of tracks -- counting all discs -- to the album suffix.
+usetotaldisctracks: 0|1 : Adds the number of tracks in the current disc to the album suffix -- only use it in releases with one disc.
+usepersonalalbum: 0|1 : The album is a personal collection of non-album tracks that must be placed at _albumartist_/others/_year_ - _forcealbum_/
+musicbrainzverified: 0|1 : If 1, it means the musicbrainz matching was verified manually
+)
+$if(%forcealbum%,$set(album,%forcealbum%))
+$set(_firstgenre,$if(%albumgenre%,%albumgenre%,$rreplace(%genre%,;.*,)))
+$set(_year,$if(%date%,$left(%date%,4)))
+$set(_indexyear,$if($eq([non-album tracks],%album%),,$if(%originalyear%,%originalyear%,%_year%)))
+$if($eq(%usereleasegroupinpath%,1),$set(_albumyearprefix,%_year%),
+$set(_albumyearprefix,%_indexyear%)
+$set(_albumyearsuffix,$if($and($ne(%_indexyear%,%_year%),$not(%mixes%)),%_year%,)))
+$set(_medianame,$if($in(%media%,Vinyl),LP,$if($in(%media%,Hybrid SACD),SACD,$if($in(%media%,Blu-ray),BD,$if($in(%media%,DVD),DVD,CD)))))
+$noop(set a sampleformat variable with different values depending on the format if UseFormat is set or empty otherwise)
+$if($eq(%_extension%,flac),$if($ne(%_sample_rate%,44100),$set(useformat,2),$set(useformat,1)))
+$if($eq(%_extension%,wv),$if($ne(%_sample_rate%,44100),$set(useformat,2),$set(useformat,1)))
+$if($in(%_format%,ALAC),$set(useformat,2))
+$if($gt(%_bits_per_sample%,16),$set(useformat,2))
+$if($ne(%_channels%,2),$set(useformat,2))
+$if($and(%comment_bitrate%,$eq($endswith(%comment_bitrate%,kbps),0),$ne(%comment_bitrate%,VBR)),$set(comment_bitrate,%comment_bitrate%kbps))
+$set(_fullbitrate,$if(%comment_bitrate%,%comment_bitrate%,$rreplace(%_bitrate%,\\\\.0[0-9]*\\$,)))
+$set(_formattedbitrate,$if2(%comment_bitrate%,$rreplace(%_bitrate%,\\\\.[0-9]*\\$,))kbps)
+$if($in(%_format%,AAC),$set(useformat,2)
+   $if($in(%_format%,AAC LC),$set(_aacprofile,AAC-LC))
+   $if($not(%comment_bitrate%),$set(useformat,2)$set(_formattedbitrate,VBR)))
+$if($or($eq(%_extension%,mp3),$eq(%_extension%,wma)),
+   $if($eq(%_fullbitrate%,320),$set(useformat,2),
+   $if($eq(%_fullbitrate%,256),$set(useformat,2),
+   $if($eq(%_fullbitrate%,224),$set(useformat,2),
+   $if($eq(%_fullbitrate%,192),$set(useformat,2),
+   $if($eq(%_fullbitrate%,160),$set(useformat,2),
+   $if($eq(%_fullbitrate%,128),$set(useformat,2),
+   $if($not(%comment_bitrate%),$set(useformat,2)$set(_formattedbitrate,VBR),$set(useformat,2)
+   )))))))
+)
+$if($eq(%mixes%,1),$unset(useformat))
+$if($eq(%releasestatus%,bootleg),$set(usereleasestatus,1))
+$set(_formatsuffix,
+$if(%forceformat%,%forceformat%,
+$if($and(%useformat%,$eq(%_extension%,mp3)),MP3$if($eq(%useformat%,2),\\,%_formattedbitrate%$if($ne(%_sample_rate%,44100),\\,%_sample_rate%Hz)),
+$if($and(%useformat%,$eq(%_extension%,wma)),WMA$if($eq(%useformat%,2),\\,%_formattedbitrate%),
+$if($and(%useformat%,$eq(%_extension%,m4a)),M4A$if($eq(%useformat%,2),\\,$if($in(%_format%,ALAC),ALAC,%_formattedbitrate%)),
+$if(%_aacprofile%,%_aacprofile%$if($eq(%useformat%,2),\\,%_formattedbitrate%),
+$if(%useformat%,$upper(%_extension%)$if($eq(%useformat%,2),\\,%_sample_rate%Hz\\,%_bits_per_sample%bits\\,%_channels%ch,))))))))
+$noop(--- until here: setting up _formatsuffix)
+$if($and(%forcemedia%,$ne(%usemedia%,0)),$set(usemedia,1))
+$if($and($eq(%uselabel%,2),$ne(%usemedia%,0),$ne($if2(%forcemedia%,%_bard_album_mediaformat%,%media%),CD),$ne($if2(%forcemedia%,%_bard_album_mediaformat%,%media%),Enhanced CD)),$set(usemedia,1))
+$set(_addartisttofile,$if($or($eq([non-album tracks],%album%),%_multiartist%,%forceartistinfilename%,$ne(%musicbrainz_artistid%,%musicbrainz_albumartistid%)),1,))
+$set(album,$if($eq([non-album tracks],%album%),non-album tracks,%album%))
+$set(_albumsuffixonalbum,$if($eq(non-album tracks,%album%),0,1))
+$set(_albumsuffix,%_albumyearsuffix%)
+$set(_albumsuffix,%_albumsuffix%$if($and(%_albumsuffix%,%usereleasecomment%),\\,)$if($eq(%usereleasecomment%,2),%comment%,$if($eq(%usereleasecomment%,3),%_releasegroupcomment%,$if(%usereleasecomment%,%_releasecomment%))))
+$set(_recordingsuffix,%_recordingsuffix%$if($and(%_recordingsuffix%,%userecordingcomment%),\\,)$if($eq(%userecordingcomment%,2),%comment%,$if(%userecordingcomment%,%_recordingcomment%)))
+$set(_albumsuffix,%_albumsuffix%$if($and(%_albumsuffix%,$gt(%usemedia%,0)),\\,)$if($gt(%usemedia%,0),$if2(%forcemedia%,%_bard_album_mediaformat%,%media%)))
+$set(_albumsuffix,%_albumsuffix%$if($and(%_albumsuffix%,%usetotaldisctracks%),\\,)$if(%usetotaldisctracks%,%totaltracks% tracks))
+$set(_albumsuffix,%_albumsuffix%$if($and(%_albumsuffix%,%usetotaltracks%),\\,)$if(%usetotaltracks%,%_totalalbumtracks% tracks))
+$set(_albumsuffix,%_albumsuffix%$if($and(%_albumsuffix%,%usereleasestatus%),\\,)$if(%usereleasestatus%,%releasestatus%))
+$set(_albumsuffix,%_albumsuffix%$if($and(%_albumsuffix%,$not($is_complete()),$not(%forcecomplete%),$ne(non-album tracks,%album%),$ne(%mixes%,1)),\\,)$if($and($not($is_complete()),$not(%forcecomplete%),$ne(non-album tracks,%album%),$ne(%mixes%,1)),incomplete))
+$set(_albumsuffix,%_albumsuffix%$if($and(%_albumsuffix%,%uselabel%),\\,)$if(%uselabel%,$replace($rreplace(%label%,;.*,),[no label],no label)$if($and($eq(%uselabel%,2),$not($eq(%catalognumber%,[none]))),:$rreplace(%catalognumber%,;.*,))))
+$set(_albumsuffix,%_albumsuffix%$if($and(%_albumsuffix%,%usebarcode%),\\,)$if(%usebarcode%,barcode:%barcode%))
+$set(_albumsuffix,%_albumsuffix%$if($and(%_albumsuffix%,%usereleasecountry%),\\,)$if(%usereleasecountry%,%releasecountry%))
+$set(_albumsuffix,%_albumsuffix%$if($and(%_albumsuffix%,%useformat%),\\,)$if(%useformat%,%_formatsuffix%))
+$noop(Move album suffix to recording suffix if needed)
+$if($and($eq(%_albumsuffixonalbum%,0),%_albumsuffix%),$set(_recordingsuffix,$if(%_recordingsuffix%,%_recordingsuffix%\\,)%_albumsuffix%)$unset(_albumsuffix))
+$set(_albumsuffix,$if(%_albumsuffix%, [%_albumsuffix%]))
+$set(_recordingsuffix,$if(%_recordingsuffix%, [%_recordingsuffix%]))
+$set(_formatteddiscnumber,$if($gt(%totaldiscs%,9),$num(%discnumber%,2),%discnumber%))
+$setmulti(releasetype,%releasetype%)
+$unset(_typeset)
+$if($and(%mixes%,$not(%musicbrainz_albumid%)),Various Artists/Mixes/%_year% - %album%%_albumsuffix%/,
+$if2(%forcealbumartist%,$if($eq(Various Artists,%albumartist%),Various Artists/%_firstgenre%),$if($eq(%usenormalizedalbumartist%,1),%_aaeStdAlbumArtists%),$if2(%_bard_albumartist_folder%,%albumartist%,%artist%))/
+$if(%usepersonalalbum%,others/)
+$unset(_albumpathprefix)
+$if($inmulti(%releasetype%,compilation),$set(_albumpathprefix,%_albumpathprefix%compilation/))
+$if($inmulti(%releasetype%,single),$set(_albumpathprefix,%_albumpathprefix%singles/))
+$if($inmulti(%releasetype%,ep),$set(_albumpathprefix,%_albumpathprefix%ep/))
+$if($inmulti(%releasetype%,soundtrack),$set(_albumpathprefix,%_albumpathprefix%soundtracks/))
+$if($inmulti(%releasetype%,live),$set(_albumpathprefix,%_albumpathprefix%live/))
+$if($and($eq(promotion,%releasestatus%),$not($rsearch(%_albumpathprefix%,/[a-z]*/))),$set(_albumpathprefix,%_albumpathprefix%promotion/))
+$if($and($ne(Various Artists,%albumartist%),$not(%usepersonalalbum%)),%_albumpathprefix%)
+$if($eq(%usereleasegroupinpath%,1),$if($ne(%_indexyear%,),%_indexyear% - )%_releasegroup%/)
+$if($ne(%_albumyearprefix%,),%_albumyearprefix% - )
+$if2(%forcealbum%,%album%)%_albumsuffix%/)
+$if($gt(%totaldiscs%,1),%_medianame%%_formatteddiscnumber%$if($ne($if2(%forcediscsubtitle%,%discsubtitle%),), - $if2(%forcediscsubtitle%,%discsubtitle%),)/,)
+$if($and(%albumartist%,$ne(non-album tracks,%album%)),$if($gt(%totaltracks%,99),$num(%tracknumber%,3),$num(%tracknumber%,2)) - ,)$if(%_addartisttofile%,%artist% - ,)%title%%_recordingsuffix%
+$noop(End of file)
