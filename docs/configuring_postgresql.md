@@ -1,25 +1,31 @@
 # Install postgresql server
 
+On SUSE/openSUSE systems, you can run:
+
 ```
-zypper in postgresql-server
-su postgres
+sudo zypper in postgresql-server
 ```
 
-# Create user and database
+# Create postgresql user and database
 
-Create user bard (it will request the password)
+Start a shell as user postgres, since the next commands (createuser and createdb) have to be run as that user (not as root or as your user):
+
+```
+sudo su postgres
+```
+
+Create a bard user in postgresql (it will request the password) by executing:
 
 ```
 createuser --pwprompt --createdb --superuser bard
 ```
 
-Create the database for user bard:
+Then create the database for user bard:
 
 ```
 createdb -O bard -U bard bard
 ```
 
-Note:
 If the above command fails with an error message like:
 
 ```
@@ -33,9 +39,16 @@ and then restart postgresql and rerun the createdb command:
     local   all             all                                     md5
 ```
 
+# Configuring bard to use a postgresql database
 
-[//]: # "\i Extensions.sql"
-[//]: # "\i CreateTables.sql"
+Set the following config options in Bard's config file to use postgresql:
 
-[//]: # "\copy artist from '/home/antonio/git/bard/bard/mbdb/mbdump/artist' with (delimiter E'\t', null '\N') ;"
+```
+    "database": "postgresql",
+    "database_name" : "bard",
+    "database_user" : "bard",
+    "database_password" : "yourpassword",
+```
+
+The next time you use bard it will create the database schemas automatically.
 
