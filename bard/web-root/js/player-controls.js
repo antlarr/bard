@@ -106,7 +106,6 @@ function PlayerControls(playerBackend)
                 position: currentTime
             });
         }
-
     };
 
     this.volumeSliderMoved = function(ev) {

@@ -105,7 +105,6 @@ function formatSongName(jq, song, playlist_song_info)
           function(ev) {
               bard.playSongFromPlaylist(ev.data.song_id, ev.data.playlist_song_info);
           });
-
 }
 
 function formatRelease(jq, song, playlist_song_info)
