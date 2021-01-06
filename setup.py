@@ -5,6 +5,11 @@ from bard import __version__
 
 BOOST_PYTHON_LIB = os.getenv('BOOST_PYTHON_LIB', 'boost_python-py3')
 
+extra_compile_args = ['-std=gnu++17', '-fopenmp', '-Ofast', '-mtune=native',
+                      '-funroll-loops']
+machine = os.uname().machine
+if machine not in ['ppc64', 'ppc64le']:
+    extra_compile_args.append('-march=native')
 
 bard_ext = Extension('bard.bard_ext',
                      define_macros=[('MAJOR_VERSION', '1'),
@@ -13,9 +18,7 @@ bard_ext = Extension('bard.bard_ext',
                      include_dirs=['/usr/include/boost'],
                      libraries=[BOOST_PYTHON_LIB, 'gomp'],
                      sources=['bard/bard_ext.cpp'],
-                     extra_compile_args=['-std=gnu++17', '-fopenmp', '-Ofast',
-                                         '-march=native', '-mtune=native',
-                                         '-funroll-loops'])
+                     extra_compile_args=extra_compile_args + ['-fopenmp'])
 
 
 bard_audiofile = Extension('bard.bard_audiofile',
@@ -33,10 +36,7 @@ bard_audiofile = Extension('bard.bard_audiofile',
                                     'bard/audiofile/filedecodeoutput.cpp',
                                     'bard/audiofile/referencedata.cpp',
                                     'bard/audiofile/pyaudiofile.cpp'],
-                           extra_compile_args=['-std=gnu++17', '-Ofast',
-                                               '-march=native',
-                                               '-mtune=native',
-                                               '-funroll-loops'])
+                           extra_compile_args=extra_compile_args)
 setup(
     name="bard",
     version=__version__,
