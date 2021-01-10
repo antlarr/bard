@@ -12,6 +12,7 @@ import mutagen.oggvorbis
 import mutagen.oggopus
 import mutagen.musepack
 import mutagen.wave
+import mutagen.dsf
 
 
 def extractFirstElementOfTuple(x):
@@ -217,6 +218,8 @@ tagMaps = {
         'date': 'Originaldate',
         'title': 'Title',
         'tracknumber': 'Track', }}
+tag_maps[mutagen.wave.WAVE] = tag_maps[mutagen.mp3.MP3]
+tag_maps[mutagen.dsf.DSF] = tag_maps[mutagen.mp3.MP3]
 
 formatToType = {
     'mp3': mutagen.mp3.MP3,
@@ -228,7 +231,8 @@ formatToType = {
     'wv': mutagen.wavpack.WavPack,
     'ape': mutagen.monkeysaudio.MonkeysAudio,
     'mpc': mutagen.musepack.Musepack,
-    'wav': mutagen.wave.WAVE}
+    'wav': mutagen.wave.WAVE,
+    'dsf': mutagen.dsf.DSF}
 
 
 def removeFromNullChar(s):
