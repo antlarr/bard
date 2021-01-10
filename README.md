@@ -3,7 +3,7 @@ Bard Music Manager - A database to manage your music, find duplicates and fix ta
 
 # Installation
 
-Right now there are only prebuilt packages for openSUSE Leap and Tumbleweed. In those cases, you can add my build repository:
+Right now there are only prebuilt packages for openSUSE Leap and Tumbleweed. In those cases, you can add [my build repository](https://build.opensuse.org/project/show/home:alarrosa:bard):
 
 `sudo zypper ar obs://home:alarrosa:bard bard-repository`
 
