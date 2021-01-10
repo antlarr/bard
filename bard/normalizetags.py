@@ -23,7 +23,7 @@ def extractFirstElementOfTuple(x):
     return x
 
 
-tagFilter = {
+tag_filter = {
     mutagen.mp3.MP3: {
         'genre': lambda x: x and x.genres or None},
     mutagen.mp4.MP4: {
@@ -35,7 +35,7 @@ tagFilter = {
         'tracknumber': extractFirstElementOfTuple,
         'discnumber': extractFirstElementOfTuple, }}
 
-tagMaps = {
+tag_maps = {
     mutagen.mp3.MP3: {
         'album': 'TALB',
         'bpm': 'TBPM',
@@ -221,7 +221,8 @@ tagMaps = {
 tag_maps[mutagen.wave.WAVE] = tag_maps[mutagen.mp3.MP3]
 tag_maps[mutagen.dsf.DSF] = tag_maps[mutagen.mp3.MP3]
 
-formatToType = {
+
+format_to_type = {
     'mp3': mutagen.mp3.MP3,
     'mp4': mutagen.mp4.MP4,
     'asf': mutagen.asf.ASF,
@@ -346,7 +347,7 @@ def normalizeTagValue(obj, mutagenFile, tag,  # noqa: C901
         obj = obj.strip('\x00')
 
     try:
-        func = tagFilter[type(mutagenFile)][tag]
+        func = tag_filter[type(mutagenFile)][tag]
     except KeyError:
         def func(x):
             return x
@@ -380,12 +381,12 @@ def getTag(mutagenFile, tag, fileformat=None):
         return None
 
     if fileformat:
-        typeOfFile = formatToType[fileformat]
+        typeOfFile = format_to_type[fileformat]
     else:
         typeOfFile = type(mutagenFile)
 
-    if typeOfFile in tagMaps:
-        tagMap = tagMaps[typeOfFile]
+    if typeOfFile in tag_maps:
+        tagMap = tag_maps[typeOfFile]
         result = mutagenFile.get(tagMap.get(tag, tag), None)
     else:
         result = mutagenFile.get(tag, None)
