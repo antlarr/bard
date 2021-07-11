@@ -203,7 +203,7 @@ class Bard:
 
         self.db = MusicDatabase()
         self.ignore_files = ['*.jpg', '*.jpeg', '*.bmp', '*.tif', '*.png',
-                             '*.gif',
+                             '*.gif', '*.xcf', '*.webp',
                              '*.m3u', '*.pls', '*.cue', '*.m3u8', '*.au',
                              '*.mid', '*.kar', '*.lyrics',
                              '*.url', '*.lnk', '*.ini', '*.rar', '*.zip',
@@ -1383,8 +1383,10 @@ class Bard:
                 if '.artist_mbid' in filenames:
                     if verbose:
                         print(f'Found artist dir at {dirpath}')
-                    image_filename = ('artist.jpg' if 'artist.jpg' in filenames
-                                      else None)
+                    image_filenames = [f for f in ('artist.jpg', 'artist.png',
+                                                   'artist.webp')
+                                       if f in filenames]
+                    image_filename = image_filenames[0] if image_filenames else None
 
                     self.addArtistPath(dirpath, image_filename,
                                        verbose=verbose)

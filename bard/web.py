@@ -480,6 +480,9 @@ def release_group_get_image():
             cover = cover[:-3] + 'png'
             if os.path.exists(cover):
                 return cover
+            cover = cover[:-3] + 'webp'
+            if os.path.exists(cover):
+                return cover
         return None
 
     path = (find_cover_at_paths(dirnames, True) or
@@ -571,6 +574,10 @@ def release_get_image():
             path = cover
             break
         cover = cover[:-3] + 'png'
+        if os.path.exists(cover):
+            path = cover
+            break
+        cover = cover[:-3] + 'webp'
         if os.path.exists(cover):
             path = cover
             break

@@ -792,7 +792,7 @@ class Song:
     def getCoverImage(self):
         path = self.path()
         directory = os.path.dirname(path)
-        for cover in ['cover.jpg', 'cover.png']:
+        for cover in ['cover.jpg', 'cover.png', 'cover.webp']:
             coverfilename = os.path.join(directory, cover)
             if os.path.exists(coverfilename):
                 return coverfilename

@@ -23,7 +23,7 @@ def albumPath(filePath=None, dirPath=None):
 
 
 def coverAtPath(path):
-    for cover in ['cover.jpg', 'cover.png']:
+    for cover in ['cover.jpg', 'cover.png', 'cover.webp']:
         coverfilename = join(path, cover)
         if exists(coverfilename):
             return coverfilename
