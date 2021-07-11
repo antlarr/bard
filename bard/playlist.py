@@ -2,7 +2,7 @@ from bard.musicdatabase import MusicDatabase, DatabaseEnum, table
 import bard.config as config
 from sqlalchemy import text, exc, and_
 import sqlite3
-from sqlalchemy.engine.result import RowProxy
+from sqlalchemy.engine.result import Row
 import enum
 
 
@@ -27,7 +27,7 @@ class Playlist:
         self.playlist_type = DatabaseEnum('playlist_type').id_value('user')
         self.songs = []
 
-        if isinstance(db_row, (sqlite3.Row, RowProxy, dict)):
+        if isinstance(db_row, (sqlite3.Row, Row, dict)):
             self.id = db_row['id']
             self.name = db_row['name']
             self.owner_id = db_row['owner_id']
