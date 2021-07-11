@@ -54,14 +54,13 @@ def remoteFile(path, sftp):
     return data
 
 
-def uploadFile(srcpath, tgtpath, sftp):
-    percentage = Percentage()
+def uploadFile(srcpath, tgtpath, sftp, prefix=''):
+    percentage = Percentage(prefix=prefix + ' : ')
 
     def proc(x, y):
         percentage.max_value = y
         percentage.set_value(x)
 
-    print(' ... ', end='')
     (tgtdirname, tgtbasename) = os.path.split(tgtpath)
 
     cutbasename = cutStringAtMaxBytesLength(tgtbasename, 246)
@@ -154,12 +153,14 @@ class SizeBalance:
         return self
 
 
-def print_change_description(descs, prefix='', end='\n'):
+def get_change_description_string(descs, prefix=''):
     if isinstance(descs, tuple):
-        print(prefix + ' '.join(descs), end=end)
-        return
-    print(prefix + '\n'.join(alignColumns(descs, (True, True, False, True))),
-          end=end)
+        return prefix + ' '.join(descs)
+    return prefix + '\n'.join(alignColumns(descs, (True, True, False, True)))
+
+
+def print_change_description(descs, prefix='', end='\n'):
+    print(get_change_description_string(descs, prefix), end=end)
 
 
 @total_ordering
@@ -337,10 +338,10 @@ class Upload(Task):
         return True
 
     def run(self, sftp):
-        print_change_description(prefix="Uploading ",
-                                 descs=self.describe_change(), end='')
+        prefix = get_change_description_string(prefix="Uploading ",
+                                               descs=self.describe_change())
 
-        uploadFile(self.source, self.target, sftp)
+        uploadFile(self.source, self.target, sftp, prefix=prefix)
         sftp.chmod(self.target, self.src_attr.st_mode)
         sftp.utime(self.target, (self.src_attr.st_atime,
                                  self.src_attr.st_mtime))
