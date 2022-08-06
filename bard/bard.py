@@ -1291,6 +1291,7 @@ class Bard:
         songsData = AnalysisDatabase.songsWithoutAnalysis(from_song_id)
 
         c = MusicDatabase.getCursor()
+        number_of_tries = 1
         for songID, songPath, songDuration in songsData:
             print(songID, songPath)
             analysis = None
@@ -1300,6 +1301,7 @@ class Bard:
                 try:
                     analysis = (SongAnalysis.analyze(songPath,
                                 force_predecode=force_predecode))
+                    number_of_tries = 1
                 except RuntimeError as e:
                     msg = ('In MusicExtractor.compute: File looks like a '
                            'completely silent file... Aborting...')
@@ -1309,6 +1311,8 @@ class Bard:
                     msg3 = ('In MusicExtractor.compute: AudioLoader: '
                             'could not load audio. Audio file has more '
                             'than 2 channels.')
+                    msg4 = ('In MusicExtractor.compute: '
+                            'SVMPredict: could not load model')
                     if e.args and e.args[0] == msg:
                         print("Silent file. Skipping...")
                         skip_song = True
@@ -1316,6 +1320,12 @@ class Bard:
                     elif e.args and (e.args[0] == msg2 or e.args[0] == msg3):
                         force_predecode = True
                         continue
+                    elif e.args and e.args[0] == msg4:
+                        if number_of_tries < 3:
+                            print(msg4 + '. Trying again...')
+                            number_of_tries += 1
+                        else:
+                            raise
                     else:
                         raise
                 if abs(analysis.frames['metadata.audio_properties.length'] -
