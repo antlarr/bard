@@ -7,7 +7,9 @@ import enum
 import sys
 import fcntl
 import os
+import re
 import readline
+import shlex
 
 
 class TerminalKey(enum.Enum):
@@ -81,13 +83,14 @@ def read_key():
 
 
 class Chooser:
-    def __init__(self, options, msg='Choose one of:', multiselection=False):
+    def __init__(self, options, msg='Choose one of:', multiselection=False, quote=True):
         """Create a Chooser object."""
         self.selected = 0
         self.options = options
         self.msg = msg
         self.multiselection = multiselection
         self.multiselected = []
+        self.quote = quote
 
     def choose(self, key_callbacks={}):
         print(self.msg)
@@ -150,6 +153,8 @@ class Chooser:
 
     def print_options(self, highlight_selected=True):
         for idx, item in enumerate(self.options):
+            if self.quote and not re.match(r'^[a-zA-Z0-9_\-.]*$', item):
+                item = shlex.quote(item)
             if highlight_selected and idx == self.selected:
                 print(TerminalColors.White + '->', item + TerminalColors.ENDC)
             elif (highlight_selected and self.multiselection and
