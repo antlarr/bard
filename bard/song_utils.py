@@ -32,7 +32,7 @@ def print_song_info(song, userID=None, print_analysis=True):  # noqa: C901
         print("my rating:", '*' * rating, '(%d/10)' % rating)
     avgrating = song.avgRating(userID)
     if avgrating:
-        print("avg rating:", '*' * avgrating, '(%d/10)' % avgrating)
+        print("avg rating:", '*' * int(avgrating), '(%0.1f/10)' % avgrating)
 
     if not rating and not avgrating:
         rating = song.rating(userID)

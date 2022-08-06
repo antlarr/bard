@@ -2,7 +2,8 @@
 from bard.utils import fixTags, calculateFileSHA256, printSongsInfo, \
     fingerprint_AudioSegment, alignColumns, decodeAudio, \
     calculateSHA256_data, formatLength, colorizeTime, colorizeAll
-from bard.song import Song, DifferentLengthException, CantCompareSongsException
+from bard.song import Song, Ratings, DifferentLengthException, \
+    CantCompareSongsException
 from bard.song_utils import print_song_info
 from bard.musicdatabase import MusicDatabase
 from bard.musicdatabase_songs import getMusic, getSongs, getSongsAtPath, \
@@ -471,6 +472,7 @@ class Bard:
             songs = getMusic('')
             probabilities = []
             userID = MusicDatabase.getUserID(config.config['username'])
+            Ratings.cache_all_ratings()
             for song in songs:
                 paths.append(song.path())
                 probabilities.append(song.rating(userID) * 1000)

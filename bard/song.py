@@ -44,69 +44,99 @@ class CantCompareSongsException(Exception):
 
 
 class Ratings:
+    user_ratings = {}
+    avg_ratings = {}
+    cached = False
+
     def __init__(self):
         """Create a Ratings object."""
-        self.user_ratings = {}
-        self.avg_ratings = {}
-        self.cached = False
+        pass
 
-    def cache_all_ratings(self):
+    @staticmethod
+    def cache_all_ratings():
         """Load ALL ratings from all users/songs."""
         c = MusicDatabase.getCursor()
         sql = ('SELECT user_id, song_id, rating '
                '  FROM songs_ratings '
                ' WHERE rating IS NOT NULL')
         result = c.execute(sql)
-        self.user_ratings = {}
+        Ratings.user_ratings = {}
         for user_id, song_id, rating in result.fetchall():
             if rating:
                 try:
-                    self.user_ratings[user_id][song_id] = rating
+                    Ratings.user_ratings[user_id][song_id] = rating
                 except KeyError:
-                    self.user_ratings[user_id] = {}
-                    self.user_ratings[user_id][song_id] = rating
+                    Ratings.user_ratings[user_id] = {}
+                    Ratings.user_ratings[user_id][song_id] = rating
 
         sql = ('SELECT user_id, song_id, avg_rating '
                '  FROM avg_songs_ratings '
                ' WHERE avg_rating IS NOT NULL')
         result = c.execute(sql)
-        self.avg_ratings = {}
+        Ratings.avg_ratings = {}
         for user_id, song_id, rating in result.fetchall():
             if rating:
                 try:
-                    self.avg_ratings[user_id][song_id] = int(rating)
+                    Ratings.avg_ratings[user_id][song_id] = int(rating)
                 except KeyError:
-                    self.avg_ratings[user_id] = {}
-                    self.avg_ratings[user_id][song_id] = int(rating)
-        self.cached = True
+                    Ratings.avg_ratings[user_id] = {}
+                    Ratings.avg_ratings[user_id][song_id] = int(rating)
+        Ratings.cached = True
 
     def getSongUserRatings(self, user_id, song_id):
-        try:
-            return self.user_ratings[user_id][song_id]
-        except KeyError:
-            return None
+        if Ratings.user_ratings:
+            try:
+                return Ratings.user_ratings[user_id][song_id]
+            except KeyError:
+                return None
+        print('Songs user ratings not cached')
+        c = MusicDatabase.getCursor()
+        sql = ('SELECT rating '
+               '  FROM songs_ratings '
+               ' WHERE user_id = :user_id AND song_id = :song_id')
+        sql = text(sql).bindparams(user_id=user_id,
+                                   song_id=song_id)
+        result = c.execute(sql).fetchone()
+        return result[0]
 
     def getSongAvgRatings(self, user_id, song_id):
-        try:
-            return self.avg_ratings[user_id][song_id]
-        except KeyError:
-            return None
+        if Ratings.avg_ratings:
+            try:
+                return Ratings.avg_ratings[user_id][song_id]
+            except KeyError:
+                return None
+        print('Average songs ratings not cached')
+        c = MusicDatabase.getCursor()
+        sql = ('SELECT avg_rating '
+               '  FROM avg_songs_ratings '
+               ' WHERE user_id = :user_id AND song_id = :song_id')
+        sql = text(sql).bindparams(user_id=user_id,
+                                   song_id=song_id)
+        result = c.execute(sql).fetchone()
+        return result[0]
 
     def getSongRatings(self, user_id, song_id):
-        try:
-            return self.user_ratings[user_id][song_id]
-        except KeyError:
-            try:
-                return self.avg_ratings[user_id][song_id]
-            except KeyError:
-                return 5
+        # try:
+        #     return Ratings.user_ratings[user_id][song_id]
+        # except KeyError:
+        #     try:
+        #         return Ratings.avg_ratings[user_id][song_id]
+        #     except KeyError:
+        #         return 5
+        rating = self.getSongUserRatings(user_id, song_id)
+        if rating:
+            return rating
+        rating = self.getSongAvgRatings(user_id, song_id)
+        if rating:
+            return rating
+        return 5
 
     def setSongUserRating(self, user_id, song_id, rating):
         try:
-            self.user_ratings[user_id][song_id] = rating
+            Ratings.user_ratings[user_id][song_id] = rating
         except KeyError:
-            self.user_ratings[user_id] = {}
-            self.user_ratings[user_id][song_id] = rating
+            Ratings.user_ratings[user_id] = {}
+            Ratings.user_ratings[user_id][song_id] = rating
 
         c = MusicDatabase.getCursor()
         sql = ('UPDATE songs_ratings set rating = :rating '
