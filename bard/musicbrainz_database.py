@@ -1275,7 +1275,7 @@ union select rel.artist_credit_id
         if r and r[0] == path_id:
             # print(f'artist {artist_id} already has path {path_id}')
             return
-        print(f'Adding path to artist {artist_id}')
+        print(f'Adding path {path_id} to artist {artist_id}')
 
         u = (artists_mb.update()
              .where(artists_mb.c.id == artist_id)

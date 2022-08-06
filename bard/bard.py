@@ -1398,7 +1398,8 @@ class Bard:
                     image_filenames = [f for f in ('artist.jpg', 'artist.png',
                                                    'artist.webp')
                                        if f in filenames]
-                    image_filename = image_filenames[0] if image_filenames else None
+                    image_filename = (image_filenames[0]
+                                      if image_filenames else None)
 
                     self.addArtistPath(dirpath, image_filename,
                                        verbose=verbose)
@@ -1557,6 +1558,7 @@ update-musicbrainz-artists [-v]
         parser.add_argument('-i', dest='interactive', action='store_true',
                             default=False,
                             help='Do an interactive audio comparison')
+        # compare-files command
         parser = sps.add_parser('compare-files',
                                 description='Compares two files not'
                                 ' neccesarily in the database')
@@ -1565,6 +1567,7 @@ update-musicbrainz-artists [-v]
         parser.add_argument('-i', dest='interactive', action='store_true',
                             default=False,
                             help='Do an interactive audio comparison')
+        # compare-dirs command
         parser = sps.add_parser('compare-dirs',
                                 description='Compares two directories'
                                 ' neccesarily in the database')
