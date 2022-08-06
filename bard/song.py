@@ -819,6 +819,13 @@ class Song:
 
         self.completeness = value
 
+    def getCompleteness(self):
+        try:
+            return self.completeness
+        except AttributeError:
+            self.calculateCompleteness()
+            return self.completeness
+
     def getCoverImage(self):
         path = self.path()
         directory = os.path.dirname(path)

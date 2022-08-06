@@ -1112,6 +1112,122 @@ class Bard:
         self.compareSongs(song1, song2, storeInDB=False,
                           interactive=interactive)
 
+    def scanFile(self, path, printMatchInfo=False):
+        song = Song(path)
+        song_duration = song.durationWithoutSilences()
+        song_fingerprint = song.getAcoustidFingerprint()
+        song_dfp = chromaprint.decode_fingerprint(song_fingerprint)
+
+        from_song_id = MusicDatabase \
+            .lastSongIDWithCalculatedSimilarities()
+        from_song_id = from_song_id + 1 if from_song_id else 1
+
+        info = {}
+        matchThreshold = config.config['match_threshold']
+        shortSongStoreThreshold = config.config['short_song_store_threshold']
+        shortSongLength = config.config['short_song_length']
+        from bard.bard_ext import FingerprintManager
+        fpm = FingerprintManager()
+        fpm.setMaxOffset(100)
+        fpm.setCancelThreshold(matchThreshold)
+        fpm.setShortSongCancelThreshold(shortSongStoreThreshold)
+        fpm.setShortSongLength(shortSongLength)
+
+        percentage = ''
+        songs_processed = 0
+        totalSongsCount = MusicDatabase.getSongsCount()
+        fpm.setExpectedSize(totalSongsCount + 5)
+        c = MusicDatabase.getCursor()
+
+        def getInfo(songID):
+            sql = ('SELECT sha256sum, audio_sha256sum, path, '
+                   'completeness, duration-silence_at_start-silence_at_end '
+                   'FROM fingerprints, songs, checksums, properties '
+                   'WHERE songs.id = :song_id and '
+                   'songs.id=fingerprints.song_id and '
+                   'songs.id = checksums.song_id and '
+                   'songs.id = properties.song_id order by id')
+            result = c.execute(text(sql).bindparams(song_id=songID))
+            return result.fetchone()
+
+        useCache = True
+        if useCache:
+            fpm.readFromFile(os.path.expanduser('~/.cache/bard-fpm.cache'))
+            maxSongID = max(fpm.songIDs())
+            completeness = song.getCompleteness()
+        else:
+            sql = ('SELECT id, fingerprint, sha256sum, audio_sha256sum, path, '
+                   'completeness, duration-silence_at_start-silence_at_end '
+                   'FROM fingerprints, songs, checksums, properties '
+                   'WHERE songs.id=fingerprints.song_id and '
+                   'songs.id = checksums.song_id and '
+                   'songs.id = properties.song_id order by id')
+
+            result = c.execute(text(sql))
+            maxSongID = 0
+            for (songID, fingerprint, sha256sum, audioSha256sum, path,
+                    completeness, duration) in result.fetchall():
+                maxSongID = max(maxSongID, songID)
+                info[songID] = (sha256sum, audioSha256sum, path, completeness,
+                                duration)
+                # print('.', songID, end='', flush=True)
+                if not isinstance(fingerprint, bytes):
+                    fingerprint = fingerprint.tobytes()
+                dfp = chromaprint.decode_fingerprint(fingerprint)
+                if not dfp[0]:
+                    print("Error calculating fingerprint of song %s (%s)" %
+                          (songID, path))
+                    songs_processed += 1
+                    continue
+
+                fpm.addSong(songID, dfp[0], duration)
+                result = []
+                tmp = '%d%% ' % (songID * 100.0 / from_song_id)
+                if tmp != percentage:
+                    backspaces = '\b' * len(percentage)
+                    percentage = tmp
+                    print(backspaces + percentage, end='', flush=True)
+
+        result = fpm.addSongAndCompare(maxSongID + 1, song_dfp[0],
+                                       song_duration)
+        sha256sum = song.fileSha256sum()
+        audioSha256sum = song.audioSha256sum()
+
+        first = True
+        if result:
+            print('Matching songs in database:')
+            show_all = all(x[2] < matchThreshold for x in result)
+        for (songID2, offset, similarity) in \
+                sorted(result, key=lambda x: -x[2]):
+            if show_all or similarity >= matchThreshold:
+                try:
+                    (otherSha256sum, otherAudioSha256sum, otherPath,
+                        otherCompleteness, otherDuration) = info[songID2]
+                except KeyError:
+                    (otherSha256sum, otherAudioSha256sum, otherPath,
+                        otherCompleteness, otherDuration) = getInfo(songID2)
+
+                print('%d (similarity: %f) %s' % (songID2, similarity,
+                                                  otherPath))
+                if sha256sum == otherSha256sum:
+                    msg = ('Exactly the same files (sha256 = %s)' %
+                           sha256sum)
+                    print('Duplicate songs found: %s\n'
+                          '%s\n and %s' % (msg, otherPath, path))
+                elif audioSha256sum == otherAudioSha256sum:
+                    msg = ('Same audio track with different tags '
+                           '(completeness: %d <-> %d)' %
+                           (otherCompleteness, completeness or '0'))
+                    print('Duplicate songs found: %s\n'
+                          '%s\n and %s''' % (msg, otherPath, path))
+                # else:
+                    # msg = 'Similarity %f' % similarity
+                    # print('Duplicate songs found: %s\n     %s\n'
+                    #       'and %s' % (msg, otherPath, path))
+                if first and printMatchInfo:
+                    self.info([songID2])
+                    first = False
+
     def listGenres(self, id_or_paths=None, root=None, quoted_output=False):
         ids = []
         paths = []
@@ -1472,6 +1588,9 @@ compare-files [-i] [path] [path]
                     compares two files not neccesarily in the database
 compare-dirs [-s] [dir1] [dir2]
                     compares two directories neccesarily in the database
+scan-file [--print-match-info] [path]
+                    Parse a file and find out if there are similar songs
+                    in the database
 fix-mtime           fixes the mtime of imported files (you should never
                     need to use this)
 fix-checksums       fixes the checksums of imported files (you should
@@ -1581,6 +1700,15 @@ update-musicbrainz-artists [-v]
                             help='Be verbose')
         parser.add_argument('dir1', metavar='path')
         parser.add_argument('dirs', metavar='path', nargs=argparse.REMAINDER)
+        # scan-file command
+        parser = sps.add_parser('scan-file',
+                                description='Parse a file and find out if '
+                                'there are similar songs in the database')
+        parser.add_argument('--print-match-info', dest='printMatchInfo',
+                            action='store_true', default=False,
+                            help='Print the information of the most similar '
+                            'song found')
+        parser.add_argument('path', metavar='path')
         # fix-mtime command
         sps.add_parser('fix-mtime',
                        description='Fixes the mtime of imported files '
@@ -1997,6 +2125,8 @@ update-musicbrainz-artists [-v]
             if options.update:
                 self.updateMusicBrainzDBDump(verbose=options.verbose)
             self.importMusicBrainzData(verbose=options.verbose)
+        elif options.command == 'scan-file':
+            self.scanFile(options.path, printMatchInfo=options.printMatchInfo)
 
 
 def main():
