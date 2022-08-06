@@ -942,6 +942,8 @@ class Bard:
                           (delta_time, len(info), totalSongsCount, speeds[-1],
                            avg, totalSongsCount - songs_processed, now + d))
 
+        fpm.writeToFile(os.path.expanduser('~/.cache/bard-fpm.cache'))
+
         if delete_not_found_similarities:
             print(('\b' * len(percentage)) + '100% . Done')
             MusicDatabase.commit()

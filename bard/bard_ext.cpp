@@ -27,6 +27,7 @@
 #include <iostream>
 #include <parallel/algorithm>
 #include <mutex>
+#include <fstream>
 
 template<typename T>
 inline
@@ -80,6 +81,12 @@ public:
 
     std::pair<int, double> compareChromaprintFingerprintsAndOffset(const std::vector<int> &fp1, const std::vector<int> &fp2, double cancelThreshold) const;
     boost::python::list compareChromaprintFingerprintsAndOffsetVerbose(std::vector<int> fp1, std::vector<int> fp2) const;
+
+    boost::python::list songIDs();
+
+
+    boost::python::object writeToFile(const std::string &filename);
+    boost::python::object readFromFile(const std::string &filename);
 
 protected:
     std::vector<int> songFingerprint(int songID) const;
@@ -391,6 +398,68 @@ boost::python::list FingerprintManager::compareSongsVerbose(long songID1, long s
     return compareChromaprintFingerprintsAndOffsetVerbose(songFingerprint(songID1), songFingerprint(songID2));
 }
 
+boost::python::object FingerprintManager::writeToFile(const std::string &filename)
+{
+    std::ofstream outFile(filename, std::ios::out | std::ios::binary);
+    size_t tmp = m_fingerprints.size();
+    outFile.write(reinterpret_cast<const char*>(&tmp), sizeof(tmp));
+    int i=0;
+    for (const auto &iter : m_fingerprints)
+    {
+        const auto songID = std::get<0>(iter);
+        const std::vector <int> fingerprint = std::get<1>(iter);
+        const auto duration = std::get<2>(iter);
+        outFile.write(reinterpret_cast<const char*>(&songID), sizeof(songID));
+        outFile.write(reinterpret_cast<const char*>(&duration), sizeof(duration));
+        const size_t fingerprint_size = fingerprint.size();
+        outFile.write(reinterpret_cast<const char*>(&fingerprint_size), sizeof(size_t));
+        for (const int &val : fingerprint) //outFile << val ;
+        {
+            outFile.write(reinterpret_cast<const char*>(&val), sizeof(int));
+        }
+        ++i;
+    }
+    return boost::python::object(true);
+}
+
+boost::python::object FingerprintManager::readFromFile(const std::string &filename)
+{
+    m_fingerprints.clear();
+    std::ifstream inFile(filename, std::ios::in | std::ios::binary);
+    int songID, v;
+    size_t size, fingerprint_size;
+    double duration;
+    inFile.read(reinterpret_cast<char*>(&size), sizeof(size));
+
+    m_fingerprints.reserve(size);
+    for (size_t i=0; i< size; ++i)
+    {
+        std::vector <int> fingerprint;
+        inFile.read(reinterpret_cast<char*>(&songID), sizeof(songID));
+        inFile.read(reinterpret_cast<char*>(&duration), sizeof(duration));
+        inFile.read(reinterpret_cast<char*>(&fingerprint_size), sizeof(fingerprint_size));
+        fingerprint.reserve(fingerprint_size);
+        for (size_t j=0; j< fingerprint_size; ++j)
+        {
+            inFile.read(reinterpret_cast<char*>(&v), sizeof(v));
+            fingerprint.push_back(v);
+        }
+
+        m_fingerprints.emplace_back(std::make_tuple(songID, std::move(fingerprint), duration));
+    }
+    return boost::python::object(true);
+}
+
+boost::python::list FingerprintManager::songIDs()
+{
+    boost::python::list result;
+
+    for (const auto &iter : m_fingerprints)
+        result.append(std::get<0>(iter));
+
+    return result;
+}
+
 BOOST_PYTHON_MODULE(bard_ext)
 {
     using namespace boost::python;
@@ -411,7 +480,10 @@ BOOST_PYTHON_MODULE(bard_ext)
         .def("setShortSongCancelThreshold", &FingerprintManager::setShortSongCancelThreshold)
         .def("shortSongCancelThreshold", &FingerprintManager::shortSongCancelThreshold)
         .def("setShortSongLength", &FingerprintManager::setShortSongLength)
-        .def("shortSongLength", &FingerprintManager::shortSongLength);
+        .def("shortSongLength", &FingerprintManager::shortSongLength)
+        .def("writeToFile", &FingerprintManager::writeToFile)
+        .def("readFromFile", &FingerprintManager::readFromFile)
+        .def("songIDs", &FingerprintManager::songIDs);
 }
 
 
