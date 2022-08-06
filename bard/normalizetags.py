@@ -305,7 +305,7 @@ def normalizeTagValue(obj, mutagenFile, tag,  # noqa: C901
     if isinstance(obj, (mutagen.id3.TCON, mutagen.id3.TPUB, mutagen.id3.TSRC,
                         mutagen.id3.TSOC, mutagen.id3.TCOM, mutagen.id3.TEXT,
                         mutagen.id3.TPE3, mutagen.id3.TPE4, mutagen.id3.TLAN,
-                        mutagen.id3.TMOO)):
+                        mutagen.id3.TMOO, mutagen.id3.TIT1)):
         return obj.text
 
     if isinstance(obj, (mutagen.id3.TMCL, mutagen.id3.TIPL)):
@@ -325,6 +325,7 @@ def normalizeTagValue(obj, mutagenFile, tag,  # noqa: C901
                              'musicbrainz work id',
                              'author',
                              'artists',
+                             'genre',
                              'writer',
                              'work',
                              'performer',
