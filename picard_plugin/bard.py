@@ -150,7 +150,10 @@ def get_albumartist_folder_tag(tagger, metadata, track, release,
     if release:
         artists = release['artist-credit']
     else:  # is a non-album track
-        artists = [track['artist-credit'][0]]
+        artists = track['artist-credit']
+
+    if metadata['useonlyfirstartist'] == '1':
+        artists = [artists[0]]
 
     last = len(artists) - 2
     mbids = []
