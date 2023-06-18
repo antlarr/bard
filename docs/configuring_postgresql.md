@@ -39,6 +39,13 @@ and then restart postgresql and rerun the createdb command:
     local   all             all                                     md5
 ```
 
+If you prefer/need to create the user from a sql prompt, you can use:
+
+```
+CREATE USER bard WITH PASSWORD 'bard' CREATEDB SUPERUSER CREATEROLE;
+CREATE DATABASE bard WITH OWNER bard ENCODING 'UTF8';
+```
+
 # Configuring bard to use a postgresql database
 
 Set the following config options in Bard's config file to use postgresql:
