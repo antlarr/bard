@@ -1,5 +1,5 @@
-from picard.file import register_file_post_save_processor
-#    register_file_post_addition_to_track_processor
+from picard.file import register_file_post_addition_to_track_processor, \
+    register_file_post_save_processor
 from picard.metadata import register_track_metadata_processor, \
     register_album_metadata_processor
 from picard.script import register_script_function
@@ -74,13 +74,13 @@ def original_value(parser, tag):
     return ''
 
 
-# @register_file_post_addition_to_track_processor
-# def bard_keep_good_tags(track, file):
-#     if file.filename.startswith(ORGANIZED_FOLDER):
-#         print('Keeping genre and images: File is already correctly tagged')
-#         track.metadata['genre'] = track.orig_metadata['genre']
-#         track.keep_original_images()
-#         track.update()
+@register_file_post_addition_to_track_processor
+def bard_keep_good_tags(track, file):
+    if file.filename.startswith(ORGANIZED_FOLDER):
+        print('Keeping genre and images: File is already correctly tagged')
+        track.metadata['genre'] = track.orig_metadata['genre']
+        track.keep_original_images()
+        track.update()
 
 
 def is_latin(uchr):
