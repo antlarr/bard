@@ -402,10 +402,19 @@ class Bard:
 
 
     def update(self, paths, verbose=False):
+        if verbose:
+            t_init = time.time()
+            print("pre cacheFiles...")
+
         self.songMTimeCache = self.cacheFiles(paths, verbose)
 
         removedSongIDs = set()
         removedSongs = []
+
+        if verbose:
+            t_1 = time.time()
+            print("post cacheFiles", t_1 - t_init)
+            print("checkSongsExistenceInPaths...")
 
         def storeRemovedSongs(song):
             #print('removed song:', song.path())
@@ -415,12 +424,25 @@ class Bard:
 
         self.checkSongsExistenceInPaths(paths, verbose=verbose,
                                         callback=storeRemovedSongs)
+        if verbose:
+            t_2 = time.time()
+            print("post checkSongsExistenceInPaths", t_2 - t_1)
+            print("removedSongsAudioSHA256 initializing...")
         removedSongsAudioSHA256 = {}
         for song in removedSongs:
             removedSongsAudioSHA256.setdefault(song.audioSha256sum(),
                                                []).append(song)
+        if verbose:
+            t_3 = time.time()
+            print("removedSongsAudioSHA256 initialized", t_3 - t_2, t_3 - t_init)
+            print(removedSongsAudioSHA256)
+            print("adding...", paths)
+
         ids = self.add(paths, verbose=verbose,
                        removedSongsAudioSHA256=removedSongsAudioSHA256)
+        if verbose:
+            t_4 = time.time()
+            print("added", t_4 - t_3, t_4 - t_init)
 
         for song in removedSongs:
             if not song.fileExists():
@@ -428,10 +450,17 @@ class Bard:
                 self.db.removeSong(song)
 
         MusicDatabase.removeOrphanAlbums()
+        if verbose:
+            t_5 = time.time()
+            print("removed things", t_5 - t_4, t_5 - t_init)
 
         # do things for new songs
         MusicBrainzDatabase.updateMusicBrainzIDs(ids)
         MusicDatabase.refresh_album_tables()
+
+        if verbose:
+            t_6 = time.time()
+            print("updated db", t_6 - t_5, t_6 - t_init)
 
     def info(self, ids_or_paths, currentlyPlaying=False, show_analysis=False):
         songs = []
