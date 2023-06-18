@@ -627,11 +627,13 @@ class Bard:
                                   ' AND silence_at_start==-1')
 
         count = 0
+
         for song in collection:
-            if (silence_at_start or silence_at_end) and \
-               not threshold and not min_length:
-                silence1 = silence_at_start or song.silenceAtStart()
-                silence2 = silence_at_end or song.silenceAtEnd()
+            if (silence_at_start is not None and silence_at_end is not None) or \
+                ((silence_at_start is not None or silence_at_end is not None) and \
+                    not threshold and not min_length):
+                silence1 = silence_at_start if silence_at_start is not None else song.silenceAtStart()
+                silence2 = silence_at_end if silence_at_end is not None else song.silenceAtEnd()
                 if not dry_run:
                     MusicDatabase.addAudioSilences(song.id, silence1, silence2)
                 print('Add silences (%s, %s) for %s' % (silence1, silence2,
@@ -649,8 +651,8 @@ class Bard:
                 print('Error: sha256 does not match: %s != %s' %
                       (sha256sum, sha256sum_pydub))
 
-            silence1 = silence_at_start or song.silenceAtStart()
-            silence2 = silence_at_end or song.silenceAtEnd()
+            silence1 = silence_at_start if silence_at_start is not None else song.silenceAtStart()
+            silence2 = silence_at_end if silence_at_end is not None else song.silenceAtEnd()
 
             if not dry_run:
                 MusicDatabase.addAudioSilences(song.id, silence1, silence2)
