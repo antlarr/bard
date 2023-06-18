@@ -1744,6 +1744,17 @@ analyze-songs [-v] [--from-song-id id]
 update-musicbrainz-artists [-v]
                     Find .artist_mbid files to recognize artist paths
                     and images
+update-albums [-v] [--regenerate]
+                    Update the albums to which songs belong to (this
+                    should be never needed)
+process-songs [-v] [--from-song-id <song_id>]
+                    Process songs finding duplicates and doing a high-level
+                    audio analysis (actually, a shortcut for
+                    find-audio-duplicates and analyze-songs
+mb-update [-v]
+                    Download the latest MusicBrainz database
+mb-import [-v] [--update]
+                    Import downloaded MusicBrainz data into the bard database
 ''')
         # init command
         sps.add_parser('init', description='Initialize the database')
@@ -2079,12 +2090,14 @@ update-musicbrainz-artists [-v]
         parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
                             default=0, help='Starts processing songs '
                             'from a specific song_id')
-        parser = sps.add_parser('mb-update', description='Update the local '
-                                'copy of the MusicBrainz database')
+        # mb-update command
+        parser = sps.add_parser('mb-update', description='Download the latest '
+                                'MusicBrainz database')
         parser.add_argument('-v', '--verbose', dest='verbose',
                             action='store_true', help='Be verbose')
-        parser = sps.add_parser('mb-import', description='Import MusicBrainz '
-                                'data')
+        # mb-import command
+        parser = sps.add_parser('mb-import', description='Import downloaded '
+                                'MusicBrainz data into the bard database')
         parser.add_argument('-v', '--verbose', dest='verbose',
                             action='store_true', help='Be verbose')
         parser.add_argument('--update', dest='update',
