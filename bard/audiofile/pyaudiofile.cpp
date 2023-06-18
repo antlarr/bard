@@ -121,7 +121,9 @@ python::tuple decode_from_file(const std::string &path)
     return boost::python::make_tuple(convertToPythonBytes(output), info);
 }
 
-boost::python::object decode(const boost::python::object &path, const boost::python::object &data)
+boost::python::object decode(const boost::python::object &path,
+                             const boost::python::object &data,
+                             const boost::python::object &use_tmp_file)
 {
 #ifdef DEBUG
     std::cout << "decode" << std::endl;
@@ -131,6 +133,7 @@ boost::python::object decode(const boost::python::object &path, const boost::pyt
     {
         throw std::invalid_argument("invalid arguments");
     }
+    bool use_temporary_file = PyObject_IsTrue(use_tmp_file.ptr());
 
     if (data && !data.is_none())
     {
@@ -187,14 +190,14 @@ struct LogRecordList_to_python_list
     };
 };
 
-BOOST_PYTHON_FUNCTION_OVERLOADS(decode_overloads, decode, 2, 2);
+BOOST_PYTHON_FUNCTION_OVERLOADS(decode_overloads, decode, 3, 3);
 
 
 BOOST_PYTHON_MODULE(bard_audiofile)
 {
 
     using namespace python;
-    def("decode", decode, decode_overloads((python::arg("path")=object(), python::arg("data")=object())));
+    def("decode", decode, decode_overloads((python::arg("path")=object(), python::arg("data")=object(), python::arg("use_tmp_file")=object())));
     def("versions", versions);
 
     to_python_converter< std::vector<AudioFile::LogRecord>, LogRecordList_to_python_list>();
