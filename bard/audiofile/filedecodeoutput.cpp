@@ -80,6 +80,7 @@ void FileDecodeOutput::written(int samples)
 {
     m_samplesCount += samples;
     int size = samples * m_channelCount * m_bytesPerSample;
+    std::cout << "written " << size << " bytes" << std::endl;
 
     if (m_referenceData)
         m_referenceData->checkData(m_data[0], size, 0);

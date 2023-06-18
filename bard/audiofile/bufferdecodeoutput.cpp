@@ -38,6 +38,8 @@ extern "C" {
 
 #include "referencedata.h"
 
+//#undef DEBUG
+
 using std::string;
 
 BufferDecodeOutput::BufferDecodeOutput()
@@ -75,13 +77,13 @@ void BufferDecodeOutput::init(int channels, enum AVSampleFormat sampleFmt, int64
 void BufferDecodeOutput::prepare(int samples)
 {
 #ifdef DEBUG
-//    std::cout << "samplesCount: " << m_samplesCount << " . prepare: " << samples << " . samples reserved: " << m_samplesReserved << std::endl;
+    std::cout << "samplesCount: " << m_samplesCount << " . prepare: " << samples << " (" << m_samplesCount + samples << ") . samples reserved: " << m_samplesReserved << std::endl;
 #endif
 
     if (m_samplesCount + samples > m_samplesReserved)
     {
 #ifdef DEBUG
-//        std::cout << "increasing buffer decode output size, samples:" << samples << std::endl;
+        std::cout << "increasing buffer decode output size, samples:" << samples << std::endl;
 #endif
         uint8_t **newData = nullptr;
         int newLineSize = 0;

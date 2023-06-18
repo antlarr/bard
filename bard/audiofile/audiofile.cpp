@@ -37,6 +37,8 @@ extern "C" {
 
 using std::string;
 
+//#define TRACE 1
+#undef DEBUG
 
 AudioFile::AudioFile()
 {
@@ -329,7 +331,15 @@ int AudioFile::logError(const std::string &msg, int errorCode)
 void AudioFile::handleFrame(const AVFrame* frame)
 {
             int dst_nb_samples = frame->nb_samples;
+#ifdef DEBUG
+            std::cout << "handling frame at " << currentDecodingPosition() << std::endl;
+            std::cout << "preparing " << dst_nb_samples << " samples" << std::endl;
+#endif
+
             m_output->prepare(dst_nb_samples);
+#ifdef DEBUG
+            std::cout << "prepared " << std::endl;
+#endif
 
             SwrContext *tmpSwrCtx = nullptr;
             if (!tmpSwrCtx && (frame->sample_rate != m_inSampleRate
@@ -370,7 +380,9 @@ void AudioFile::handleFrame(const AVFrame* frame)
 #endif
             }
 
-//            printf("decode samples: %d -> %d\n", frame->nb_samples, dst_nb_samples);
+#ifdef DEBUG
+            std::cout << "decode samples: " << frame->nb_samples << " -> " << dst_nb_samples << " . channel " << frame->channel_layout << std::endl;
+#endif
             uint8_t **buffer = m_output->getBuffer(dst_nb_samples);
 #ifdef RESAMPLE
             int err = swr_convert(tmpSwrCtx? tmpSwrCtx : m_swrCtx, buffer, dst_nb_samples,
@@ -384,10 +396,19 @@ void AudioFile::handleFrame(const AVFrame* frame)
             }
 #else
             int channels = av_get_channel_layout_nb_channels(frame->channel_layout);
+#ifdef DEBUG
+            std::cout << "samples copy" << frame->nb_samples << "  " << channels << std::endl;
+#endif
             av_samples_copy(buffer, frame->extended_data, 0, 0, frame->nb_samples, channels, static_cast<AVSampleFormat>(frame->format));
+#endif
+#ifdef DEBUG
+            std::cout << "writting frame at " << currentDecodingPosition() << std::endl;
 #endif
 
             m_output->written(dst_nb_samples);
+#ifdef DEBUG
+            std::cout << "wrote frame at " << currentDecodingPosition() << std::endl;
+#endif
 }
 
 int AudioFile::firstAudioStreamIndex() const
@@ -506,9 +527,16 @@ int AudioFile::decode()
 
     AVPacket packet;
     av_init_packet(&packet);
+#ifdef DEBUG
+    std::cout << "iterating on frames..." << std::endl;
+#endif
 
+    int frame_idx = 0;
     while ((err = av_read_frame(m_formatCtx, &packet)) != AVERROR_EOF)
     {
+#ifdef DEBUG
+        std::cout << "reading frame " << frame_idx++ << std::endl;
+#endif
         if(err != 0)
         {
             logError("Read frame error", err);
@@ -540,6 +568,10 @@ int AudioFile::decode()
             logError("Receive frame error", err);
         }
     }
+
+#ifdef DEBUG
+    std::cout << "will drain now" << std::endl;
+#endif
 
     drainDecoder();
 
