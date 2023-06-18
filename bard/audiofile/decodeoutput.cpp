@@ -38,6 +38,10 @@ void DecodeOutput::init(int channels, enum AVSampleFormat sampleFmt, int64_t est
         m_referenceData->init(channels, sampleFmt);
 }
 
+void DecodeOutput::terminate()
+{
+}
+
 std::string DecodeOutput::sampleFormatName() const
 {
     const char *name = av_get_sample_fmt_name(m_sampleFmt);

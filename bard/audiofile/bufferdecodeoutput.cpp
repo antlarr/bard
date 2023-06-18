@@ -92,12 +92,22 @@ void BufferDecodeOutput::prepare(int samples)
 
         int ret = av_samples_alloc_array_and_samples(&newData, &newLineSize, m_channelCount,
                                                      newSamplesReserved, m_sampleFmt, 0);
+        if (ret == AVERROR(EINVAL))
+        {
+            dumpDataToBuffer(m_buffer, m_bytesWritten, m_isPlanar);
+
+
+            newSamplesReserved = std::max(samples * 3, 30 * m_channelCount * m_sampleRate);
+            ret = av_samples_alloc_array_and_samples(&newData, &newLineSize, m_channelCount,
+                                                     newSamplesReserved, m_sampleFmt, 0);
+        }
         m_isValid = ret >= 0;
 
         m_data[0] = m_buffer;
         for (int ch = 1; m_isPlanar && ch < m_channelCount; ch++)
             m_data[ch] = m_data[ch-1] + m_lineSize;
-        av_samples_copy(newData, m_data, 0, 0, m_samplesCount, m_channelCount, m_sampleFmt);
+        if (m_samplesCount)
+            av_samples_copy(newData, m_data, 0, 0, m_samplesCount, m_channelCount, m_sampleFmt);
 
         av_freep(&m_buffer);
         av_freep(&m_data);
@@ -131,6 +141,78 @@ void BufferDecodeOutput::written(int samples)
     m_data[0] = m_buffer + m_bytesWritten;
     for (int ch = 1; m_isPlanar && ch < m_channelCount; ch++)
         m_data[ch] = m_data[ch-1] + m_lineSize;
+}
+
+
+void BufferDecodeOutput::dumpDataToBuffer(uint8_t *data, uint64_t size, bool planar)
+{
+    if (!m_outputBuffer)
+    {
+        uint64_t bufferSize = size * (planar ? m_channelCount : 1);
+        m_outputBuffer = new uint8_t[bufferSize];
+        m_outputBufferSize = size;
+        m_outputBufferIsPlanar = planar;
+        if (!m_outputBuffer)
+            std::cout << "ERROR: can't reserve " << bufferSize << " bytes ####" << std::endl;
+
+        if (planar)
+        {
+            uint8_t *src = data;
+            uint8_t *tgt = m_outputBuffer;
+            for (int ch=0; ch < m_channelCount ; ch++)
+            {
+                memcpy(tgt, src, size);
+                src += m_lineSize;
+                tgt += size;
+            }
+        }
+        else
+            memcpy(m_outputBuffer, data, size);
+
+        m_samplesCount = 0;
+        m_bytesWritten = 0;
+        return;
+    }
+
+    uint64_t bufferSize = (m_outputBufferSize + size) * (planar ? m_channelCount : 1);
+    uint8_t *newBuffer = new uint8_t[bufferSize];
+    if (!m_outputBuffer)
+        std::cout << "ERROR: can't reserve " << bufferSize << " bytes ####" << std::endl;
+
+    uint64_t newBufferSize = m_outputBufferSize + size;
+
+    if (m_outputBufferIsPlanar)
+    {
+        uint8_t *src1 = m_outputBuffer;
+        uint8_t *src2 = data;
+        uint8_t *tgt = newBuffer;
+        for (int ch=0; ch < m_channelCount ; ch++)
+        {
+            memcpy(tgt, src1, m_outputBufferSize);
+            tgt += m_outputBufferSize;
+            src1 += m_outputBufferSize;
+            memcpy(tgt, src2, size);
+            src2 += m_lineSize;
+            tgt += size;
+        }
+    }
+    else
+    {
+        memcpy(newBuffer, m_outputBuffer, m_outputBufferSize);
+        memcpy(newBuffer + m_outputBufferSize, data, size);
+    }
+
+    delete[] m_outputBuffer;
+    m_outputBuffer = newBuffer;
+    m_outputBufferSize = newBufferSize;
+    m_samplesCount = 0;
+    m_bytesWritten = 0;
+}
+
+void BufferDecodeOutput::terminate()
+{
+    if (m_outputBuffer)
+        dumpDataToBuffer(m_buffer, m_bytesWritten, m_isPlanar);
 }
 /*
 PyObject* BufferDecodeOutput::memoryview()

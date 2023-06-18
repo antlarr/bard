@@ -31,6 +31,7 @@ public:
     virtual void prepare(int samples) = 0;
     virtual uint8_t **getBuffer(int samples) = 0;
     virtual void written(int samples) = 0;
+    virtual void terminate();
 
     std::string sampleFormatName() const;
     int channelCount() const { return m_channelCount; };

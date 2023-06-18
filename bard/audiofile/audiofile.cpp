@@ -575,6 +575,8 @@ int AudioFile::decode()
 
     drainDecoder();
 
+    m_output->terminate();
+
     return 0;
 }
 
