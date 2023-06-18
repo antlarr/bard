@@ -2145,7 +2145,6 @@ mb-import [-v] [--update]
             self.compareFiles(options.song1, options.song2,
                               interactive=options.interactive)
         elif options.command == 'compare-dirs':
-            print(options.max_length_diff)
             self.compareDirectories(options.dir1, options.dirs,
                                     subset=options.subset,
                                     maxLengthDifference=options.max_length_diff,
