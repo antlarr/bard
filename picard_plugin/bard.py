@@ -170,7 +170,7 @@ def get_albumartist_folder_tag(tagger, metadata, track, release,
         if idx < last:
             result += ', '
         elif idx == last:
-            if artist['joinphrase'] == ' y ':
+            if artist['joinphrase'] in [' y ', ' con ']:
                 result += ' y '
             else:
                 result += ' & '
