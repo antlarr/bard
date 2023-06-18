@@ -10,6 +10,9 @@ import os
 import re
 import readline
 import shlex
+import math
+import subprocess
+import time
 
 
 class TerminalKey(enum.Enum):
@@ -82,23 +85,33 @@ def read_key():
     return result
 
 
+def get_terminal_width():
+    proc = subprocess.run(['tput','cols'], stdout=subprocess.PIPE)
+    return int(proc.stdout)
+
 class Chooser:
     def __init__(self, options, msg='Choose one of:', multiselection=False, quote=True):
         """Create a Chooser object."""
         self.selected = 0
         self.options = options
+        self.lines_used = [1] * len(self.options)  # It'll be really initialized in print_options()  # noqa
         self.msg = msg
         self.multiselection = multiselection
         self.multiselected = []
         self.quote = quote
 
+    def lines_used(self, text):
+        return math.ceil(len(text))
+
     def choose(self, key_callbacks={}):
         print(self.msg)
+        self.terminal_width = get_terminal_width()
         self.print_options()
         key = None
         self.multiselected = []
         while key != TerminalKey.KEY_ENTER:
             key = read_key()
+            self.terminal_width = get_terminal_width()
             if key == TerminalKey.KEY_UP:
                 self.selected = max(0, self.selected - 1)
             elif key == TerminalKey.KEY_DOWN:
@@ -126,16 +139,25 @@ class Chooser:
 
     def go_back_to_beginning_of_list(self):
         # Go up
-        sys.stdout.write('\033[1A' * len(self.options))
+        sys.stdout.write('\033[1A' * sum(self.lines_used))
         # Go left to the beginning of the line
         sys.stdout.write('\033[1D' * (max([len(x) for x in self.options]) + 3))
         sys.stdout.flush()
 
     def edit_option(self, idx):
         # Go up
-        sys.stdout.write('\033[1A' * (len(self.options) - idx))
+        #sys.stdout.write('\033[1A' * (len(self.options) - idx))
+        sys.stdout.write('\033[1A' * sum(self.lines_used[idx:]))
         # Go left to the beginning of the line
         sys.stdout.write('\033[1D' * (max([len(x) for x in self.options]) + 3))
+        # Wipe line
+        item = self.options[idx]
+        if self.quote and not re.match(r'^[a-zA-Z0-9_\-.]*$', item):
+            item = shlex.quote(item)
+        sys.stdout.write(' ' * (len(item) + 3))
+        # Go left to the beginning of the line again
+        sys.stdout.write('\033[1A' * (self.lines_used[idx] - 1))
+        sys.stdout.write('\033[1D' * self.terminal_width)
         sys.stdout.flush()
         prev_value = self.options[idx]
         readline.set_startup_hook(lambda: readline.insert_text(prev_value))
@@ -144,10 +166,14 @@ class Chooser:
         finally:
             readline.set_startup_hook()
 
-        self.options[idx] = new_value
-        sys.stdout.write('\033[1A' * (idx + 1))
+        sys.stdout.write('\033[1A' * (sum(self.lines_used[0:idx])+math.ceil((len(new_value) + 3)/self.terminal_width)))
         sys.stdout.write('\033[1D' * (max([len(x) for x in self.options]) + 3))
         sys.stdout.flush()
+
+        if not new_value:
+            new_value = prev_value
+
+        self.options[idx] = new_value
         self.print_options()
         return prev_value, new_value
 
@@ -155,6 +181,7 @@ class Chooser:
         for idx, item in enumerate(self.options):
             if self.quote and not re.match(r'^[a-zA-Z0-9_\-.]*$', item):
                 item = shlex.quote(item)
+            self.lines_used[idx] = math.ceil((len(item) + 3)/self.terminal_width)
             if highlight_selected and idx == self.selected:
                 print(TerminalColors.White + '->', item + TerminalColors.ENDC)
             elif (highlight_selected and self.multiselection and
