@@ -1133,7 +1133,8 @@ class Bard:
     #        except DifferentSongsException as e:
     #            print(e)
 
-    def compareDirectories(self, path1, paths, subset=False, verbose=False):
+    def compareDirectories(self, path1, paths, subset=False,
+                           maxLengthDifference=5, verbose=False):
         songs1 = getSongsAtPath(path1)
         songs2 = set()
         for path in paths:
@@ -1145,7 +1146,8 @@ class Bard:
         songs2 = list(songs2)
         try:
             compareSongSets(songs1, songs2, useSubsetSemantics=subset,
-                            verbose=verbose)
+                            verbose=verbose,
+                            maxLengthDifference=maxLengthDifference)
         except ValueError as e:
             print(e)
 
@@ -1784,6 +1786,10 @@ update-musicbrainz-artists [-v]
         parser.add_argument('-v', dest='verbose', action='store_true',
                             default=False,
                             help='Be verbose')
+        parser.add_argument('--length-threshold', type=float,
+                            dest='max_length_diff', default=5.0,
+                            help='Max length differences allowed between'
+                            ' similar songs')
         parser.add_argument('dir1', metavar='path')
         parser.add_argument('dirs', metavar='path', nargs=argparse.REMAINDER)
         # scan-file command
@@ -2126,8 +2132,10 @@ update-musicbrainz-artists [-v]
             self.compareFiles(options.song1, options.song2,
                               interactive=options.interactive)
         elif options.command == 'compare-dirs':
+            print(options.max_length_diff)
             self.compareDirectories(options.dir1, options.dirs,
                                     subset=options.subset,
+                                    maxLengthDifference=options.max_length_diff,
                                     verbose=options.verbose)
         elif options.command == 'fix-tags':
             self.fixTags(options.paths)

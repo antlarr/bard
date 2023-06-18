@@ -127,7 +127,7 @@ def prepareSongs(songs):
 
 
 def compareSongSets(songs1, songs2, useSubsetSemantics=False,  # noqa: C901
-                    verbose=False):
+                    maxLengthDifference=5, verbose=False):
     interactive = True
     prepareSongs(songs1)
     prepareSongs(songs2)
@@ -163,7 +163,8 @@ def compareSongSets(songs1, songs2, useSubsetSemantics=False,  # noqa: C901
         take_audio_from = \
             song1.audioCmp(song2, interactive=interactive,
                            printSongsInfoCallback=partial(printSongsInfo,
-                                                          useColors=colors))
+                                                          useColors=colors),
+                           maxLengthDifference=maxLengthDifference)
         if song1.completeness > song2.completeness:
             take_metadata_from = -1
         elif song2.completeness > song1.completeness:

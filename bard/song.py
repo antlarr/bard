@@ -438,7 +438,8 @@ class Song:
 
     def audioCmp(self, other, forceSimilar=False,  # noqa: C901,
                  interactive=True, useColors=None,
-                 printSongsInfoCallback=None, forceInteractive=False):
+                 printSongsInfoCallback=None, forceInteractive=False,
+                 maxLengthDifference=5):
         """Compare the audio of this object with the audio of other.
 
         Returns -1 if self has better audio than other,
@@ -446,7 +447,10 @@ class Song:
         audio of the same characteristics. Also, it can raise
         a SongsNotComparableException exception if audio has
         different length or it's not similar according to
-        chromaprint fingerprints
+        chromaprint fingerprints. maxLengthDifference is the max
+        difference in song lengths allowed. More than that will
+        throw the exception. Differences of more than 30 seconds
+        will always throw an exception.
         """
         self.loadMetadataInfo()
         other.loadMetadataInfo()
@@ -470,7 +474,7 @@ class Song:
                                         self.metadata.info.length,
                                         other.metadata.info.length))
 
-        if len_diff > 5:
+        if len_diff > maxLengthDifference:
             # print(self.duration(), self.durationWithoutSilences(),
             #       self.silenceAtStart(), self.silenceAtEnd())
             raise SlightlyDifferentLengthException(
