@@ -712,21 +712,27 @@ or name {like} '%%MusicBrainz/Track Id'""")
                 cls.mtime_cache_by_id[id] = (mtime, path)
 
     @classmethod
-    def isSongInDatabase(cls, path=None, songID=None):
+    def isSongInDatabase(cls, path=None, songID=None, file_mtime=None):
+        '''returns if a song is in the database.
+
+        Returns 0 if song is not in database, 1 if it's in database and doesn't
+        need to be updated, and -1 if it's in database but needs to be updated
+        because the file changed in disk'''
         path = os.path.normpath(path)
 
         cls.prepareCache()
         try:
             if songID:
-                mtime, path = cls.mtime_cache_by_id[songID]
+                db_mtime, path = cls.mtime_cache_by_id[songID]
             else:
-                mtime = cls.mtime_cache_by_path[path]
+                db_mtime = cls.mtime_cache_by_path[path]
         except KeyError:
-            return False
+            return 0
 
-        if mtime == os.path.getmtime(path):
-            return True
-        return False
+        if not file_mtime:
+            file_mtime = os.path.getmtime(path)
+
+        return 1 if db_mtime == file_mtime else -1
 
     @classmethod
     def songExistsInDatabase(cls, path=None, songID=None):

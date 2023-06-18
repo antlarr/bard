@@ -189,6 +189,23 @@ def normalizeTrack(track):
     return int(track)
 
 
+def walktree(path):
+    files = []
+    dirs = []
+    for entry in os.scandir(path):
+        if entry.is_file():
+            #t = entry.stat().st_mtime
+            # print(entry.path)
+            files.append(entry)
+        elif entry.is_dir(follow_symlinks=True):
+            dirs.append(entry)
+
+    yield path, dirs, files
+
+    for directory in dirs:
+        yield from walktree(directory.path)
+
+
 class Bard:
 
     def __init__(self):
@@ -197,6 +214,7 @@ class Bard:
         self.ignore_files = []
         self.excludeDirectories = []
         self.playlist_manager = None
+        self.songMTimeCache = {}
 
         config.load_configuration()
         if config.config is None:
@@ -263,16 +281,20 @@ class Bard:
         return []
 
     def addSong(self, path, rootDir=None, removedSongsAudioSHA256={},
-                commit=True, verbose=False):
+                mtime=None, commit=True, verbose=False):
         if config.config['immutable_database']:
             print("Error: Can't add song %s : "
                   "The database is configured as immutable" % path)
             return None
-        if MusicDatabase.isSongInDatabase(path):
-            if verbose:
-                print('Already in db: %s' % path)
+        isSongInDatabase = MusicDatabase.isSongInDatabase(path, file_mtime=mtime)
+        if isSongInDatabase == 1:
+            #if verbose:
+            #    print('Already in db: %s' % path)
             return None
-        print(f'Adding song {path}')
+        elif isSongInDatabase == -1:
+            print(f'Updating song {path}')
+        else:
+            print(f'Adding song {path}')
         song = Song(path, rootDir=rootDir)
         if not song.isValid:
             msg = f'Song {path} is not valid'
@@ -306,6 +328,7 @@ class Bard:
 
         return song.id
 
+
     def addDirectoryRecursively(self, directory, verbose=False,
                                 removedSongsSHA256={}):
         if config.config['immutable_database']:
@@ -313,30 +336,28 @@ class Bard:
                   "The database is configured as immutable" % directory)
             return None
         songsIDs = []
-        for dirpath, dirnames, filenames in os.walk(directory, topdown=True):
-            if verbose:
-                print('New dir: %s' % dirpath)
-            filenames.sort()
-            dirnames.sort()
-            for filename in filenames:
-                if any(fnmatch.fnmatch(filename.lower(), pattern)
-                       for pattern in self.ignore_files):
-                    continue
+        if not directory.endswith('/'):
+            directory += '/'
+        for dirpath in sorted(self.songMTimeCache.keys()):
+            if not dirpath.startswith(directory):
+                continue
 
+            filenames_mtimes = self.songMTimeCache[dirpath]
+            #if verbose:
+            #    print('New dir: %s' % dirpath)
+            #filenames.sort()
+            for filename in sorted(filenames_mtimes.keys()):
+                mtime = filenames_mtimes[filename]
                 path = os.path.join(dirpath, filename)
                 id_ = self.addSong(path, rootDir=directory,
                                    removedSongsAudioSHA256=removedSongsSHA256,
-                                   commit=False, verbose=verbose)
+                                   mtime=mtime, commit=False, verbose=verbose)
                 if id_:
                     songsIDs.append(id_)
             MusicDatabase.commit()
 
-            for excludeDir in self.excludeDirectories:
-                try:
-                    dirnames.remove(excludeDir)
-                except ValueError:
-                    pass
         return songsIDs
+
 
     def add(self, args, verbose=False, removedSongsAudioSHA256={}):
         songsIDs = []
@@ -348,6 +369,8 @@ class Bard:
                     songsIDs.append(id_)
 
             elif os.path.isdir(arg):
+                if verbose:
+                    print('Adding directory recursively:', arg)
                 r = self.addDirectoryRecursively(os.path.normpath(arg),
                                                  verbose,
                                                  removedSongsAudioSHA256)
@@ -355,11 +378,37 @@ class Bard:
                     songsIDs.extend(r)
         return songsIDs
 
+    def cacheFiles(self, paths, verbose=False):
+        cache_by_dir = {}
+        mtime_cache = {}
+
+        for directory in paths:
+            for dirpath, direntries, fileentries in walktree(directory):
+                for entry in direntries[:]:
+                    if entry.name in self.excludeDirectories:
+                        direntries.remove(entry)
+
+                files_mtime = {}
+                for entry in fileentries:
+                    if any(fnmatch.fnmatch(entry.name.lower(), pattern)
+                           for pattern in self.ignore_files):
+                        continue
+
+                    files_mtime[entry.name] = entry.stat().st_mtime
+
+                mtime_cache[dirpath] = files_mtime
+
+        return mtime_cache
+
+
     def update(self, paths, verbose=False):
+        self.songMTimeCache = self.cacheFiles(paths, verbose)
+
         removedSongIDs = set()
         removedSongs = []
 
         def storeRemovedSongs(song):
+            #print('removed song:', song.path())
             if song.id not in removedSongIDs:
                 removedSongIDs.add(song.id)
                 removedSongs.append(song)
@@ -602,10 +651,16 @@ class Bard:
         for path in paths:
             songs = getSongsAtPath(path)
             for song in songs:
-                if not song.fileExists():
-                    if verbose:
-                        print('File not found: %s' % song.path())
-                    callback(song)
+                filepath = song.path()
+                try:
+                    if os.path.basename(filepath) in self.songMTimeCache[os.path.dirname(filepath)]:
+                        continue
+                except:
+                    pass
+
+                if verbose:
+                    print('File not found: %s' % filepath)
+                callback(song)
 
     def fixChecksums(self, from_song_id=None, removeMissingFiles=False):
         if from_song_id:
@@ -738,7 +793,7 @@ class Bard:
             mutagenFile = mutagen.File(path)
             fixTags(mutagenFile)
 
-            if (MusicDatabase.isSongInDatabase(path) and
+            if (MusicDatabase.isSongInDatabase(path) == 1 and
                not path.startswith('/tmp/')):
                 self.addSong(path)
 
