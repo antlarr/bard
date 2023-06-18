@@ -256,7 +256,10 @@ class MusicDatabase:
             name = config.config['database_name']
             user = config.config['database_user']
             password = config.config['database_password']
-            MusicDatabase.uri = f'{database}://{user}:{password}@/{name}'
+            host = config.config['database_host']
+            port = config.config['database_port']
+            port = f':{port}' if port else ''
+            MusicDatabase.uri = f'{database}://{user}:{password}@{host}{port}/{name}'
             MusicDatabase.like = 'ilike'
 
         MusicDatabase.engine = create_engine(MusicDatabase.uri)

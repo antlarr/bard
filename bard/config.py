@@ -41,6 +41,8 @@ def add_default_values(config):
         'use_ssl': False,
         'database': 'sqlite',
         'database_path': '~/.local/share/bard/music.db',
+        'database_host': '',
+        'database_port': '',
         'ssl_certificate_key_file': '~/.config/bard/certs/server.key',
         'ssl_certificate_chain_file': '~/.config/bard/certs/cert.pem',
         'enable_internal_checks': False,
