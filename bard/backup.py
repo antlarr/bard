@@ -26,7 +26,7 @@ def isAudioFormat(filename):
     filename = re.sub(r'(~|\.partial~?[0-9]*)$', '', filename)
     ext = os.path.splitext(filename)[1][1:].lower()
     return ext.strip('~') in ['mp3', 'flac', 'mp4', 'm4a', 'wv', 'ape', 'ogg',
-                              'asf', 'mpc', 'wma', 'vorbis']
+                              'asf', 'mpc', 'wma', 'vorbis', 'dsf']
 
 
 def parse_ssh_uri(uri):

@@ -64,12 +64,29 @@ void BufferDecodeOutput::init(int channels, enum AVSampleFormat sampleFmt, int64
     m_samplesCount = 0;
     m_bytesWritten = 0;
     m_samplesReserved = estimatedSamples;
+
     DecodeOutput::init(channels, sampleFmt, estimatedSamples, sampleRate);
+
+    int sample_size = av_get_bytes_per_sample(sampleFmt);
+    int64_t seconds = 60;
+    while (((int64_t)channels * m_samplesReserved > (INT_MAX - (1 * channels)) / sample_size) && seconds > 1)
+    {
+        // We won't have space for the whole audio, so let's reserve 60 seconds and it'll be dumped and adjusted as needed
+        m_samplesReserved = seconds * m_channelCount * m_sampleRate;
+        std::cout << "Info: samplesReserved adjusted to " << m_samplesReserved << "  sample rate: " << sampleRate <<  " (" << seconds << " seconds)" << std::endl;
+        seconds /= 2;
+    }
 
     int ret = av_samples_alloc_array_and_samples(&m_data, &m_lineSize, channels,
                                      m_samplesReserved, sampleFmt, 0);
     m_isValid = ret >= 0;
-    if (!m_isValid) return;
+    if (!m_isValid)
+    {
+        char errbuf[1024];
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        std::cout << "Error: BufferDecodeOutput::init returning not valid! " << errbuf << std::endl;
+        return;
+    }
 
     m_buffer = m_data[0];
 }
@@ -102,6 +119,12 @@ void BufferDecodeOutput::prepare(int samples)
                                                      newSamplesReserved, m_sampleFmt, 0);
         }
         m_isValid = ret >= 0;
+        if (!m_isValid)
+        {
+            char errbuf[1024];
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            std::cout << "Error: av_samples_alloc_array_and_samples returning not valid! " << errbuf << std::endl;
+        }
 
         m_data[0] = m_buffer;
         for (int ch = 1; m_isPlanar && ch < m_channelCount; ch++)

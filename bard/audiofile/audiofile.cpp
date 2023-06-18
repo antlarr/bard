@@ -384,6 +384,10 @@ void AudioFile::handleFrame(const AVFrame* frame)
             std::cout << "decode samples: " << frame->nb_samples << " -> " << dst_nb_samples << " . channel " << frame->channel_layout << std::endl;
 #endif
             uint8_t **buffer = m_output->getBuffer(dst_nb_samples);
+            if (!buffer)
+            {
+                std::cout << "buffer is NULL" << std::endl;
+            }
 #ifdef RESAMPLE
             int err = swr_convert(tmpSwrCtx? tmpSwrCtx : m_swrCtx, buffer, dst_nb_samples,
                                   (const uint8_t **)frame->extended_data, frame->nb_samples);
@@ -519,6 +523,11 @@ int AudioFile::decode()
 #else
     m_output->init(m_outChannelNumber, m_codecCtx->request_sample_fmt, estimatedSamples, m_codecCtx->sample_rate);
 #endif
+    if (!m_output->isValid())
+    {
+        fprintf(stderr, "Error initializing output\n");
+        return -2;
+    }
 
     m_frame = av_frame_alloc();
     if (m_frame == NULL) {
