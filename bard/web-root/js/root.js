@@ -94,6 +94,17 @@ function formatArtist(jq, artist_credit_id, artist_name)
 function formatArtist_from_song(jq, song, playlist_song_info)
 {
     formatArtist(jq, song['artist_credit_id'], song['artist_name']);
+    jq.on('contextmenu', { song_id: song['song_id'],
+                           artist_credit_id: song['artist_credit_id'],
+                           artist_name: song['artist_name'],
+                           playlist_song_info: playlist_song_info},
+           function(ev) {
+               console.log('artist');
+               console.log(ev.data);
+               bard.openPopupMenu(ev, "artist-song-context-menu");
+               ev.preventDefault();
+               ev.stopPropagation();
+           });
 }
 
 
@@ -293,6 +304,15 @@ function append_rows_to_table_of_songs(songs, table, uniquesuffix='0', playlistI
         var songid = 'song-'+i+'-'+uniquesuffix;
         var tmpPlaylistInfo = $.extend({index: i, track_position: song['track_position']},playlistInfo);
         var tr = $("<tr/>");
+        tr.on('contextmenu', { song_id: song['song_id'],
+                               playlist_song_info: tmpPlaylistInfo},
+               function(ev) {
+                   console.log('song');
+                   console.log(ev.data);
+                   bard.openPopupMenu(ev, "song-context-menu");
+                   ev.preventDefault();
+                   ev.stopPropagation();
+               });
         if (song['song_id'] == null)
         {
             tr.addClass('unavailableSong');
@@ -611,6 +631,46 @@ function Bard()
                 appendTo: object
             });
         }
+    }
+
+    this.openPopupMenu = function(ev, menu_name)
+    {
+        use_id = menu_name;
+        var menu = $('<ul/>');
+        menutext = '<li><div><span class="ui-icon ui-icon-disk"></span>Item 1</div></li><li>-</li>'
+        var ratings_submenu = $('<ul/>');
+
+        for (r = 10; r>=0 ; r--)
+        {
+            var div = $('<div/>');
+            div.css({ display: 'flex', height: '18px', 'flex-direction': 'row' });
+            div.append(r);
+            addStarRatings(div, r);
+            $('<li/>', {append: div, appendTo: ratings_submenu }).css({ display: 'contents'});
+        }
+        menutext += '</li>';
+        menu.html(menutext);
+        var ratings_option = $('<li/>');
+        ratings_option.html('<div>Ratings</div>');
+        ratings_option.append(ratings_submenu);
+       
+        menu.append(ratings_option);
+        container = $('#playlistContentUILayer');
+        target = container;
+        container.html(menu);
+        menu.menu({ classes: {'ui-menu': 'highlight'} });
+        menu.focus();
+        menu.css({ position:'relative',
+                   left: ev.originalEvent.pageX-target.position().left+'px',
+                   top: ev.originalEvent.pageY-target.position().top+'px',
+                   width: '10em' });
+        menu.on('keydown',  function (event) {
+            if (event.code == 'Escape') {
+                event.preventDefault();
+                menu.menu("destroy");
+                menu.remove();
+            }
+        });
     }
 };
 
