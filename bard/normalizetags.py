@@ -332,7 +332,9 @@ def normalizeTagValue(obj, mutagenFile, tag,  # noqa: C901
                              'license',
                              'catalognumber',
                              'style',
-                             'comment']):
+                             'comment',
+                             'ab:genre',
+                             'ab:mood']):
         return obj.text
 
     if isinstance(obj, (mutagen.id3.TRCK, mutagen.id3.TPOS)):
