@@ -14,6 +14,7 @@ from bard.album import albumPath
 from pydub import AudioSegment
 from pydub.exceptions import PydubException
 from sqlalchemy import text
+import sqlalchemy.engine.row
 from collections import namedtuple
 import sqlite3
 import os
@@ -56,9 +57,9 @@ class Ratings:
     def cache_all_ratings():
         """Load ALL ratings from all users/songs."""
         c = MusicDatabase.getCursor()
-        sql = ('SELECT user_id, song_id, rating '
-               '  FROM songs_ratings '
-               ' WHERE rating IS NOT NULL')
+        sql = text('SELECT user_id, song_id, rating '
+                   '  FROM songs_ratings '
+                   ' WHERE rating IS NOT NULL')
         result = c.execute(sql)
         Ratings.user_ratings = {}
         for user_id, song_id, rating in result.fetchall():
@@ -69,9 +70,9 @@ class Ratings:
                     Ratings.user_ratings[user_id] = {}
                     Ratings.user_ratings[user_id][song_id] = rating
 
-        sql = ('SELECT user_id, song_id, avg_rating '
-               '  FROM avg_songs_ratings '
-               ' WHERE avg_rating IS NOT NULL')
+        sql = text('SELECT user_id, song_id, avg_rating '
+                   '  FROM avg_songs_ratings '
+                   ' WHERE avg_rating IS NOT NULL')
         result = c.execute(sql)
         Ratings.avg_ratings = {}
         for user_id, song_id, rating in result.fetchall():
@@ -165,6 +166,9 @@ class Song:
         self.fingerprint = None
         self._decode_properties = None
         self.cuesheet = []
+        if isinstance(x, sqlalchemy.engine.row.Row) and hasattr(x, '_mapping'):
+            x = x._mapping
+
         if type(x) == sqlite3.Row or \
            hasattr(x, 'keys'):
             self.id = x['id']

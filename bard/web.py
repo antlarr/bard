@@ -711,6 +711,8 @@ def playlist_list():
         return None
     result = []
     for x in MusicDatabase.getPlaylistsForUser(current_user.userID):
+        if hasattr(x, '_mapping'):
+            x = x._mapping
         result.append({'id': x['id'],
                        'name': x['name'],
                        'type': x['playlist_type']})
@@ -728,9 +730,9 @@ def playlist_info():
     if not r:
         return {}
     r = r[0]
-    result = {'id': r['id'],
-              'name': r['name'],
-              'type': r['playlist_type']}
+    result = {'id': r.id,
+              'name': r.name,
+              'type': r.playlist_type}
     return jsonify(result)
 
 
@@ -775,8 +777,11 @@ def playlist_tracks():
         return None
 
     playlistID = request.args.get('id', type=int)
-    songs = MusicBrainzDatabase.get_playlist_songs_information_for_webui(
-        playlistID)
+    songs = [x._mapping if hasattr(x, '_mapping') else x
+             for x in MusicBrainzDatabase.get_playlist_songs_information_for_webui(
+        playlistID)]
+    for i, song in enumerate(songs):
+        print(i, song)
     song_ids = [song['song_id'] for song in songs]
     ratings = MusicDatabase.get_songs_ratings(song_ids, current_user.userID)
     result = [{'rating': ratings[song['song_id']],
@@ -793,7 +798,7 @@ def artist_credit_info():
     print('artistCredit: ', artistCreditID)
     result = MusicBrainzDatabase.get_artist_credit_info(artistCreditID)
 
-    result = [dict(x) for x in result]
+    result = [dict(x._mapping) for x in result]
     return jsonify(result)
 
 

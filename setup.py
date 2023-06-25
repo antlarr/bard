@@ -60,7 +60,7 @@ setup(
         "pydub",
         "numpy",
         "dbus-python",
-        "SQLAlchemy",
+        "SQLAlchemy >= 2.0",
         "SQLAlchemy-Utils",
         "alembic",
         "Werkzeug",

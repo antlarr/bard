@@ -624,7 +624,7 @@ class AnalysisDatabase:
     @staticmethod
     def lastSongIDWithAnalysis():
         c = MusicDatabase.getCursor()
-        sel = select([func.max(Highlevel.c.song_id)])
+        sel = select(func.max(Highlevel.c.song_id))
         result = c.execute(sel)
         x = result.fetchone()
         if x:
@@ -656,7 +656,7 @@ class AnalysisDatabase:
                 # print(col)
                 # print(values)
                 # print(parts)
-                parent[parts[-1]] = values[col]
+                parent[parts[-1]] = values._mapping[col]
 
                 # result[key] = values[col]
 

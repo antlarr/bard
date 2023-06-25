@@ -1455,7 +1455,6 @@ class Bard:
 
     def startWebServer(self):
         from bard.web import init_flask_app, app
-        from werkzeug.serving import run_simple
 
         MusicDatabase.table('users')
         context = None
@@ -1477,10 +1476,10 @@ class Bard:
         init_flask_app()
         hostname = config.config['hostname']
         port = config.config['port']
-        return run_simple(hostname, port, app,
-                          use_reloader=True, use_debugger=False,
-                          use_evalex=True, ssl_context=context,
-                          threaded=True)
+        app.run(hostname, port,
+                use_reloader=True, use_debugger=False,
+                use_evalex=True, ssl_context=context,
+                threaded=True)
 
     def setPassword(self, username):
         requestNewPassword(username)
@@ -1580,12 +1579,14 @@ class Bard:
         if verbose:
             print(f'Adding artist path {dirname} ({path_id}) for {mbids}...')
         if len(mbids) == 1:
-            artist_id = MusicBrainzDatabase.get_artist_id(mbids[0])
+            artist_id = MusicBrainzDatabase.get_artist_id(mbids[0],
+                connection=connection)
             if artist_id:
                 MusicBrainzDatabase.set_artist_path(artist_id, path_id,
                                                     connection=connection)
 
-        artist_credit_ids = MusicBrainzDatabase.get_artist_credit_ids(mbids)
+        artist_credit_ids = MusicBrainzDatabase.get_artist_credit_ids(mbids,
+            connection=connection)
 
         if artist_credit_ids:
             (MusicBrainzDatabase.set_artist_credit_path(artist_credit_ids,

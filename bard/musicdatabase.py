@@ -10,7 +10,8 @@ from bard.db.core import AlbumProperties, AlbumSongs, AlbumRelease, SongsMB, \
     DecodeMessages, DecodeProperties, Users, Albums
 from bard.db.musicbrainz import Release
 import sqlalchemy
-from sqlalchemy import create_engine, text, select, and_, or_, exists, func
+from sqlalchemy import create_engine, text, select, and_, or_, exists, func, \
+    inspect
 from sqlalchemy.schema import CreateSchema
 from sqlalchemy.orm import Session
 from sqlalchemy.event import listen
@@ -279,7 +280,8 @@ class MusicDatabase:
             alembic_path = str(path)
         alembic_cfg.set_main_option('script_location', alembic_path)
 
-        if not MusicDatabase.engine.has_table('cuesheets'):
+        insp = inspect(MusicDatabase.engine)
+        if not insp.has_table('cuesheets'):
             print('Tables missing. Creating database schema and tables.')
             self.createDatabase(alembic_cfg)
 
@@ -630,20 +632,20 @@ class MusicDatabase:
             sql = text('DELETE FROM covers where path = :path')
             c.execute(sql.bindparams(path=song.path()))
         params = {'id': byID}
-        c.execute('DELETE FROM checksums where song_id=:id', params)
-        c.execute('DELETE FROM fingerprints where song_id=:id', params)
-        c.execute('DELETE FROM tags where song_id=:id', params)
-        c.execute('DELETE FROM properties where song_id=:id', params)
-        c.execute('DELETE FROM songs_ratings where song_id=:id', params)
-        c.execute('DELETE FROM album_songs where song_id=:id', params)
-        c.execute('DELETE FROM songs where id=:id', params)
+        c.execute(text('DELETE FROM checksums where song_id=:id').bindparams(**params))
+        c.execute(text('DELETE FROM fingerprints where song_id=:id').bindparams(**params))
+        c.execute(text('DELETE FROM tags where song_id=:id').bindparams(**params))
+        c.execute(text('DELETE FROM properties where song_id=:id').bindparams(**params))
+        c.execute(text('DELETE FROM songs_ratings where song_id=:id').bindparams(**params))
+        c.execute(text('DELETE FROM album_songs where song_id=:id').bindparams(**params))
+        c.execute(text('DELETE FROM songs where id=:id').bindparams(**params))
         MusicDatabase.commit()
 
     @staticmethod
     def getSongsCount():
         c = MusicDatabase.getCursor()
 
-        result = c.execute('SELECT COUNT(*) FROM songs')
+        result = c.execute(text('SELECT COUNT(*) FROM songs'))
         count = result.fetchone()
         return count[0]
 
@@ -652,11 +654,11 @@ class MusicDatabase:
         c = MusicDatabase.getCursor()
 
         like = MusicDatabase.like
-        result = c.execute(f"""SELECT COUNT(*) FROM tags where
+        result = c.execute(text(f"""SELECT COUNT(*) FROM tags where
    name {like} '%%musicbrainz_trackid'
 or name {like} 'UFID:http://musicbrainz.org'
 or name {like} '%%MusicBrainz Track Id'
-or name {like} '%%MusicBrainz/Track Id'""")
+or name {like} '%%MusicBrainz/Track Id'"""))
         count = result.fetchone()
         return count[0]
 
@@ -700,14 +702,14 @@ or name {like} '%%MusicBrainz/Track Id'""")
     def songIDsWithoutFingerprints(cls):
         c = MusicDatabase.getCursor()
         sql = 'SELECT song_id FROM fingerprints WHERE fingerprint IS NULL'
-        result = c.execute(sql)
+        result = c.execute(text(sql))
         return [x[0] for x in result.fetchall()]
 
     @classmethod
     def prepareCache(cls):
         c = MusicDatabase.getCursor()
         if not cls.mtime_cache_by_path:
-            result = c.execute('SELECT mtime, path, id FROM songs')
+            result = c.execute(text('SELECT mtime, path, id FROM songs'))
             for x in result.fetchall():
                 mtime, path, id = x
                 mtime = float(mtime)
@@ -770,7 +772,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
         if readProperties:
             properties = MusicDatabase.getSongsProperties(ids)
         c = MusicDatabase.getCursor()
-        sel = (select([Tags.c.song_id, Tags.c.name, Tags.c.value])
+        sel = (select(Tags.c.song_id, Tags.c.name, Tags.c.value)
                .where(Tags.c.song_id.in_(ids))
                .order_by(Tags.c.song_id, Tags.c.pos))
         result = c.execute(sel)
@@ -816,17 +818,19 @@ or name {like} '%%MusicBrainz/Track Id'""")
             ids = [int(songID) for songID in songIDs]
         ids = tuple(ids)
         c = MusicDatabase.getCursor()
-        sel = (select([Properties.c.song_id, Properties.c.format,
+        sel = (select(Properties.c.song_id, Properties.c.format,
                        Properties.c.duration, Properties.c.bitrate,
                        Properties.c.bits_per_sample, Properties.c.sample_rate,
                        Properties.c.channels, Properties.c.audio_sha256sum,
                        Properties.c.silence_at_start,
-                       Properties.c.silence_at_end])
+                       Properties.c.silence_at_end)
                .where(Properties.c.song_id.in_(ids)))
         result = c.execute(sel)
 
         r = {}
         for row in result.fetchall():
+            if hasattr(row, '_mapping'):
+                row = row._mapping
             try:
                 info = type('info', (), {})()
                 songID = row['song_id']
@@ -859,10 +863,10 @@ or name {like} '%%MusicBrainz/Track Id'""")
         ids = tuple(ids)
         c = MusicDatabase.getCursor()
 
-        sel = (select([DecodeMessages.c.song_id,
+        sel = (select(DecodeMessages.c.song_id,
                        DecodeMessages.c.time_position,
                        DecodeMessages.c.level,
-                       DecodeMessages.c.message])
+                       DecodeMessages.c.message)
                .where(DecodeMessages.c.song_id.in_(ids))
                .order_by(DecodeMessages.c.song_id, DecodeMessages.c.pos))
         result = c.execute(sel)
@@ -876,7 +880,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
             except KeyError:
                 messages[row['song_id']] = [dm]
 
-        sel = (select([DecodeProperties.c.song_id,
+        sel = (select(DecodeProperties.c.song_id,
                        DecodeProperties.c.codec,
                        DecodeProperties.c.format,
                        DecodeProperties.c.container_duration,
@@ -887,7 +891,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
                        DecodeProperties.c.stream_bits_per_raw_sample,
                        DecodeProperties.c.decoded_sample_format,
                        DecodeProperties.c.samples,
-                       DecodeProperties.c.library_versions])
+                       DecodeProperties.c.library_versions)
                .where(DecodeProperties.c.song_id.in_(ids)))
         result = c.execute(sel)
 
@@ -1147,8 +1151,8 @@ or name {like} '%%MusicBrainz/Track Id'""")
         else:
             condition = re.match(r'[0-9<>= .]*', condition).group()
         c = MusicDatabase.getCursor()
-        sql = ('SELECT song_id1, song_id2, match_offset, similarity '
-               'FROM similarities WHERE similarity %s' % condition)
+        sql = text('SELECT song_id1, song_id2, match_offset, similarity '
+                   'FROM similarities WHERE similarity %s' % condition)
         result = c.execute(sql)
         pairs = []
         for songid1, songid2, offset, similarity in result.fetchall():
@@ -1168,7 +1172,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
             conditions.append(or_(*subcond))
             conditions.append(Tags.c.song_id == Songs.c.id)
 
-        sel = (select([Tags.c.value, func.count().label('c')])
+        sel = (select(Tags.c.value, func.count().label('c'))
                .where(and_(or_(func.lower(Tags.c.name) == 'genre',
                                Tags.c.name == 'TCON'),
                            *conditions))
@@ -1239,7 +1243,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
 
     @staticmethod
     def lastSongID():
-        sql = 'select max(id) from songs'
+        sql = text('select max(id) from songs')
         c = MusicDatabase.getCursor()
         result = c.execute(sql)
         x = result.fetchone()
@@ -1249,7 +1253,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
 
     @staticmethod
     def lastSongIDWithCalculatedSimilarities():
-        sql = 'select max(song_id2) from similarities'
+        sql = text('select max(song_id2) from similarities')
         c = MusicDatabase.getCursor()
         result = c.execute(sql)
         x = result.fetchone()
@@ -1259,7 +1263,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
 
     @staticmethod
     def getRoots():
-        sql = 'select root, count(*) from songs group by root order by root'
+        sql = text('select root, count(*) from songs group by root order by root')
         c = MusicDatabase.getCursor()
         result = c.execute(sql)
         return [(x[0], x[1]) for x in result.fetchall()]
@@ -1346,11 +1350,13 @@ or name {like} '%%MusicBrainz/Track Id'""")
         if wherestatement is None:
             wherestatement = (table.c.id == recorddict['id'])
 
-        dbRecord = table.select(wherestatement)
+        dbRecord = table.select().where(wherestatement)
         if not connection:
             connection = MusicDatabase.getCursor()
         dbRecord = connection.execute(dbRecord).fetchone()
         if dbRecord:
+            if hasattr(dbRecord,'_mapping'):
+                dbRecord = dbRecord._mapping
             if any(dbRecord[k] != recorddict[k]
                    for k in [c.name for c in table.columns]
                    if k in recorddict):
@@ -1385,12 +1391,14 @@ or name {like} '%%MusicBrainz/Track Id'""")
         return [(x[0], x[1]) for x in result.fetchall()]
 
     @staticmethod
-    def getRecordingMBID(song_id):
+    def getRecordingMBID(song_id, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         mb = MusicDatabase.table('songs_mb')
         try:
-            return (select([mb.c.recordingid])
-                    .where(mb.c.song_id == song_id)
-                    .execute().fetchone()[0])
+            stm = (select(mb.c.recordingid)
+                    .where(mb.c.song_id == song_id))
+            return connection.execute(stm).fetchone()[0]
         except (ValueError, KeyError):
             return None
 
@@ -1551,18 +1559,18 @@ or name {like} '%%MusicBrainz/Track Id'""")
                    'min_sample_rate', 'max_sample_rate',
                    'min_channels', 'max_channels']
         album_properties_s = (select(
-            [AlbumSongs.c.album_id,
-             Properties.c.format,
-             func.min(Properties.c.bitrate).label('min_bitrate'),
-             func.max(Properties.c.bitrate).label('max_bitrate'),
-             func.min(Properties.c.bits_per_sample).label(
-                 'min_bits_per_sample'),
-             func.max(Properties.c.bits_per_sample).label(
-                 'max_bits_per_sample'),
-             func.min(Properties.c.sample_rate).label('min_sample_rate'),
-             func.max(Properties.c.sample_rate).label('max_sample_rate'),
-             func.min(Properties.c.channels).label('min_channels'),
-             func.max(Properties.c.channels).label('max_channels')])
+            AlbumSongs.c.album_id,
+            Properties.c.format,
+            func.min(Properties.c.bitrate).label('min_bitrate'),
+            func.max(Properties.c.bitrate).label('max_bitrate'),
+            func.min(Properties.c.bits_per_sample).label(
+                'min_bits_per_sample'),
+            func.max(Properties.c.bits_per_sample).label(
+                'max_bits_per_sample'),
+            func.min(Properties.c.sample_rate).label('min_sample_rate'),
+            func.max(Properties.c.sample_rate).label('max_sample_rate'),
+            func.min(Properties.c.channels).label('min_channels'),
+            func.max(Properties.c.channels).label('max_channels'))
             .where(AlbumSongs.c.song_id == Properties.c.song_id)
             .group_by(AlbumSongs.c.album_id, Properties.c.format))
         insert = AlbumProperties.insert().from_select(columns,
@@ -1576,11 +1584,11 @@ or name {like} '%%MusicBrainz/Track Id'""")
     def refresh_album_release():
         delete = AlbumRelease.delete()
         album_release_s = (select(
-            [AlbumSongs.c.album_id,
-             Release.c.id.label('release_id')])
+            AlbumSongs.c.album_id,
+             Release.c.id.label('release_id'))
             .select_from(SongsMB)
             .where(and_(
-                ~exists(select([AlbumRelease.c.album_id]).where(
+                ~exists(select(AlbumRelease.c.album_id).where(
                     AlbumRelease.c.album_id == AlbumSongs.c.album_id)),
                 SongsMB.c.releaseid == Release.c.mbid,
                 SongsMB.c.song_id == AlbumSongs.c.song_id))
@@ -1597,26 +1605,28 @@ or name {like} '%%MusicBrainz/Track Id'""")
         if not song_ids:
             return {}
         c = MusicDatabase.getCursor()
-        sel = (select([SongsRatings.c.song_id, SongsRatings.c.rating])
+        sel = (select(SongsRatings.c.song_id, SongsRatings.c.rating)
                .where(and_(SongsRatings.c.user_id == user_id,
                            SongsRatings.c.song_id.in_(song_ids),
                            SongsRatings.c.rating.isnot(None))))
         r = c.execute(sel)
 
-        result = {row['song_id']: (row['rating'], 'user')
+#        result = {row['song_id']: (row['rating'], 'user')
+#                  for row in r.fetchall()}
+        result = {row.song_id: (row.rating, 'user')
                   for row in r.fetchall()}
 
         rem_song_ids = tuple(x for x in song_ids if x not in result.keys())
 
         if rem_song_ids:
-            sel = (select([AvgSongsRatings.c.song_id,
-                           AvgSongsRatings.c.avg_rating])
+            sel = (select(AvgSongsRatings.c.song_id,
+                           AvgSongsRatings.c.avg_rating)
                    .where(and_(AvgSongsRatings.c.user_id == user_id,
                                AvgSongsRatings.c.song_id.in_(rem_song_ids),
                                AvgSongsRatings.c.avg_rating.isnot(None))))
             r = c.execute(sel)
 
-            result.update({row['song_id']: (float(row['avg_rating']), 'avg')
+            result.update({row.song_id: (float(row.avg_rating), 'avg')
                            for row in r.fetchall()})
 
             rem_song_ids = tuple(x for x in rem_song_ids
@@ -1631,7 +1641,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
         if not album_ids:
             return {}
         c = MusicDatabase.getCursor()
-        sel = (select([AlbumsRatings.c.album_id, AlbumsRatings.c.rating])
+        sel = (select(AlbumsRatings.c.album_id, AlbumsRatings.c.rating)
                .where(and_(AlbumsRatings.c.user_id == user_id,
                            AlbumsRatings.c.album_id.in_(album_ids))))
 
@@ -1644,8 +1654,8 @@ or name {like} '%%MusicBrainz/Track Id'""")
         if not rem_album_ids:
             return result
 
-        sel = (select([AlbumsRatings.c.album_id,
-                       func.avg(AlbumsRatings.c.rating).label('avgrating')])
+        sel = (select(AlbumsRatings.c.album_id,
+                       func.avg(AlbumsRatings.c.rating).label('avgrating'))
                .where(and_(AlbumsRatings.c.user_id != user_id,
                            AlbumsRatings.c.album_id.in_(rem_album_ids)))
                .group_by(AlbumsRatings.c.album_id))
@@ -1703,7 +1713,7 @@ or name {like} '%%MusicBrainz/Track Id'""")
                    '     (song_id, user_id, rating) '
                    '     VALUES (:song_id, :user_id, NULL) '
                    ' ON CONFLICT DO NOTHING')
-        result = c.execute('SELECT id FROM songs order by id')
+        result = c.execute(text('SELECT id FROM songs order by id'))
         song_ids = [x[0] for x in result.fetchall()]
         for song_id in song_ids:
             if song_id < from_song_id:

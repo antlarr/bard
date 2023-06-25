@@ -38,7 +38,7 @@ class PlaylistManager:
             result = c.execute(text(statement))
 
         pltype = {1: Playlist, 4: GeneratedPlaylist}
-        return [pltype[x['playlist_type']](db_row=x)
+        return [pltype[x.playlist_type](db_row=x)
                 for x in result.fetchall()]
 
     @staticmethod

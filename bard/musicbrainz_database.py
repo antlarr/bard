@@ -160,11 +160,11 @@ class MusicBrainzDatabase:
     @staticmethod
     def songTags(songIDs=None, *, connection):
         if songIDs:
-            sel = (select([Tags.c.song_id, Tags.c.name, Tags.c.value])
+            sel = (select(Tags.c.song_id, Tags.c.name, Tags.c.value)
                    .where(Tags.c.song_id.in_(songIDs))
                    .order_by(Tags.c.song_id, Tags.c.pos))
         else:
-            sel = (select([Tags.c.song_id, Tags.c.name, Tags.c.value])
+            sel = (select(Tags.c.song_id, Tags.c.name, Tags.c.value)
                    .order_by(Tags.c.song_id, Tags.c.pos))
         result = connection.execute(sel)
         tags = {}
@@ -190,12 +190,12 @@ class MusicBrainzDatabase:
             return
         songs_mb_artistids = table('songs_mb_artistids')
 
-        s = select([songs_mb_artistids.c.artistid]) \
+        s = select(songs_mb_artistids.c.artistid) \
             .where(songs_mb_artistids.c.song_id == song_id)
 
         result = connection.execute(s).fetchall()
 
-        if set(artistIDs) == set(x['artistid'] for x in result):
+        if set(artistIDs) == set(x.artistid for x in result):
             return
 
         d = songs_mb_artistids.delete() \
@@ -212,12 +212,12 @@ class MusicBrainzDatabase:
             return
         songs_mb_albumartistids = table('songs_mb_albumartistids')
 
-        s = select([songs_mb_albumartistids.c.albumartistid]) \
+        s = select(songs_mb_albumartistids.c.albumartistid) \
             .where(songs_mb_albumartistids.c.song_id == song_id)
 
         result = connection.execute(s).fetchall()
 
-        if set(albumArtistIDs) == set(x['albumartistid'] for x in result):
+        if set(albumArtistIDs) == set(x.albumartistid for x in result):
             return
 
         d = songs_mb_albumartistids.delete() \
@@ -234,12 +234,12 @@ class MusicBrainzDatabase:
             return
         songs_mb_workids = table('songs_mb_workids')
 
-        s = select([songs_mb_workids.c.workid]) \
+        s = select(songs_mb_workids.c.workid) \
             .where(songs_mb_workids.c.song_id == song_id)
 
         result = connection.execute(s).fetchall()
 
-        if set(workIDs) == set(x['workid'] for x in result):
+        if set(workIDs) == set(x.workid for x in result):
             return
 
         d = songs_mb_workids.delete() \
@@ -260,14 +260,14 @@ class MusicBrainzDatabase:
         MusicBrainzDatabase.insertMBWorkIDs(song_id, mbIDs.workids,
                                             connection=connection)
         songs_mb = table('songs_mb')
-        mbTagRecord = songs_mb.select(songs_mb.c.song_id == song_id)
+        mbTagRecord = songs_mb.select().where(songs_mb.c.song_id == song_id)
         mbTagRecord = connection.execute(mbTagRecord).fetchone()
         if mbTagRecord:
-            if (mbTagRecord['releasegroupid'] != mbIDs.releasegroupid or
-                mbTagRecord['releaseid'] != mbIDs.releaseid or
-                mbTagRecord['releasetrackid'] != mbIDs.releasetrackid or
-                mbTagRecord['recordingid'] != mbIDs.recordingid or
-                    mbTagRecord['confirmed'] != mbIDs.confirmed):
+            if (mbTagRecord.releasegroupid != mbIDs.releasegroupid or
+                mbTagRecord.releaseid != mbIDs.releaseid or
+                mbTagRecord.releasetrackid != mbIDs.releasetrackid or
+                mbTagRecord.recordingid != mbIDs.recordingid or
+                    mbTagRecord.confirmed != mbIDs.confirmed):
                 print(f'update mb data for {song_id}')
                 u = songs_mb.update() \
                             .where(songs_mb.c.song_id == song_id) \
@@ -387,17 +387,17 @@ class MusicBrainzDatabase:
         """Return all artists (used by the mb importer)."""
         songs_mb_artistids = table('songs_mb_artistids')
 
-        s = select([songs_mb_artistids.c.artistid]).distinct()
+        s = select(songs_mb_artistids.c.artistid).distinct()
 
         result_artists = MusicDatabase.execute(s).fetchall()
-        s1 = set(x['artistid'] for x in result_artists)
+        s1 = set(x.artistid for x in result_artists)
 
         songs_mb_albumartistids = table('songs_mb_albumartistids')
 
-        s = select([songs_mb_albumartistids.c.albumartistid]).distinct()
+        s = select(songs_mb_albumartistids.c.albumartistid).distinct()
 
         result_albumartists = MusicDatabase.execute(s).fetchall()
-        r = s1.union(x['albumartistid'] for x in result_albumartists)
+        r = s1.union(x.albumartistid for x in result_albumartists)
         return r
 
     @staticmethod
@@ -407,7 +407,7 @@ class MusicBrainzDatabase:
 
         songs_mb = table('songs_mb')
 
-        s = select([getattr(songs_mb.c, column)]).distinct()
+        s = select(getattr(songs_mb.c, column)).distinct()
 
         result = MusicDatabase.execute(s).fetchall()
         r = set(x[column] for x in result)
@@ -439,10 +439,10 @@ class MusicBrainzDatabase:
     def get_all_works():
         songs_mb_workids = table('songs_mb_workids')
 
-        s = select([songs_mb_workids.c.workid]).distinct()
+        s = select(songs_mb_workids.c.workid).distinct()
 
         result = MusicDatabase.execute(s).fetchall()
-        return set(x['workid'] for x in result)
+        return set(x.workid for x in result)
 
     @staticmethod
     def get_range_artists(offset=0, page_size=500, metadata=False,
@@ -458,18 +458,18 @@ class MusicBrainzDatabase:
             rel = table('musicbrainz.release')
             songs_mb = table('songs_mb')
             tables_to_get_artists_from = [
-                select([rg.c.artist_credit_id]).where(rg.c.mbid.in_(
-                    select([songs_mb.c.releasegroupid]))),
-                select([rel.c.artist_credit_id]).where(rel.c.mbid.in_(
-                    select([songs_mb.c.releaseid])))]
+                select(rg.c.artist_credit_id).where(rg.c.mbid.in_(
+                    select(songs_mb.c.releasegroupid))),
+                select(rel.c.artist_credit_id).where(rel.c.mbid.in_(
+                    select(songs_mb.c.releaseid)))]
             if artist_filter == 'main+':
                 rec = table('musicbrainz.recording')
                 tables_to_get_artists_from.append(
-                    select([rec.c.artist_credit_id]).where(rec.c.mbid.in_(
-                        select([songs_mb.c.recordingid]))))
+                    select(rec.c.artist_credit_id).where(rec.c.mbid.in_(
+                        select(songs_mb.c.recordingid))))
 
             main_artist_ids = \
-                (select([distinct(acn.c.artist_id)])
+                (select(distinct(acn.c.artist_id))
                  .where(acn.c.artist_credit_id.in_(
                         union(*tables_to_get_artists_from))))
             qfilter = and_(artist.c.id.in_(main_artist_ids),
@@ -477,11 +477,11 @@ class MusicBrainzDatabase:
         else:
             qfilter = (artist.c.id == artists_mb.c.id)
 
-        s = (select([artist.c.id, artist.c.mbid, artist.c.name,
+        s = (select(artist.c.id, artist.c.mbid, artist.c.name,
                     artist.c.artist_type, artist.c.area_id, artist.c.gender,
                     artist.c.disambiguation,
                     artists_mb.c.locale_name, artists_mb.c.locale_sort_name,
-                    artist_paths.c.path, artist_paths.c.image_filename])
+                    artist_paths.c.path, artist_paths.c.image_filename)
              .select_from(j)
              .where(qfilter)
              .order_by(artists_mb.c.locale_name)
@@ -519,21 +519,21 @@ class MusicBrainzDatabase:
     def cacheMusicBrainzDB():
         artist = table('musicbrainz.artist')
         aa = table('musicbrainz.artist_alias')
-        s = select([artist.c.id, artist.c.mbid, artist.c.name,
+        s = select(artist.c.id, artist.c.mbid, artist.c.name,
                     artist.c.sort_name, artist.c.artist_type, artist.c.area_id,
-                    artist.c.gender, artist.c.disambiguation])
+                    artist.c.gender, artist.c.disambiguation)
         locales = config.config['preferred_locales']
         c = MusicDatabase.getCursor()
-        artists = {a['id']: a for a in c.execute(s).fetchall()}
+        artists = {a.id: a for a in c.execute(s).fetchall()}
 
-        s = (select([aa.c.artist_id, aa.c.name, aa.c.sort_name, aa.c.locale,
-                     aa.c.artist_alias_type, aa.c.primary_for_locale])
+        s = (select(aa.c.artist_id, aa.c.name, aa.c.sort_name, aa.c.locale,
+                     aa.c.artist_alias_type, aa.c.primary_for_locale)
              .where(and_(aa.c.artist_id.in_(artists.keys()),
                          aa.c.locale.in_(locales))))
         current = {}
         aliases = {}
         for x in c.execute(s).fetchall():
-            aliases.setdefault(x['artist_id'], []).append(x)
+            aliases.setdefault(x.artist_id, []).append(x)
 
         percentage = Percentage()
         percentage.max_value = len(artists)
@@ -613,17 +613,17 @@ union select rel.artist_credit_id
         return os.path.join(r[0], r[1])
 
     @staticmethod
-    def get_artist_info(*, artistID=None, artistMBID=None):
+    def get_artist_info(*, artistID=None, artistMBID=None, connection=None):
         artist = table('musicbrainz.artist')
         artists_mb = table('artists_mb')
         artist_paths = table('artist_paths')
         j = (artists_mb.join(artist_paths,
              artists_mb.c.artist_path_id == artist_paths.c.id, isouter=True))
-        s = (select([artist.c.id, artist.c.mbid, artist.c.name,
+        s = (select(artist.c.id, artist.c.mbid, artist.c.name,
                     artist.c.artist_type, artist.c.area_id, artist.c.gender,
                     artist.c.disambiguation,
                     artists_mb.c.locale_name, artists_mb.c.locale_sort_name,
-                    artist_paths.c.path, artist_paths.c.image_filename])
+                    artist_paths.c.path, artist_paths.c.image_filename)
              .select_from(j))
         if artistMBID:
             s = s.where(and_(artist.c.id == artists_mb.c.id,
@@ -632,38 +632,44 @@ union select rel.artist_credit_id
             s = s.where(and_(artist.c.id == artists_mb.c.id,
                              artist.c.id == artistID))
 
-        return MusicDatabase.execute(s).fetchone()
+        return connection.execute(s).fetchone()
 
     @staticmethod
-    def get_artist_id(mbid):
+    def get_artist_id(mbid, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         artist = table('musicbrainz.artist')
-        s = select([artist.c.id]).where(artist.c.mbid == mbid)
+        s = select(artist.c.id).where(artist.c.mbid == mbid)
 
-        r = MusicDatabase.execute(s).fetchone()
+        r = connection.execute(s).fetchone()
         return r[0] if r else None
 
     @staticmethod
-    def get_artists_info(artistIDs):
+    def get_artists_info(artistIDs, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         artist = table('musicbrainz.artist')
         artists_mb = table('artists_mb')
         artist_paths = table('artist_paths')
         j = (artists_mb.join(artist_paths,
              artists_mb.c.artist_path_id == artist_paths.c.id, isouter=True))
-        s = (select([artist.c.id, artist.c.mbid, artist.c.name,
+        s = (select(artist.c.id, artist.c.mbid, artist.c.name,
                     artist.c.artist_type, artist.c.area_id, artist.c.gender,
                     artist.c.disambiguation,
                     artists_mb.c.locale_name, artists_mb.c.locale_sort_name,
-                    artist_paths.c.path, artist_paths.c.image_filename])
+                    artist_paths.c.path, artist_paths.c.image_filename)
              .select_from(j)
              .where(and_(artist.c.id == artists_mb.c.id,
                          artist.c.id.in_(artistIDs))))
-        return MusicDatabase.execute(s).fetchall()
+        return connection.execute(s).fetchall()
 
     @staticmethod
-    def get_artist_aliases(artistID, locales=None, only_primary=False):
+    def get_artist_aliases(artistID, locales=None, only_primary=False, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         alias = table('musicbrainz.artist_alias')
-        s = (select([alias.c.name, alias.c.sort_name, alias.c.locale,
-                     alias.c.artist_alias_type, alias.c.primary_for_locale])
+        s = (select(alias.c.name, alias.c.sort_name, alias.c.locale,
+                     alias.c.artist_alias_type, alias.c.primary_for_locale)
              .where(alias.c.artist_id == artistID)
              .order_by(alias.c.locale)
              .order_by(desc(alias.c.primary_for_locale)))
@@ -673,7 +679,7 @@ union select rel.artist_credit_id
             s = s.where(alias.c.locale.in_(locales))
         if only_primary:
             s = s.where(alias.c.primary_for_locale.is_(True))
-        return MusicDatabase.execute(s).fetchall()
+        return connection.execute(s).fetchall()
 
     @staticmethod
     def get_artist_release_groups(artistID):
@@ -787,30 +793,30 @@ union select rel.artist_credit_id
         result2 = []
         ids = []
         for x in r:
-            if x['entity0'] != artistID:
-                ids.append(x['entity0'])
-            if x['entity1'] != artistID:
-                ids.append(x['entity1'])
+            if x.entity0 != artistID:
+                ids.append(x.entity0)
+            if x.entity1 != artistID:
+                ids.append(x.entity1)
 
-        artists = {x['id']: dict(x)
+        artists = {x.id: x._mapping  # dict(x._mapping) ? (2023/05/31)
                    for x in MusicBrainzDatabase.get_artists_info(ids)}
         # print(artists)
 
         for x in r:
-            begin_date = (x['begin_date_year'],
-                          x['begin_date_month'],
-                          x['begin_date_day'])
-            end_date = (x['end_date_year'],
-                        x['end_date_month'],
-                        x['end_date_day'])
-            attrs = MusicBrainzDatabase.get_link_attributes(x['link_id'])
-            if x['entity0'] != artistID:
-                result1.append((artists[x['entity0']], begin_date, end_date,
-                                [x['name'] for x in attrs] if attrs else None))
+            begin_date = (x.begin_date_year,
+                          x.begin_date_month,
+                          x.begin_date_day)
+            end_date = (x.end_date_year,
+                        x.end_date_month,
+                        x.end_date_day)
+            attrs = MusicBrainzDatabase.get_link_attributes(x.link_id)
+            if x.entity0 != artistID:
+                result1.append((artists[x.entity0], begin_date, end_date,
+                                [x.name for x in attrs] if attrs else None))
                 # print('###', x)
-            if x['entity1'] != artistID:
-                result2.append((artists[x['entity1']], begin_date, end_date,
-                                [x['name'] for x in attrs] if attrs else None))
+            if x.entity1 != artistID:
+                result2.append((artists[x.entity1], begin_date, end_date,
+                                [x.name for x in attrs] if attrs else None))
                 # print('   ', x)
 
         # print('->', result1)
@@ -828,16 +834,18 @@ union select rel.artist_credit_id
         return MBD.get_artist_artist_relationship('collaboration', artistID)
 
     @staticmethod
-    def get_release_group_info(rgID):
+    def get_release_group_info(rgID, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         rg = table('musicbrainz.release_group')
         ac = table('musicbrainz.artist_credit')
-        s = (select([rg.c.id, rg.c.mbid, rg.c.name,
+        s = (select(rg.c.id, rg.c.mbid, rg.c.name,
                     rg.c.disambiguation,
                     rg.c.release_group_type, rg.c.artist_credit_id,
-                    ac.c.name.label('artist_name')])
+                    ac.c.name.label('artist_name'))
              .where(and_(rg.c.artist_credit_id == ac.c.id,
                          rg.c.id == rgID)))
-        return MusicDatabase.execute(s).fetchone()
+        return connection.execute(s).fetchone()
 
     @staticmethod
     def get_release_group_secondary_types(rgID):
@@ -903,9 +911,9 @@ union select rel.artist_credit_id
     def get_release_mediums(releaseID):
         m = table('musicbrainz.medium')
         emfv = table('musicbrainz.enum_medium_format_values')
-        s = (select([m.c.id, m.c.release_id, m.c.position,
+        s = (select(m.c.id, m.c.release_id, m.c.position,
                      emfv.c.name.label('format_name'),
-                     m.c.name])
+                     m.c.name)
              .where(and_(m.c.format == emfv.c.id_value,
                          m.c.release_id == releaseID))
              .order_by(m.c.position))
@@ -948,7 +956,7 @@ union select rel.artist_credit_id
     def get_release_label(releaseID):
         rl = table('musicbrainz.release_label')
         label = table('musicbrainz.label')
-        s = (select([label.c.name.label('label_name'), rl.c.catalog_number])
+        s = (select(label.c.name.label('label_name'), rl.c.catalog_number)
              .where(and_(rl.c.label_id == label.c.id,
                          rl.c.release_id == releaseID)))
         return MusicDatabase.execute(s).fetchall()
@@ -964,7 +972,7 @@ union select rel.artist_credit_id
                    '                \'uselabel\') '
                    ' group by name, value')
         r = c.execute(sql, {'albumID': release['album_id']})
-        album = {x['name']: x['value'] for x in r.fetchall()}
+        album = {x.name: x.value for x in r.fetchall()}
         # print(release, album)
         try:
             usereleasecomment = int(album['usereleasecomment'])
@@ -979,7 +987,7 @@ union select rel.artist_credit_id
                 result.append(release['disambiguation'])
         elif usereleasecomment == 3:
             rg = MusicBrainzDatabase.get_release_group_info(
-                release['release_group_id'])
+                release['release_group_id'], connection=c)
             if rg['disambiguation']:
                 result.append(rg['disambiguation'])
 
@@ -1052,7 +1060,7 @@ union select rel.artist_credit_id
                    Track.c.is_data_track,
                    (Track.c.length / 1000).label('duration')]
 
-        sel = (select(columns)
+        sel = (select(*columns)
                .where(and_(AlbumRelease.c.release_id == Medium.c.release_id,
                            Medium.c.id == Track.c.medium_id,
                            AlbumRelease.c.album_id == albumID,
@@ -1106,7 +1114,7 @@ union select rel.artist_credit_id
                    Properties.c.channels,
                    *query.columns]
 
-        sel = (select(columns)
+        sel = (select(*columns)
                .where(and_(AlbumRelease.c.release_id == Medium.c.release_id,
                            AlbumRelease.c.release_id == Release.c.id,
                            Medium.c.id == Track.c.medium_id,
@@ -1125,7 +1133,7 @@ union select rel.artist_credit_id
             sel = sel.offset(query.offset)
         # print(sel)
         result = c.execute(sel)
-        return result.fetchall()
+        return [x._mapping for x in result.fetchall()]
 
     @staticmethod
     def get_playlist_songs_information_for_webui(playlistID):
@@ -1163,15 +1171,15 @@ union select rel.artist_credit_id
         and also like "Eric Woolfson & Alan Parsons".
         """
         acn = table('musicbrainz.artist_credit_name')
-        s = select([acn.c.artist_credit_id])
+        s = select(acn.c.artist_credit_id)
         for pos, mbid in enumerate(mbids):
             artist_id = MusicBrainzDatabase.get_artist_id(mbid)
             s = s.where(acn.c.artist_credit_id.in_(
-                (select([acn.c.artist_credit_id])
+                (select(acn.c.artist_credit_id)
                  .where(and_(acn.c.artist_id == artist_id,
                              acn.c.position == pos)))))
         s = (s.where(acn.c.artist_credit_id.notin_(
-             (select([acn.c.artist_credit_id])
+             (select(acn.c.artist_credit_id)
               .where(acn.c.position == len(mbids)))))
              .group_by(acn.c.artist_credit_id))
 
@@ -1249,7 +1257,7 @@ union select rel.artist_credit_id
     @staticmethod
     def get_artist_path(artist_path_id):
         artist_paths = table('artist_paths')
-        s = (select([artist_paths.c.path])
+        s = (select(artist_paths.c.path)
              .where(artist_paths.c.id == artist_path_id))
         c = MusicDatabase.getConnection()
         r = c.execute(s).fetchone()
@@ -1258,7 +1266,7 @@ union select rel.artist_credit_id
     @staticmethod
     def get_artist_path_id(artist_path):
         artist_paths = table('artist_paths')
-        s = (select([artist_paths.c.id])
+        s = (select(artist_paths.c.id)
              .where(artist_paths.c.path == artist_path))
         c = MusicDatabase.getConnection()
         r = c.execute(s).fetchone()
@@ -1269,7 +1277,7 @@ union select rel.artist_credit_id
         if not connection:
             connection = MusicDatabase.getCursor()
         artists_mb = table('artists_mb')
-        s = select([artists_mb.c.artist_path_id]).where(artists_mb.c.id ==
+        s = select(artists_mb.c.artist_path_id).where(artists_mb.c.id ==
                                                         artist_id)
         r = connection.execute(s).fetchone()
         if r and r[0] == path_id:
@@ -1290,7 +1298,7 @@ union select rel.artist_credit_id
         if not connection:
             connection = MusicDatabase.getCursor()
         for artist_credit_id in artist_credit_ids:
-            s = (select([artist_credits_mb.c.artist_path_id])
+            s = (select(artist_credits_mb.c.artist_path_id)
                  .where(artist_credits_mb.c.artist_credit_id ==
                         artist_credit_id))
             r = connection.execute(s).fetchone()

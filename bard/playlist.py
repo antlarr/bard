@@ -28,6 +28,8 @@ class Playlist:
         self.songs = []
 
         if isinstance(db_row, (sqlite3.Row, Row, dict)):
+            if hasattr(db_row, '_mapping'):
+                db_row = db_row._mapping
             self.id = db_row['id']
             self.name = db_row['name']
             self.owner_id = db_row['owner_id']
@@ -99,15 +101,17 @@ class Playlist:
 
     def append_song(self, song_id, mbid=None, *, connection=None):
         assert song_id, "song_id must be used"
+        c = None
         if not mbid:
+            c = connection or MusicDatabase.getCursor()
             print(f'Obtaining MBID for song id {song_id}')
-            mbid = MusicDatabase.getRecordingMBID(song_id)
+            mbid = MusicDatabase.getRecordingMBID(song_id, connection=c)
         item = (song_id, mbid)
         self.songs.append(item)
 
         if self.id and self.store_songs_in_db:
             pos = len(self.songs) - 1
-            c = connection or MusicDatabase.getCursor()
+            c = c or connection or MusicDatabase.getCursor()
             entry = {
                 'playlist_id': self.id,
                 'song_id': song_id,
