@@ -1,7 +1,13 @@
-function WebPlayer() {
+function WebPlayer(base) {
    this.name = 'WebPlayer';
    this.media = document.getElementById('player');
    this.ui = null;
+   this.base = base
+
+   this.playSong = function(id, playlist_song_info) {
+      $( "#player" ).attr("src", this.base + "/api/v1/audio/song/" + id)
+      //this.media.attr("src", base + "/api/v1/audio/song/" + id)
+   }
 
    this.play = function() {
       var media = document.getElementById('player');

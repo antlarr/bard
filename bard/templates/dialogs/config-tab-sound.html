@@ -25,6 +25,7 @@
 
     $('#output-device').on('change', function(event) {
         console.log(event.currentTarget.value);
+	bard.setPlayer(event.currentTarget.value);
         $.ajax({
             url: "/api/v1/devices/set_player",
             data: {device: event.currentTarget.value}
@@ -32,6 +33,9 @@
             function( jqXHR, textStatus, errorThrown) {
                 alert(textStatus + "\n" + errorThrown);
         });
+	if (event.currentTarget.value == "Web browser") {
+	} else {
+	}
     });
 
     $('#refresh-devices').on('click', function(event) {

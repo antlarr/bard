@@ -856,8 +856,7 @@ def devices_list():
     refresh = request.args.get('refresh', default="false") == 'true'
     if refresh:
         print('Refreshing available devices...')
-    devices = ['Web browser', 'Sonos: Living Room', 'Chromecast: Kitchen']
-    return jsonify({'devices': devices, 'active': 'Web browser'})
+    return jsonify({'devices': app.bard.available_devices, 'active': app.bard.current_device})
 
 
 @app.route('/api/v1/devices/set_player')
@@ -867,8 +866,93 @@ def set_player():
         return None
     device = request.args.get('device', type=str)
     print(f'Setting active device: {device}')
+    app.bard.current_device = device
     return ''
 
+
+@app.route('/api/v1/devices/get_player')
+@login_required
+def get_player():
+    if request.method != 'GET':
+        return None
+    return app.bard.current_device
+
+
+@app.route('/api/v1/player/play')
+@login_required
+def player_play():
+    print('player - play')
+    return ''
+
+
+@app.route('/api/v1/player/pause')
+@login_required
+def player_pause():
+    print('player - pause')
+    return ''
+
+
+@app.route('/api/v1/player/playSong')
+@login_required
+def player_playSong():
+    print('player - play Song')
+    songID = request.args.get('songID', type=int)
+    playlist_song_info = request.args.get('playlist_song_info', type=str)
+
+    print(f'player - play Song id: {songID} : {playlist_song_info}')
+    return ''
+
+@app.route('/api/v1/player/nextSong')
+@login_required
+def player_nextSong():
+    print('player - next Song')
+    return ''
+
+
+@app.route('/api/v1/player/prevSong')
+@login_required
+def player_prevSong():
+    print('player - prev Song')
+    return ''
+
+
+@app.route('/api/v1/player/seekPercentage')
+@login_required
+def player_seekPercentage():
+    print('player - seek Percentage')
+    position = request.args.get('position', type=float)
+
+    print(f'player - seek Percentage: {position}')
+    return ''
+
+@app.route('/api/v1/player/seekTo')
+@login_required
+def player_seekTo():
+    print('player - seek To')
+    position = request.args.get('position', type=float)
+
+    print(f'player - seek To: {position}')
+    return ''
+
+@app.route('/api/v1/player/seekBackward')
+@login_required
+def player_seekBackward():
+    print('player - seek Backward')
+    return ''
+
+@app.route('/api/v1/player/seekForward')
+@login_required
+def player_seekForward():
+    print('player - seek Forward')
+    return ''
+
+@app.route('/api/v1/player/setVolume')
+@login_required
+def player_setVolume():
+    print('player - set Volume')
+    volume = request.args.get('volume', type=float)
+    print(f'player - set Volume: {volume}')
+    return ''
 
 @app.errorhandler(werkzeug.exceptions.BadRequest)
 def handle_bad_request(e):

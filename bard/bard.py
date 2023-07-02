@@ -1473,6 +1473,9 @@ class Bard:
                 print(f'{certpemfile} and/or {serverkeyfile} not found')
 
         app.bard = self
+        self.available_devices = ['Web browser', 'Sonos', 'Chromecast', 'local']
+        self.current_device = 'Web browser'
+
         init_flask_app()
         hostname = config.config['hostname']
         port = config.config['port']

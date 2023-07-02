@@ -481,14 +481,27 @@ function Bard()
     $.when(
         $.getScript("/static/js/player-controls.js"),
         $.getScript("/static/js/webplayer.js").fail(function(jqxhr, settings, exception) { alert('error' + exception); }),
+        $.getScript("/static/js/serverplayer.js").fail(function(jqxhr, settings, exception) { alert('error' + exception); }),
         $.Deferred(function( deferred ){
             $( deferred.resolve );
         })
     ).done(function(){
-        this.player = new WebPlayer();
+        this.web_player = new WebPlayer(this.base);
+        this.server_player = new ServerPlayer(this.base);
+        this.player = this.web_player;
         this.controls = new PlayerControls();
         this.controls.player = this.player;
         this.player.ui = this.controls;
+        $.ajax({
+            url: "/api/v1/devices/get_player",
+            success: function(result) {
+		console.log('player', result);
+		bard.setPlayer(result);
+	    },
+            error: function( jqXHR, textStatus, errorThrown) {
+                alert(textStatus + "\n" + errorThrown);
+            }
+        });
         console.log('loaded ' + this.player + this.controls );
     }.bind(this));
 
@@ -499,11 +512,10 @@ function Bard()
             bard.controls.stoppedPlaying();
             return;
         }
-        current_playlist_song_info = playlist_song_info;
-        this.playSong(song_id);
+        this.playSong(song_id, playlist_song_info);
     }
 
-    this.playSong = function(id)
+    this.playSong = function(id, playlist_song_info)
     {
         if (!id)
         {
@@ -511,9 +523,12 @@ function Bard()
             return;
         }
         current_song_id = id;
+        current_playlist_song_info = playlist_song_info;
         $( "#current-song-cover" ).attr("src", this.base + "/api/v1/coverart/song/" + id)
         var metadata = this.metadataManager.get_song_metadata( id, setCurrentSongInfo );
-        $( "#player" ).attr("src", this.base + "/api/v1/audio/song/" + id)
+        this.player.playSong(id, playlist_song_info)
+
+        //$( "#player" ).attr("src", this.base + "/api/v1/audio/song/" + id)
         bard.controls.setEnable(true);
     }
 
@@ -613,5 +628,28 @@ function Bard()
         }
     }
 
+    this.setPlayer = function(playername)
+    {
+	console.log('setting player to ' + playername)
+        $.ajax({
+            url: "/api/v1/devices/set_player",
+            data: {device: playername}
+        }).fail(
+            function( jqXHR, textStatus, errorThrown) {
+                alert(textStatus + "\n" + errorThrown);
+        });
+	if (playername == "Web browser") {
+	    console.log('web')
+	    this.player.pause();
+	    this.player = this.web_player;
+	} else {
+	    console.log('server')
+	    this.player.pause();
+	    this.player = this.server_player;
+	    this.player.pause();
+	}
+        this.controls.player = this.player;
+	this.playername = playername;
+    }
 };
 
