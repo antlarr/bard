@@ -506,3 +506,15 @@ Cuesheets = \
           Column('time_position', REAL, nullable=False),
           Column('title', Text),
           Index('cuesheets_song_id_idx', 'song_id'))
+
+DynamicRangeData = \
+    Table('dynamic_range_data', metadata,
+          Column('song_id', Integer,
+                 ForeignKey(Songs.c.id, ondelete='CASCADE'),
+                 nullable=False),
+          Column('dr14', Integer, nullable=False),
+          Column('db_peak', REAL, nullable=False),
+          Column('db_rms', REAL, nullable=False),
+          Column('insert_time', TIMESTAMP,
+                 server_default=func.current_timestamp()),
+          Index('dynamic_range_data_song_id_idx', 'song_id'))

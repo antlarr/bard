@@ -11,6 +11,7 @@ from bard.normalizetags import getTag
 from bard.ffprobemetadata import FFProbeMetadata
 from bard.terminalcolors import TerminalColors
 from bard.album import albumPath
+import bard.dynamicrange as dynamicrange
 from pydub import AudioSegment
 from pydub.exceptions import PydubException
 from sqlalchemy import text
@@ -229,6 +230,13 @@ class Song:
          self._silenceAtStart, self._silenceAtEnd) = \
             MusicDatabase.getSongProperties(self.id)
 
+    def loadDRData(self):
+        r = MusicDatabase.getSongsDRData(self.id)
+        try:
+            (self.dr14, self.db_peak, self.db_rms) = r[self.id]
+        except KeyError:
+            raise Exception(f"Couldn't load Dynamic Range Data for song id {self.id}")
+
     def getAcoustidFingerprint(self):
         if self.fingerprint:
             return self.fingerprint
@@ -242,6 +250,13 @@ class Song:
         fp = acoustid.fingerprint(properties.sample_rate, properties.channels,
                                   (audiodata,))
         return fp
+
+    def calculateDR(self, audiodata=None, properties=None):
+        if not audiodata or not properties:
+            audiodata, properties = decodeAudio(self.path())
+        r = dynamicrange.calculate(audiodata, properties)
+        (self.dr14, self.db_peak, self.db_rms) = r
+        return r
 
     def loadFile(self, filething):  # noqa: C901
         fileinfo = filething if isinstance(filething, str) \
@@ -328,6 +343,10 @@ class Song:
                 raise Exception(msg)
             print('ffprobe check ' +
                   TerminalColors.Ok + 'OK' + TerminalColors.ENDC)
+
+
+        (self.dr14, self.db_peak, self.db_rms) = self.calculateDR(audiodata,
+                                                                  properties)
 
         try:
             audio_segment = audioSegmentFromDataProperties(audiodata,

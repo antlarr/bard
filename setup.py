@@ -70,6 +70,7 @@ setup(
         "Jinja2",
         "bcrypt",
         "paramiko",
+        "DR14-T.meter",
         "importlib_resources; python_version < '3.7'"
     ],
     data_files=[('share/doc/packages/bard/',

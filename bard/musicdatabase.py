@@ -7,7 +7,7 @@ from bard.album import albumPath
 from bard.db import metadata
 from bard.db.core import AlbumProperties, AlbumSongs, AlbumRelease, SongsMB, \
     Properties, AlbumsRatings, SongsRatings, AvgSongsRatings, Tags, Songs, \
-    DecodeMessages, DecodeProperties, Users, Albums
+    DecodeMessages, DecodeProperties, Users, Albums, DynamicRangeData
 from bard.db.musicbrainz import Release
 import sqlalchemy
 from sqlalchemy import create_engine, text, select, and_, or_, exists, func, \
@@ -499,6 +499,15 @@ class MusicDatabase:
                     c.rollback()
                     print(sql, cuesheettracks)
                     raise
+
+            values = {'dr14': song.dr14,
+                      'db_peak': song.db_peak,
+                      'db_rms': song.db_rms,
+                      'id': song.id}
+            sql = ('UPDATE dynamic_range_data SET dr14=:dr14, '
+                   'db_peak=:db_peak, db_rms=:db_rms'
+                   'WHERE song_id=:id')
+            c.execute(text(sql).bindparams(**values))
         else:
             # print('Adding song to database')
             values['path'] = song.path()
@@ -604,6 +613,14 @@ class MusicDatabase:
                     c.rollback()
                     print(sql, cuesheettracks)
                     raise
+
+            values = {'dr14': song.dr14,
+                      'db_peak': song.db_peak,
+                      'db_rms': song.db_rms,
+                      'id': song.id}
+            sql = ('INSERT INTO dynamic_range_data(song_id, dr14, db_peak, '
+                   'db_rms) VALUES (:id, :dr14, :db_peak, :db_rms)')
+            c.execute(text(sql).bindparams(**values))
 
             sql = text('select id from users')
             result = c.execute(sql)
@@ -936,6 +953,34 @@ or name {like} '%%MusicBrainz/Track Id'"""))
     @staticmethod
     def getSongDecodeProperties(songID):
         return MusicDatabase.getDecodeProperties([songID])[songID]
+
+    @staticmethod
+    def getSongsDRData(songIDs):
+        if isinstance(songIDs, str):
+            ids = [int(songID) for songID in songIDs.split(',')]
+        elif isinstance(songIDs, int):
+            ids = (songIDs,)
+        elif isinstance(songIDs, (list, tuple)):
+            ids = [int(songID) for songID in songIDs]
+        ids = tuple(ids)
+        c = MusicDatabase.getCursor()
+        sel = (select(DynamicRangeData.c.song_id, DynamicRangeData.c.dr14,
+                       DynamicRangeData.c.db_peak, DynamicRangeData.c.db_rms)
+               .where(DynamicRangeData.c.song_id.in_(ids)))
+        result = c.execute(sel)
+
+        r = {}
+        for row in result.fetchall():
+            if hasattr(row, '_mapping'):
+                row = row._mapping
+            try:
+                songID = row['song_id']
+                r[songID] = (row['dr14'], row['db_peak'], row['db_rms'])
+            except KeyError:
+                print('Error getting song Dynamic Range data for song ID %d' % songID)
+                raise
+
+        return r
 
     @staticmethod
     def getSimilarSongsToSongID(songID, similarityThreshold=0.85):

@@ -1317,6 +1317,25 @@ class Bard:
                     self.info([songID2])
                     first = False
 
+    def calculateDR(self, ids_or_paths):
+        collection = []
+        for id_or_path in ids_or_paths:
+            collection.extend(getSongsFromIDorPath(id_or_path))
+
+        for song in collection:
+            print(song.id, song.path())
+            try:
+                song.loadDRData()
+            except:
+                try:
+                    song.calculateDR()
+                except NameError:
+                    return
+            print(f'DR: {song.dr14}')
+            print(f'Peak dB: {song.db_peak:0.3f}')
+            print(f'RMS dB: {song.db_rms:0.3f}')
+
+
     def listGenres(self, id_or_paths=None, root=None, quoted_output=False):
         ids = []
         paths = []
@@ -1746,6 +1765,9 @@ cache-musicbrainz-db [-v]
                     new tables for fastest access
 analyze-songs [-v] [--from-song-id id]
                     Perform a high-level audio analysis of songs
+calculate-dr [file | song_id ...]
+                    Calculate the Audio Dynamic Range of a song using the
+                    DR14-T.meter library.
 update-musicbrainz-artists [-v]
                     Find .artist_mbid files to recognize artist paths
                     and images
@@ -2084,6 +2106,11 @@ mb-import [-v] [--update]
         parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
                             default=0, help='Starts analyzing songs '
                             'from a specific song_id')
+        # calculate-dr14 command
+        parser = sps.add_parser('calculate-dr',
+                                description='Parse a file and calculate '
+                                'its Dynamic Range')
+        parser.add_argument('ids_or_paths', nargs='*')
         # update-musicbrainz-artists command
         parser = sps.add_parser('update-musicbrainz-artists', description=''
                                 'Recognize artists paths on the collection')
@@ -2242,6 +2269,8 @@ mb-import [-v] [--update]
             self.importMusicBrainzData(verbose=options.verbose)
         elif options.command == 'scan-file':
             self.scanFile(options.path, printMatchInfo=options.printMatchInfo)
+        elif options.command == 'calculate-dr':
+            self.calculateDR(options.ids_or_paths)
 
 
 def main():
