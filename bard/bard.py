@@ -224,7 +224,7 @@ class Bard:
         self.ignore_files = ['*.jpg', '*.jpeg', '*.bmp', '*.tif', '*.png',
                              '*.gif', '*.xcf', '*.webp',
                              '*.m3u', '*.pls', '*.cue', '*.m3u8', '*.au',
-                             '*.mid', '*.kar', '*.lyrics',
+                             '*.mid', '*.kar', '*.lyrics', '*.lrc',
                              '*.url', '*.lnk', '*.ini', '*.rar', '*.zip',
                              '*.war', '*.swp',
                              '*.txt', '*.nfo', '*.doc', '*.rtf', '*.pdf',
@@ -234,7 +234,7 @@ class Bard:
                              '*.md5', '*.gz',
                              '*.fpl', '*.wpl', '*.accurip', '*.db', '*.ffp',
                              '*.flv', '*.mkv', '*.m4v', '*.mov', '*.mpg',
-                             '*.mpeg', '*.avi',
+                             '*.mpeg', '*.avi', '*.webm',
                              '.artist_mbid', '.releasegroup_mbid']
         self.ignore_files += config.config['ignore_files']
 
