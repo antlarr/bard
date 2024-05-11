@@ -98,13 +98,13 @@ class DatabaseEnum:
         tr.commit()
 
         try:
-            sql = (f"SELECT currval(pg_get_serial_sequence("
+            sql = ("SELECT currval(pg_get_serial_sequence("
                    f"'{self.table_name}','id_value'))")
-            result = c.execute(sql)
+            result = c.execute(text(sql))
         except sqlalchemy.exc.OperationalError:
             # Try the sqlite way
             sql = 'SELECT last_insert_rowid()'
-            result = c.execute(sql)
+            result = c.execute(text(sql))
         return result.fetchone()[0]
 
     def id_value_dict(self, names):
@@ -151,9 +151,8 @@ class DatabaseEnum:
         r = result.fetchone()
         if not r:
             return None
-        print(r)
-        print(r.keys())
-        raise 'a'
+        if hasattr(r, '_mapping'):
+            r = r._mapping
         return r
 
 
@@ -872,6 +871,8 @@ or name {like} '%%MusicBrainz/Track Id'"""))
         result = c.execute(sel)
         messages = {}
         for row in result.fetchall():
+            if hasattr(row, '_mapping'):
+                row = row._mapping
             dm = DecodeMessageRecord(time_position=row['time_position'],
                                      level=row['level'],
                                      message=row['message'])
@@ -897,6 +898,8 @@ or name {like} '%%MusicBrainz/Track Id'"""))
 
         r = {}
         for row in result.fetchall():
+            if hasattr(row, '_mapping'):
+                row = row._mapping
             try:
                 songID = row['song_id']
                 sSmplFmt = SampleFormatEnum.name(row['stream_sample_format'])

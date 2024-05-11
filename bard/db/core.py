@@ -210,10 +210,10 @@ SongsRatings = \
                            name='songs_ratings_user_id_song_id_key'))
 
 
-avg_songs_ratings_s = (select([SongsRatings.c.song_id,
+avg_songs_ratings_s = (select(SongsRatings.c.song_id,
                               Users.c.id.label('user_id'),
                               func.round(func.avg(SongsRatings.c.rating))
-                              .label('avg_rating')])
+                              .label('avg_rating'))
                        .where(SongsRatings.c.user_id != Users.c.id)
                        .group_by(SongsRatings.c.song_id, Users.c.id))
 AvgSongsRatings = create_view('avg_songs_ratings',
@@ -237,10 +237,10 @@ AlbumsRatings = \
           UniqueConstraint('user_id', 'album_id',
                            name='albums_ratings_user_id_album_id_key'))
 
-avg_albums_ratings_s = (select([AlbumsRatings.c.album_id,
+avg_albums_ratings_s = (select(AlbumsRatings.c.album_id,
                                 Users.c.id.label('user_id'),
                                 func.round(func.avg(AlbumsRatings.c.rating))
-                                .label('avg_rating')])
+                                .label('avg_rating'))
                         .where(AlbumsRatings.c.user_id != Users.c.id)
                         .group_by(AlbumsRatings.c.album_id, Users.c.id))
 AvgAlbumsRatings = create_view('avg_albums_ratings',
@@ -324,7 +324,7 @@ AlbumSongs = \
 
 
 album_properties_s = (select(
-    [AlbumSongs.c.album_id,
+    AlbumSongs.c.album_id,
      Properties.c.format,
      func.min(Properties.c.bitrate).label('min_bitrate'),
      func.max(Properties.c.bitrate).label('max_bitrate'),
@@ -333,7 +333,7 @@ album_properties_s = (select(
      func.min(Properties.c.sample_rate).label('min_sample_rate'),
      func.max(Properties.c.sample_rate).label('max_sample_rate'),
      func.min(Properties.c.channels).label('min_channels'),
-     func.max(Properties.c.channels).label('max_channels')])
+     func.max(Properties.c.channels).label('max_channels'))
     .where(AlbumSongs.c.song_id == Properties.c.song_id)
     .group_by(AlbumSongs.c.album_id, Properties.c.format))
 
@@ -486,10 +486,10 @@ ArtistsRatings = \
           UniqueConstraint('user_id', 'artist_id',
                            name='artists_ratings_user_id_artist_id_key'))
 
-avg_artists_ratings_s = (select([ArtistsRatings.c.artist_id,
+avg_artists_ratings_s = (select(ArtistsRatings.c.artist_id,
                                 Users.c.id.label('user_id'),
                                 func.round(func.avg(ArtistsRatings.c.rating))
-                                .label('avg_rating')])
+                                .label('avg_rating'))
                          .where(ArtistsRatings.c.user_id != Users.c.id)
                          .group_by(ArtistsRatings.c.artist_id, Users.c.id))
 AvgArtistsRatings = create_view('avg_artists_ratings',

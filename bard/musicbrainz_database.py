@@ -386,17 +386,19 @@ class MusicBrainzDatabase:
     def get_all_artists():
         """Return all artists (used by the mb importer)."""
         songs_mb_artistids = table('songs_mb_artistids')
+        c = MusicDatabase.getCursor()
 
         s = select(songs_mb_artistids.c.artistid).distinct()
 
-        result_artists = MusicDatabase.execute(s).fetchall()
+        print(s)
+        result_artists = c.execute(s).fetchall()
         s1 = set(x.artistid for x in result_artists)
 
         songs_mb_albumartistids = table('songs_mb_albumartistids')
 
         s = select(songs_mb_albumartistids.c.albumartistid).distinct()
 
-        result_albumartists = MusicDatabase.execute(s).fetchall()
+        result_albumartists = c.execute(s).fetchall()
         r = s1.union(x.albumartistid for x in result_albumartists)
         return r
 
@@ -408,9 +410,10 @@ class MusicBrainzDatabase:
         songs_mb = table('songs_mb')
 
         s = select(getattr(songs_mb.c, column)).distinct()
+        c = MusicDatabase.getCursor()
 
-        result = MusicDatabase.execute(s).fetchall()
-        r = set(x[column] for x in result)
+        result = c.execute(s).fetchall()
+        r = set(x._mapping[column] for x in result)
         r.difference_update({None})
 
         return r
@@ -438,10 +441,11 @@ class MusicBrainzDatabase:
     @staticmethod
     def get_all_works():
         songs_mb_workids = table('songs_mb_workids')
+        c = MusicDatabase.getCursor()
 
         s = select(songs_mb_workids.c.workid).distinct()
 
-        result = MusicDatabase.execute(s).fetchall()
+        result = c.execute(s).fetchall()
         return set(x.workid for x in result)
 
     @staticmethod
@@ -487,7 +491,9 @@ class MusicBrainzDatabase:
              .order_by(artists_mb.c.locale_name)
              .limit(page_size)
              .offset(offset))
-        return MusicDatabase.execute(s).fetchall()
+
+        c = MusicDatabase.getCursor()
+        return c.execute(s).fetchall()
 
     @staticmethod
     def is_better_alias(a, b):
@@ -533,17 +539,17 @@ class MusicBrainzDatabase:
         current = {}
         aliases = {}
         for x in c.execute(s).fetchall():
-            aliases.setdefault(x.artist_id, []).append(x)
+            aliases.setdefault(x.artist_id, []).append(x._mapping)
 
         percentage = Percentage()
         percentage.max_value = len(artists)
         for i, a in enumerate(artists.values()):
             current = {}
             try:
-                current_artist_aliases = aliases[a['id']]
+                current_artist_aliases = aliases[a._mapping['id']]
             except KeyError:
-                current = {'locale_name': a['name'],
-                           'locale_sort_name': a['sort_name'],
+                current = {'locale_name': a._mapping['name'],
+                           'locale_sort_name': a._mapping['sort_name'],
                            'locale': None,
                            'artist_alias_type': None}
             else:
@@ -557,7 +563,7 @@ class MusicBrainzDatabase:
                                        x['primary_for_locale']}
                 del current['primary_for_locale']
 
-            current['id'] = a['id']
+            current['id'] = a._mapping['id']
             MusicDatabase.insert_or_update('artists_mb', current, connection=c)
             percentage.set_value(i)
 
@@ -1162,7 +1168,7 @@ union select rel.artist_credit_id
         return result.fetchall()
 
     @staticmethod
-    def get_artist_credit_ids(mbids):
+    def get_artist_credit_ids(mbids, connection=None):
         """Return a list of artist_credit_ids associated to a list of mbids.
 
         In theory, this should return just one artist_credit_ids, but some
@@ -1172,8 +1178,11 @@ union select rel.artist_credit_id
         """
         acn = table('musicbrainz.artist_credit_name')
         s = select(acn.c.artist_credit_id)
+        if not connection:
+            connection = MusicDatabase.getCursor()
         for pos, mbid in enumerate(mbids):
-            artist_id = MusicBrainzDatabase.get_artist_id(mbid)
+            artist_id = MusicBrainzDatabase.get_artist_id(mbid,
+                                                          connection=connection)
             s = s.where(acn.c.artist_credit_id.in_(
                 (select(acn.c.artist_credit_id)
                  .where(and_(acn.c.artist_id == artist_id,
@@ -1183,7 +1192,7 @@ union select rel.artist_credit_id
               .where(acn.c.position == len(mbids)))))
              .group_by(acn.c.artist_credit_id))
 
-        r = MusicDatabase.execute(s).fetchall()
+        r = connection.execute(s).fetchall()
         return sorted([x[0] for x in r]) if r else None
 
     @staticmethod
