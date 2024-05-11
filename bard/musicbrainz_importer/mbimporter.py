@@ -1177,8 +1177,20 @@ class MusicBrainzImporter:
                 try:
                     tgt_entity_ids = conversion[item['id']]
                 except KeyError:
+                    info = None
+                    if entity == 'release-group':
+                        info = MusicBrainzDatabase.get_release_group_info(item["id"], connection=c)
+                    elif entity == 'recording':
+                        info = MusicBrainzDatabase.get_recording_info(item["id"], connection=c)
+                    if info:
+                        name = info._mapping['name']
+                        if info._mapping['disambiguation']:
+                            name += f" ({info._mapping['disambiguation']})"
+                        extra = f": {info._mapping['mbid']}  {info._mapping['artist_name']} - {name}"
+                    else:
+                        extra = ''
                     print(f'{entity} id {item["id"]} cannot be converted to '
-                          f'{tgt_column}')
+                          f'{tgt_column}{extra}')
                     continue
             else:
                 tgt_entity_ids = [item['id']]

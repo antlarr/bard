@@ -840,6 +840,20 @@ union select rel.artist_credit_id
         return MBD.get_artist_artist_relationship('collaboration', artistID)
 
     @staticmethod
+    def get_recording_info(recordingID, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
+        rec = table('musicbrainz.recording')
+        ac = table('musicbrainz.artist_credit')
+        s = (select(rec.c.id, rec.c.mbid, rec.c.name,
+                    rec.c.disambiguation,
+                    rec.c.artist_credit_id,
+                    ac.c.name.label('artist_name'))
+             .where(and_(rec.c.artist_credit_id == ac.c.id,
+                         rec.c.id == recordingID)))
+        return connection.execute(s).fetchone()
+
+    @staticmethod
     def get_release_group_info(rgID, *, connection=None):
         if not connection:
             connection = MusicDatabase.getCursor()
