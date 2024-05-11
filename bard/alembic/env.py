@@ -16,9 +16,14 @@ if config.config_file_name:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
-target_metadata = None
+from bard.db import metadata
+target_metadata = metadata
+
+def include_name(name, type_, parent_names):
+    if type_ == "schema":
+        return name in [None, "musicbrainz", "analysis"]
+    else:
+        return True
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -44,6 +49,8 @@ def run_migrations_offline():
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_schemas=True,
+        include_name=include_name
     )
 
     with context.begin_transaction():
@@ -65,7 +72,10 @@ def run_migrations_online():
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            include_schemas=True,
+            include_name=include_name
         )
 
         with context.begin_transaction():
