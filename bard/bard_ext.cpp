@@ -29,6 +29,8 @@
 #include <mutex>
 #include <fstream>
 
+typedef long long fpint;
+
 template<typename T>
 inline
 std::vector<T> to_std_vector( const boost::python::object& iterable )
@@ -52,7 +54,7 @@ boost::python::tuple greet2()
    return boost::python::make_tuple(a,2,3);
 }
 
-typedef std::vector<std::tuple<int,std::vector<int>,double> > FingerprintVector;
+typedef std::vector<std::tuple<int,std::vector<fpint>,double> > FingerprintVector;
 
 class FingerprintManager
 {
@@ -79,8 +81,8 @@ public:
     std::pair<int, double> compareSongs(long songID1, long songID2);
     boost::python::list compareSongsVerbose(long songID1, long songID2);
 
-    std::pair<int, double> compareChromaprintFingerprintsAndOffset(const std::vector<int> &fp1, const std::vector<int> &fp2, double cancelThreshold) const;
-    boost::python::list compareChromaprintFingerprintsAndOffsetVerbose(std::vector<int> fp1, std::vector<int> fp2) const;
+    std::pair<int, double> compareChromaprintFingerprintsAndOffset(const std::vector<fpint> &fp1, const std::vector<fpint> &fp2, double cancelThreshold) const;
+    boost::python::list compareChromaprintFingerprintsAndOffsetVerbose(std::vector<fpint> fp1, std::vector<fpint> fp2) const;
 
     boost::python::list songIDs();
 
@@ -89,7 +91,7 @@ public:
     boost::python::object readFromFile(const std::string &filename);
 
 protected:
-    std::vector<int> songFingerprint(int songID) const;
+    std::vector<fpint> songFingerprint(int songID) const;
     double songDuration(int songID) const;
     FingerprintVector::const_iterator songIterator(int songID) const;
 
@@ -173,7 +175,7 @@ FingerprintVector::const_iterator FingerprintManager::songIterator(int songID) c
         return it;
 }
 
-std::vector<int> FingerprintManager::songFingerprint(int songID) const
+std::vector<fpint> FingerprintManager::songFingerprint(int songID) const
 {
     return std::get<1>(*songIterator(songID));
 }
@@ -185,7 +187,7 @@ double FingerprintManager::songDuration(int songID) const
 
 void FingerprintManager::addSong(long songID, boost::python::list &fingerprint, double duration)
 {
-    auto v = to_std_vector<int>(fingerprint);
+    auto v = to_std_vector<fpint>(fingerprint);
     v.insert(v.begin(), m_maxoffset, 0);
 //    std::cout << "song added: " << songID << std::endl;
     m_fingerprints.emplace_back(std::make_tuple(songID, std::move(v), duration));
@@ -196,7 +198,7 @@ boost::python::list FingerprintManager::addSongAndCompare(long songID, boost::py
     std::mutex result_mutex;
     boost::python::list result;
 #if __GNUC__ >= 7 || __clang_major__ >= 5
-    auto v = to_std_vector<int>(fingerprint);
+    auto v = to_std_vector<fpint>(fingerprint);
     double threshold;
     v.insert(v.begin(), m_maxoffset, 0);
 
@@ -229,7 +231,7 @@ boost::python::list FingerprintManager::addSongAndCompareToSongList(long songID,
     std::mutex result_mutex;
     boost::python::list result;
 #if __GNUC__ >= 7 || __clang_major__ >= 5
-    auto v = to_std_vector<int>(fingerprint);
+    auto v = to_std_vector<fpint>(fingerprint);
     auto songIDsToCompare = to_std_vector<long>(songsToCompare);
     double threshold;
     v.insert(v.begin(), m_maxoffset, 0);
@@ -257,9 +259,9 @@ boost::python::list FingerprintManager::addSongAndCompareToSongList(long songID,
     return result;
 }
 
-std::pair<int, double> FingerprintManager::compareChromaprintFingerprintsAndOffset(const std::vector<int> &fp1, const std::vector<int> &fp2, double cancelThreshold) const
+std::pair<int, double> FingerprintManager::compareChromaprintFingerprintsAndOffset(const std::vector<fpint> &fp1, const std::vector<fpint> &fp2, double cancelThreshold) const
 {
-    std::vector<int>::const_iterator it1, it2;
+    std::vector<fpint>::const_iterator it1, it2;
     int offset;
     int total_idx;
     int remaining;
@@ -343,9 +345,9 @@ std::pair<int, double> FingerprintManager::compareChromaprintFingerprintsAndOffs
     return std::make_pair(best_offset, best_result);
 }
 
-boost::python::list FingerprintManager::compareChromaprintFingerprintsAndOffsetVerbose(std::vector<int> fp1, std::vector<int> fp2) const
+boost::python::list FingerprintManager::compareChromaprintFingerprintsAndOffsetVerbose(std::vector<fpint> fp1, std::vector<fpint> fp2) const
 {
-    std::vector<int>::const_iterator it1, it2;
+    std::vector<fpint>::const_iterator it1, it2;
     boost::python::list result;
     int offset;
     int equal_bits, total_bits;
@@ -407,13 +409,13 @@ boost::python::object FingerprintManager::writeToFile(const std::string &filenam
     for (const auto &iter : m_fingerprints)
     {
         const auto songID = std::get<0>(iter);
-        const std::vector <int> fingerprint = std::get<1>(iter);
+        const std::vector <fpint> fingerprint = std::get<1>(iter);
         const auto duration = std::get<2>(iter);
         outFile.write(reinterpret_cast<const char*>(&songID), sizeof(songID));
         outFile.write(reinterpret_cast<const char*>(&duration), sizeof(duration));
         const size_t fingerprint_size = fingerprint.size();
         outFile.write(reinterpret_cast<const char*>(&fingerprint_size), sizeof(size_t));
-        for (const int &val : fingerprint) //outFile << val ;
+        for (const fpint &val : fingerprint) //outFile << val ;
         {
             outFile.write(reinterpret_cast<const char*>(&val), sizeof(int));
         }
@@ -434,7 +436,7 @@ boost::python::object FingerprintManager::readFromFile(const std::string &filena
     m_fingerprints.reserve(size);
     for (size_t i=0; i< size; ++i)
     {
-        std::vector <int> fingerprint;
+        std::vector <fpint> fingerprint;
         inFile.read(reinterpret_cast<char*>(&songID), sizeof(songID));
         inFile.read(reinterpret_cast<char*>(&duration), sizeof(duration));
         inFile.read(reinterpret_cast<char*>(&fingerprint_size), sizeof(fingerprint_size));
