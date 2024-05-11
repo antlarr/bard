@@ -423,7 +423,7 @@ class MusicDatabase:
 
             prop = song.decode_properties()
             values = {'codec': CodecEnum.id_value(prop.codec),
-                      'format': FormatEnum.id_value(prop.format),
+                      'format': FormatEnum.id_value(prop.format_name),
                       'container_duration': prop.container_duration,
                       'decoded_duration': prop.decoded_duration,
                       'container_bitrate': prop.container_bitrate,
@@ -540,7 +540,7 @@ class MusicDatabase:
 
             prop = song.decode_properties()
             values = {'codec': CodecEnum.id_value(prop.codec),
-                      'format': FormatEnum.id_value(prop.format),
+                      'format': FormatEnum.id_value(prop.format_name),
                       'container_duration': prop.container_duration,
                       'decoded_duration': prop.decoded_duration,
                       'container_bitrate': prop.container_bitrate,
@@ -911,9 +911,14 @@ or name {like} '%%MusicBrainz/Track Id'"""))
                         container_bitrate=row['container_bitrate'],
                         stream_bitrate=row['stream_bitrate'],
                         stream_sample_format=sSmplFmt,
+                        stream_bytes_per_sample=None,
                         stream_bits_per_raw_sample=sBitsPerRawSample,
                         decoded_sample_format=dSmplFmt,
+                        decoded_bytes_per_sample=None,
+                        is_planar=None,
                         samples=row['samples'],
+                        channels=None,
+                        sample_rate=None,
                         library_versions=libraryVer,
                         messages=messages[songID]))
 

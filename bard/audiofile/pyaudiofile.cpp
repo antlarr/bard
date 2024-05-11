@@ -53,7 +53,7 @@ python::dict extractInfoDict(const AudioFile &audiofile, const DecodeOutput &out
     info["library_versions"] = versions();
 
     info["codec"] = audiofile.codecName();
-    info["format"] = audiofile.formatName();
+    info["format_name"] = audiofile.formatName();
     info["container_duration"] = audiofile.containerDuration();
     info["container_bitrate"] = audiofile.containerBitrate();
 

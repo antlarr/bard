@@ -27,7 +27,7 @@ import io
 ImageDataTuple = namedtuple('ImageDataTuple', ['image', 'data'])
 
 DecodedAudioPropertiesTuple = namedtuple('DecodedAudioPropertiesTuple',
-                                         ['codec', 'format',
+                                         ['codec', 'format_name',
                                           'container_duration',
                                           'decoded_duration',
                                           'container_bitrate',
@@ -46,7 +46,7 @@ DecodedAudioPropertiesTuple = namedtuple('DecodedAudioPropertiesTuple',
 
 
 class DecodeMessageRecord(namedtuple('DecodeMessageRecord',
-                                     ['time_position', 'level', 'msg'])):
+                                     ['time_position', 'level', 'message'])):
     __slots__ = ()
 
     level_mapping = {0: 'Critical',
@@ -89,7 +89,7 @@ class DecodeMessageRecord(namedtuple('DecodeMessageRecord',
     def __str__(self):
         return '%.3f (%s): %s' % (self.time_position, self.level_color() +
                                   self.level_as_string() +
-                                  TerminalColors.ENDC, self.msg)
+                                  TerminalColors.ENDC, self.message)
 
 
 def detect_silence_at_beginning_and_end(audio_segment, min_silence_len=1000,

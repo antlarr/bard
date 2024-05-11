@@ -675,7 +675,7 @@ class Song:
             return self.metadata.info.bitrate
 
     def loadDecodeProperties(self):
-        if getattr(self, 'decode_properties', None) is not None:
+        if getattr(self, '_decode_properties', None) is not None:
             return
 
         self._decode_properties = \
