@@ -462,7 +462,8 @@ class Bard:
             t_6 = time.time()
             print("updated db", t_6 - t_5, t_6 - t_init)
 
-    def info(self, ids_or_paths, currentlyPlaying=False, show_analysis=False):
+    def info(self, ids_or_paths, currentlyPlaying=False, show_analysis=False,
+             show_decode_messages=False):
         songs = []
         for id_or_path in ids_or_paths:
             songs.extend(getSongsFromIDorPath(id_or_path))
@@ -474,7 +475,7 @@ class Bard:
         userID = MusicDatabase.getUserID(config.config['username'])
 
         for song in songs:
-            print_song_info(song, userID, show_analysis)
+            print_song_info(song, userID, show_analysis, show_decode_messages)
 
     def list(self, path, long_ls=False, show_id=False, query=None,
              group_by_directory=False, show_duration=False):
@@ -1899,6 +1900,10 @@ mb-import [-v] [--update]
         parser.add_argument('-a', '--show-analysis', dest='show_analysis',
                             action='store_true', help='Show also the '
                             'highlevel analysis information')
+        parser.add_argument('--show-decode-messages',
+                            dest='show_decode_messages',
+                            action='store_true', help='Show also the '
+                            'decode messages')
         parser.add_argument('paths', nargs='*')
         # list command
         parser = sps.add_parser('list',
@@ -2156,7 +2161,7 @@ mb-import [-v] [--update]
         elif options.command == 'fix-tags':
             self.fixTags(options.paths)
         elif options.command == 'info':
-            self.info(options.paths, options.playing, options.show_analysis)
+            self.info(options.paths, options.playing, options.show_analysis, options.show_decode_messages)
         elif options.command == 'list' or options.command == 'ls':
             if not (options.paths or options.root or options.genre or
                     options.rating or options.my_rating or

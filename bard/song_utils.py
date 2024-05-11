@@ -1,5 +1,5 @@
 from bard.utils import printProperties, simple_find_matching_square_bracket, \
-    formatLength, alignColumns, getPropertiesAsString
+    formatLength, alignColumns, getPropertiesAsString, DecodeMessageRecord
 from bard.song import DifferentLengthException, CantCompareSongsException
 from bard.terminalcolors import TerminalColors
 from bard.musicdatabase import MusicDatabase
@@ -17,7 +17,7 @@ def get_probability_color(prob, prob_from_0_5=False):
     return TerminalColors.Gradient[int(prob * 10)]
 
 
-def print_song_info(song, userID=None, print_analysis=True):  # noqa: C901
+def print_song_info(song, userID=None, print_analysis=True, print_decode_messages=True):  # noqa: C901
     song.loadMetadataInfo()
     print("----------")
     try:
@@ -72,6 +72,9 @@ def print_song_info(song, userID=None, print_analysis=True):  # noqa: C901
 
     if print_analysis:
         print_song_info_analysis(song)
+
+    if print_decode_messages:
+        print_song_info_decode_messages(song)
 
     similar_pairs = MusicDatabase.getSimilarSongsToSongID(song.id)
     if similar_pairs:
@@ -173,3 +176,16 @@ def print_song_info_analysis(song):
         key = tonal[k]
         indent = ' ' * (indent_len - len(k) - 1)
         print(f"{k}:{indent}{key['key']} {key['scale']} ({key['strength']})")
+
+def print_song_info_decode_messages(song):
+    print('Decode messages:')
+    decode_properties = song.decode_properties()
+    columns = []
+    for dmr in decode_properties.messages:
+        columns.append([f'{dmr.time_position:0.6f}',
+                        DecodeMessageRecord.level_to_string(dmr.level),
+                        dmr.message])
+
+    lines = alignColumns(columns, [False, True, True])
+    for line in lines:
+        print(line)
