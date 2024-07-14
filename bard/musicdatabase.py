@@ -334,8 +334,11 @@ class MusicDatabase:
             return
         print('Creating database...')
         if self.database != 'sqlite':
-            MusicDatabase.engine.execute(CreateSchema('musicbrainz'))
-            MusicDatabase.engine.execute(CreateSchema('analysis'))
+            print('Creating schemas...')
+            c = MusicDatabase.getCursor()
+            c.execute(CreateSchema('musicbrainz'))
+            c.execute(CreateSchema('analysis'))
+            c.commit()
 
         metadata.create_all(MusicDatabase.engine)
 
