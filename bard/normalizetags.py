@@ -333,6 +333,7 @@ def normalizeTagValue(obj, mutagenFile, tag,  # noqa: C901
                              'catalognumber',
                              'style',
                              'comment',
+                             'albumartists',
                              'ab:genre',
                              'ab:mood']):
         return obj.text
@@ -342,6 +343,9 @@ def normalizeTagValue(obj, mutagenFile, tag,  # noqa: C901
         if isinstance(text, list):
             text = text[0]
         return text.split('/')[0]
+
+    if isinstance(obj, (mutagen.id3.TOPE, mutagen.id3.TIT3)) and isinstance(obj.text, list):
+        obj.text = [x for x in obj.text if x]
 
     if isinstance(obj, mutagen.id3.Frame):
         return str(obj)
