@@ -8,7 +8,10 @@ except ModuleNotFoundError:
 def calculate(audiodata, properties):
     nframes = properties.samples
     channels = properties.channels
-    sample_type = "int%d" % (properties.decoded_bytes_per_sample * 8)
+    if properties.decoded_sample_format == 'flt':
+        sample_type = "float%d" % (properties.decoded_bytes_per_sample * 8)
+    else:
+        sample_type = "int%d" % (properties.decoded_bytes_per_sample * 8)
 
     Y = numpy.fromstring(audiodata, dtype=sample_type).reshape(
                nframes, channels)
@@ -19,9 +22,12 @@ def calculate(audiodata, properties):
     elif sample_type == 'int32':
         convert_32_bit = numpy.float32(2**31 + 1.0)
         Y = Y / (convert_32_bit)
-    else:
+    elif sample_type == 'int8':
         convert_8_bit = numpy.float32(2**8 + 1.0)
         Y = Y / (convert_8_bit)
+    elif properties.decoded_sample_format != 'flt':
+        print('sample type unsupported?')
+        raise RuntimeError('Sample type unsupported')
 
     try:
         duration = StructDuration()
