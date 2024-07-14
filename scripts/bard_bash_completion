@@ -126,6 +126,9 @@ _bard() {
                         opts="-v \--verbose \--update"
                         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
                 ;;
+                "calculate-dr")
+			_bard_compfile
+                ;;
                 *)
                 return 1
                 ;;
