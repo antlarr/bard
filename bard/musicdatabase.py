@@ -72,7 +72,7 @@ class DatabaseEnum:
         try:
             sql = (f"SELECT currval(pg_get_serial_sequence("
                    f"'{self.table_name}','id_value'))")
-            result = c.execute(sql)
+            result = c.execute(text(sql))
         except sqlalchemy.exc.OperationalError:
             # Try the sqlite way
             sql = 'SELECT last_insert_rowid()'
@@ -505,7 +505,7 @@ class MusicDatabase:
                       'db_rms': song.db_rms,
                       'id': song.id}
             sql = ('UPDATE dynamic_range_data SET dr14=:dr14, '
-                   'db_peak=:db_peak, db_rms=:db_rms'
+                   'db_peak=:db_peak, db_rms=:db_rms '
                    'WHERE song_id=:id')
             c.execute(text(sql).bindparams(**values))
         else:
