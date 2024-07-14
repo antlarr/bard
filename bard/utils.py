@@ -37,6 +37,8 @@ DecodedAudioPropertiesTuple = namedtuple('DecodedAudioPropertiesTuple',
                                           'stream_bits_per_raw_sample',
                                           'decoded_sample_format',
                                           'decoded_bytes_per_sample',
+                                          'decoded_sample_rate',
+                                          'decoded_channels',
                                           'is_planar',
                                           'samples',
                                           'channels',
@@ -538,13 +540,13 @@ def DecodedAudioPropertiesTupleFromDict(properties):
         messages=messages)
 
 
-def decodeAudio(filething):
+def decodeAudio(filething, **kwargs):
     if hasattr(filething, 'seek'):
         filething.seek(0)
         filecontents = filething.read()
-        data, properties = bard_audiofile.decode(data=filecontents)
+        data, properties = bard_audiofile.decode(data=filecontents, **kwargs)
     else:
-        data, properties = bard_audiofile.decode(path=filething)
+        data, properties = bard_audiofile.decode(path=filething, **kwargs)
 
     if config.config['enable_internal_checks']:
         files_pydub_cant_decode_correctly = \

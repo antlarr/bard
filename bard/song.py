@@ -308,14 +308,24 @@ class Song:
 
         self._decode_properties = properties
 
+        tmpsamplerate = properties.sample_rate
+        while len(audiodata) > 5*1024*1024*1024:
+            tmpsamplerate = tmpsamplerate // 2
+            print(f'Reducing sample rate to {tmpsamplerate}')
+            channels = min(2, properties.channels)
+            del properties
+            del audiodata
+            audiodata, properties = decodeAudio(filething, sample_rate=tmpsamplerate, sample_fmt='s16', channel_number=channels )
+
+
         if self.metadata:
             if not getattr(self.metadata.info, 'bits_per_sample', None):
                 self.metadata.info.bits_per_sample = \
-                    properties.decoded_bytes_per_sample * 8
+                    self._decode_properties.decoded_bytes_per_sample * 8
 
             if not getattr(self.metadata.info, 'bitrate', None):
-                self.metadata.info.bitrate = (properties.stream_bitrate or
-                                              properties.container_bitrate)
+                self.metadata.info.bitrate = (self._decode_properties.stream_bitrate or
+                                              self._decode_properties.container_bitrate)
 
             if getattr(self.metadata.info, 'length', 0) == 0:
                 warning_level = DecodeMessageRecord.level_value('Warning')
@@ -323,10 +333,10 @@ class Song:
                           ('Length cannot be read with mutagen. Using decoded '
                            'data to obtain length')))
                 self._decode_properties.messages.append(record)
-                self.metadata.info.length = properties.decoded_duration
+                self.metadata.info.length = self._decode_properties.decoded_duration
 
-        if properties.messages:
-            print('\n'.join([str(x) for x in properties.messages]))
+        if self._decode_properties.messages:
+            print('\n'.join([str(x) for x in self._decode_properties.messages]))
 
         if config.config['enable_internal_checks']:
             ffprobe_metadata = FFProbeMetadata(self.path())
@@ -342,10 +352,10 @@ class Song:
                            (tmp_bits, self.metadata.info.bits_per_sample))
                     raise Exception(msg)
             tmp_bitrate = int(ffprobe_metadata['format.bit_rate'])
-            if (properties.stream_bitrate != tmp_bitrate and
-                    properties.container_bitrate != tmp_bitrate):
+            if (self._decode_properties.stream_bitrate != tmp_bitrate and
+                    self._decode_properties.container_bitrate != tmp_bitrate):
                 msg = ('bit_rate different! ffprobe: %d != bard_audiofile: %d'
-                       % (tmp_bitrate or 0, properties.bitrate or 0))
+                       % (tmp_bitrate or 0, self._decode_properties.bitrate or 0))
                 raise Exception(msg)
             print('ffprobe check ' +
                   TerminalColors.Ok + 'OK' + TerminalColors.ENDC)
@@ -366,6 +376,7 @@ class Song:
         silences = detect_silence_at_beginning_and_end(audio_segment,
                                                        min_silence_len=minlen,
                                                        silence_thresh=thr)
+        del audio_segment
         if silences:
             silence1, silence2 = silences
             self._silenceAtStart = (silence1[1] - silence1[0]) / 1000
