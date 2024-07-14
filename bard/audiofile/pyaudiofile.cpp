@@ -245,8 +245,78 @@ struct LogRecordList_to_python_list
     };
 };
 
+python::dict get_properties_from_data(const char *buffer, Py_ssize_t length)
+{
+#ifdef DEBUG
+    std::cout << "get_properties_from_data" << std::endl;
+#endif
+    AudioFile audiofile;
+
+    audiofile.open(buffer, length, "");
+
+    python::dict info = extractInfoDict(audiofile, BufferDecodeOutput());
+
+    return info;
+}
+
+python::dict get_properties_from_file(const std::string &path)
+{
+#ifdef DEBUG
+    std::cout << "get_properties_from_file" << std::endl;
+#endif
+    AudioFile audiofile;
+
+    audiofile.open(path);
+
+    python::dict info = extractInfoDict(audiofile, BufferDecodeOutput());
+
+    return info;
+}
+
+boost::python::object get_properties(const boost::python::object &path,
+                                     const boost::python::object &data)
+{
+#ifdef DEBUG
+    std::cout << "get_properties" << std::endl;
+#endif
+    if ((path.is_none() && data.is_none()) ||
+        (!path.is_none() && !data.is_none()))
+    {
+        throw std::invalid_argument("invalid arguments");
+    }
+
+    if (data && !data.is_none())
+    {
+        if (!PyBytes_Check(data.ptr()))
+        {
+            throw std::invalid_argument("data must be of bytes type");
+        }
+
+        char *buffer;
+        Py_ssize_t length;
+        int r = PyBytes_AsStringAndSize(data.ptr(), &buffer, &length);
+        if (r < 0)
+            return boost::python::object();
+
+        return get_properties_from_data(buffer, length);
+    }
+    else if (path && !path.is_none())
+    {
+        if (!PyUnicode_Check(path.ptr()) && !PyBytes_Check(data.ptr()))
+        {
+            throw std::invalid_argument("data must be of str type");
+        }
+        std::string str_path = boost::python::extract<std::string>(path);
+
+        return get_properties_from_file(str_path);
+    }
+
+    throw std::invalid_argument("invalid arguments. Must set path or data");
+    return python::object();
+}
 
 BOOST_PYTHON_FUNCTION_OVERLOADS(decode_overloads, decode, 7, 7);
+BOOST_PYTHON_FUNCTION_OVERLOADS(get_properties_overloads, get_properties, 2, 2);
 
 BOOST_PYTHON_MODULE(bard_audiofile)
 {
@@ -256,6 +326,7 @@ BOOST_PYTHON_MODULE(bard_audiofile)
                                             python::arg("sample_rate")=object(), python::arg("sample_fmt")=object(),
                                             python::arg("channel_number")=object(), python::arg("channel_layout")=object(),
                                             python::arg("use_tmp_file")=object())));
+    def("get_properties", get_properties, get_properties_overloads((python::arg("path")=object(), python::arg("data")=object())));
     def("versions", versions);
 
     to_python_converter< std::vector<AudioFile::LogRecord>, LogRecordList_to_python_list>();
