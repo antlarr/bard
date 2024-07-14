@@ -64,6 +64,7 @@ public:
     std::string requestSampleFormat() const;
 
     void setOutChannels(int channels);
+    void setOutChannelLayout(const std::string &channelLayout);
     int outChannels() const;
     void setOutSampleRate(int sampleRate);
     int outSampleRate() const;
@@ -104,7 +105,7 @@ protected:
 
 
 
-    AVCodec *m_codec = nullptr;
+    const AVCodec *m_codec = nullptr;
     AVCodecContext *m_codecCtx = nullptr;
     AVFormatContext *m_formatCtx = nullptr;
     int m_audioStreamIndex = -1;

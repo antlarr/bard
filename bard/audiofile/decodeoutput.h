@@ -39,6 +39,7 @@ public:
     bool isPlanar() const { return m_isPlanar; };
     bool isValid() const { return m_isValid; };
     uint64_t samplesCount() const { return m_samplesCount; };
+    int sampleRate() const { return m_sampleRate; };
 
     double duration() const { return m_samplesCount / (double)m_sampleRate; };
 

@@ -47,7 +47,7 @@ python::dict versions()
     return v;
 }
 
-python::dict extractInfoDict(const AudioFile &audiofile, const DecodeOutput &output)
+python::dict extractInfoDict(const AudioFile &audiofile, const BufferDecodeOutput &output)
 {
     python::dict info;
     info["library_versions"] = versions();
@@ -62,11 +62,28 @@ python::dict extractInfoDict(const AudioFile &audiofile, const DecodeOutput &out
     info["stream_bits_per_raw_sample"] = audiofile.streamBitsPerRawSample();
     info["stream_sample_format"] = audiofile.streamSampleFormatName();
 
-    info["decoded_sample_format"] = output.sampleFormatName();
-    info["decoded_bytes_per_sample"] = output.bytesPerSample();
-    info["decoded_duration"] = output.duration();
-    info["samples"] = output.samplesCount();
-    info["is_planar"] = output.isPlanar();
+    if (output.isValid())
+    {
+        info["decoded_sample_format"] = output.sampleFormatName();
+        info["decoded_bytes_per_sample"] = output.bytesPerSample();
+        info["decoded_duration"] = output.duration();
+        info["decoded_sample_rate"] = output.sampleRate();
+        info["decoded_channels"] = output.channelCount();
+        if (output.samplesCount() != 0)
+        {
+            info["samples"] = output.samplesCount();
+        }
+        else
+        {
+            Py_ssize_t size;
+            if (output.isPlanar())
+                size = output.channelCount() * output.lineSize();
+            else
+                size = output.size();
+            info["samples"] = size / (output.bytesPerSample() * audiofile.channels());
+        }
+        info["is_planar"] = output.isPlanar();
+    }
 
     info["channels"] = audiofile.channels();
     info["sample_rate"] = audiofile.sampleRate();
@@ -87,7 +104,9 @@ python::object convertToPythonBytes(const BufferDecodeOutput &output)
     return bytes;
 }
 
-python::tuple decode_from_data(const char *buffer, Py_ssize_t length)
+python::tuple decode_from_data(const char *buffer, Py_ssize_t length, long sample_rate=0,
+                               const std::string &sample_fmt=std::string(),
+                               long channel_number=0, const std::string &channel_layout=std::string())
 {
 #ifdef DEBUG
     std::cout << "decode_from_data" << std::endl;
@@ -96,6 +115,14 @@ python::tuple decode_from_data(const char *buffer, Py_ssize_t length)
     BufferDecodeOutput output;
 
     audiofile.open(buffer, length, "");
+    if (sample_rate)
+        audiofile.setOutSampleRate(sample_rate);
+    if (!sample_fmt.empty())
+        audiofile.setOutSampleFormat(sample_fmt);
+    if (!channel_layout.empty())
+        audiofile.setOutChannelLayout(channel_layout);
+    else if (channel_number > 0)
+        audiofile.setOutChannels(channel_number);
     audiofile.setOutput(&output);
     audiofile.decode();
 
@@ -104,7 +131,9 @@ python::tuple decode_from_data(const char *buffer, Py_ssize_t length)
     return python::make_tuple(convertToPythonBytes(output), info);
 }
 
-python::tuple decode_from_file(const std::string &path)
+python::tuple decode_from_file(const std::string &path, long sample_rate=0,
+                               const std::string &sample_fmt=std::string(),
+                               long channel_number=0, const std::string &channel_layout=std::string())
 {
 #ifdef DEBUG
     std::cout << "decode_from_file" << std::endl;
@@ -113,6 +142,15 @@ python::tuple decode_from_file(const std::string &path)
     BufferDecodeOutput output;
 
     audiofile.open(path);
+    if (sample_rate)
+        audiofile.setOutSampleRate(sample_rate);
+    if (!sample_fmt.empty())
+        audiofile.setOutSampleFormat(sample_fmt);
+    if (!channel_layout.empty())
+        audiofile.setOutChannelLayout(channel_layout);
+    else if (channel_number > 0)
+        audiofile.setOutChannels(channel_number);
+
     audiofile.setOutput(&output);
     audiofile.decode();
 
@@ -123,6 +161,10 @@ python::tuple decode_from_file(const std::string &path)
 
 boost::python::object decode(const boost::python::object &path,
                              const boost::python::object &data,
+                             const boost::python::object &sample_rate,
+                             const boost::python::object &sample_fmt,
+                             const boost::python::object &channel_number,
+                             const boost::python::object &channel_layout,
                              const boost::python::object &use_tmp_file)
 {
 #ifdef DEBUG
@@ -134,6 +176,20 @@ boost::python::object decode(const boost::python::object &path,
         throw std::invalid_argument("invalid arguments");
     }
     bool use_temporary_file = PyObject_IsTrue(use_tmp_file.ptr());
+    long csample_rate = 0;
+    std::string csample_fmt;
+    long cchannel_number = 0;
+    std::string cchannel_layout;
+    if (!sample_rate.is_none() && PyLong_Check(sample_rate.ptr()))
+        csample_rate = PyLong_AsLong(sample_rate.ptr());
+    if (!sample_fmt.is_none() && PyUnicode_Check(sample_fmt.ptr()))
+        csample_fmt = boost::python::extract<std::string>(sample_fmt);
+
+    if (!channel_layout.is_none() && PyUnicode_Check(channel_layout.ptr()))
+        cchannel_layout = boost::python::extract<std::string>(channel_layout);
+    else if (!channel_number.is_none() && PyLong_Check(channel_number.ptr()))
+        cchannel_number = PyLong_AsLong(channel_number.ptr());
+
 
     if (data && !data.is_none())
     {
@@ -148,7 +204,7 @@ boost::python::object decode(const boost::python::object &path,
         if (r < 0)
             return boost::python::object();
 
-        return decode_from_data(buffer, length);
+        return decode_from_data(buffer, length, csample_rate, csample_fmt, cchannel_number, cchannel_layout);
     }
     else if (path && !path.is_none())
     {
@@ -162,8 +218,7 @@ boost::python::object decode(const boost::python::object &path,
         }
         std::string str_path = boost::python::extract<std::string>(path);
 
-        return decode_from_file(str_path);
-
+        return decode_from_file(str_path, csample_rate, csample_fmt, cchannel_number, cchannel_layout);
     }
 
     throw std::invalid_argument("invalid arguments. Must set path or data");
@@ -190,14 +245,17 @@ struct LogRecordList_to_python_list
     };
 };
 
-BOOST_PYTHON_FUNCTION_OVERLOADS(decode_overloads, decode, 3, 3);
 
+BOOST_PYTHON_FUNCTION_OVERLOADS(decode_overloads, decode, 7, 7);
 
 BOOST_PYTHON_MODULE(bard_audiofile)
 {
 
     using namespace python;
-    def("decode", decode, decode_overloads((python::arg("path")=object(), python::arg("data")=object(), python::arg("use_tmp_file")=object())));
+    def("decode", decode, decode_overloads((python::arg("path")=object(), python::arg("data")=object(),
+                                            python::arg("sample_rate")=object(), python::arg("sample_fmt")=object(),
+                                            python::arg("channel_number")=object(), python::arg("channel_layout")=object(),
+                                            python::arg("use_tmp_file")=object())));
     def("versions", versions);
 
     to_python_converter< std::vector<AudioFile::LogRecord>, LogRecordList_to_python_list>();

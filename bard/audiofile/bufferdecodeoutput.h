@@ -74,6 +74,7 @@ public:
         return m_bytesWritten;
     };
     int lineSize() const  { return m_lineSize; };
+    bool isValid() const { return m_data != nullptr; };
 
 protected:
     uint8_t **m_data = nullptr;

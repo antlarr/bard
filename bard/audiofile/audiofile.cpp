@@ -215,6 +215,12 @@ void AudioFile::setOutChannels(int channels)
     m_outChannelLayout = av_get_default_channel_layout(channels);
 }
 
+void AudioFile::setOutChannelLayout(const std::string &channelLayout)
+{
+    m_outChannelLayout = av_get_channel_layout(channelLayout.c_str());
+    m_outChannelNumber = av_get_channel_layout_nb_channels(m_outChannelLayout);
+}
+
 int AudioFile::outChannels() const
 {
     return m_outChannelNumber;
@@ -331,6 +337,8 @@ int AudioFile::logError(const std::string &msg, int errorCode)
 void AudioFile::handleFrame(const AVFrame* frame)
 {
             int dst_nb_samples = frame->nb_samples;
+            int out_samples = swr_get_out_samples(m_swrCtx, frame->nb_samples);
+            dst_nb_samples = out_samples;
 #ifdef DEBUG
             std::cout << "handling frame at " << currentDecodingPosition() << std::endl;
             std::cout << "preparing " << dst_nb_samples << " samples" << std::endl;
@@ -341,75 +349,119 @@ void AudioFile::handleFrame(const AVFrame* frame)
             std::cout << "prepared " << std::endl;
 #endif
 
+            bool fix_broken_frame = false;
             SwrContext *tmpSwrCtx = nullptr;
             if (!tmpSwrCtx && (frame->sample_rate != m_inSampleRate
                 || frame->channel_layout != m_inChannelLayout
                 || frame->format != m_inSampleFmt))
             {
-#ifdef DEBUG
                 std::cout << "broken frame with " << frame->nb_samples << " samples and invalid params at " << currentDecodingPosition() << std::endl;
                 if (frame->sample_rate != m_inSampleRate)
+                {
                     std::cout << "  sample_rate:" << frame->sample_rate << " (m_inSampleRate: " << m_inSampleRate << ")" << std::endl;
+                    fix_broken_frame = true;
+                }
                 if (frame->channel_layout != m_inChannelLayout)
+                {
                     std::cout << "  channel_layout:" << frame->channel_layout << " (m_inChannelLayout: " << m_inChannelLayout << ")" << std::endl;
+                    fix_broken_frame = true;
+                }
                 if (frame->format != m_inSampleFmt)
+                {
                     std::cout << "  sample_fmt:" << frame->format << " (m_inSampleFmt: " << m_inSampleFmt << ")" << std::endl;
-#endif
-#ifdef RESAMPLE
-                tmpSwrCtx = swr_alloc();
-                if (!tmpSwrCtx) {
-                    logError("Could not allocate resampler context");
-                    return;
+                    fix_broken_frame = true;
                 }
 
-                av_opt_set_int(tmpSwrCtx, "in_channel_layout", frame->channel_layout, 0);
-                av_opt_set_int(tmpSwrCtx, "in_sample_rate", frame->sample_rate, 0);
-                av_opt_set_sample_fmt(tmpSwrCtx, "in_sample_fmt", static_cast<AVSampleFormat>(frame->format), 0);
+                if (fix_broken_frame)
+                {
+                    tmpSwrCtx = swr_alloc();
+                    if (!tmpSwrCtx) {
+                        logError("Could not allocate resampler context");
+                        return;
+                    }
 
-                av_opt_set_int(tmpSwrCtx, "out_channel_layout", m_outChannelLayout, 0);
-                av_opt_set_int(tmpSwrCtx, "out_sample_rate", m_outSampleRate, 0);
-                av_opt_set_sample_fmt(tmpSwrCtx, "out_sample_fmt", m_outSampleFmt, 0);
+                    av_opt_set_int(tmpSwrCtx, "in_channel_layout", frame->channel_layout, 0);
+                    av_opt_set_int(tmpSwrCtx, "in_sample_rate", frame->sample_rate, 0);
+                    av_opt_set_sample_fmt(tmpSwrCtx, "in_sample_fmt", static_cast<AVSampleFormat>(frame->format), 0);
+
+                    av_opt_set_int(tmpSwrCtx, "out_channel_layout", m_outChannelLayout, 0);
+                    av_opt_set_int(tmpSwrCtx, "out_sample_rate", m_outSampleRate, 0);
+                    av_opt_set_sample_fmt(tmpSwrCtx, "out_sample_fmt", m_outSampleFmt, 0);
+
 #ifdef DEBUG
-                std::cout << "Temporarily resampling frame from " << frame->channel_layout << "/" << frame->sample_rate << "/" << frame->format << " to " << m_outChannelLayout << "/" << m_outSampleRate << "/" << m_outSampleFmt << std::endl;
+                    std::cout << "Temporarily resampling frame from " << frame->channel_layout << "/" << frame->sample_rate << "/" << frame->format << " to " << m_outChannelLayout << "/" << m_outSampleRate << "/" << m_outSampleFmt << std::endl;
 #endif
 
-                if ((swr_init(tmpSwrCtx)) < 0) {
-                    logError("Failed to initialize the resampling context");
+                    if ((swr_init(tmpSwrCtx)) < 0) {
+                        logError("Failed to initialize the resampling context");
+                        return;
+                    }
+                    uint8_t **buffer = m_output->getBuffer(dst_nb_samples);
+                    int real_out_samples = swr_convert(tmpSwrCtx, buffer, dst_nb_samples,
+                                          (const uint8_t **)frame->extended_data, frame->nb_samples);
+                    if (real_out_samples<0)
+                        logError("Error resampling", real_out_samples);
+#ifdef DEBUG
+                    std::cout << "writing " << real_out_samples << " out samples " << std::endl;
+#endif
+                    m_output->written(real_out_samples);
+
+                    int out_samples = swr_get_out_samples(tmpSwrCtx, 0);
+#ifdef DEBUG
+                    std::cout << "draining tmpswr prepare " << out_samples << " samples" << std::endl;
+#endif
+                    m_output->prepare(out_samples);
+
+                    buffer = m_output->getBuffer(out_samples);
+                    if (!buffer)
+                    {
+                        std::cout << "buffer is NULL" << std::endl;
+                        swr_free(&tmpSwrCtx);
+                        return;
+                    }
+                    real_out_samples = swr_convert(tmpSwrCtx, buffer, out_samples, NULL, 0);
+                    if (real_out_samples<0)
+                        logError("Error resampling", real_out_samples);
+
+#ifdef DEBUG
+                    std::cout << "draining swr using actually " << real_out_samples << " samples" << std::endl;
+#endif
+
+                    m_output->written(real_out_samples);
+
+                    swr_free(&tmpSwrCtx);
                     return;
                 }
-#endif
             }
 
 #ifdef DEBUG
-            std::cout << "decode samples: " << frame->nb_samples << " -> " << dst_nb_samples << " . channel " << frame->channel_layout << std::endl;
+            std::cout << "decode samples: " << frame->nb_samples << " (" << m_inSampleRate << ") -> " << dst_nb_samples << " (" << m_outSampleRate << ") . channel " << frame->channel_layout << std::endl;
 #endif
             uint8_t **buffer = m_output->getBuffer(dst_nb_samples);
             if (!buffer)
             {
                 std::cout << "buffer is NULL" << std::endl;
+                return;
             }
-#ifdef RESAMPLE
-            int err = swr_convert(tmpSwrCtx? tmpSwrCtx : m_swrCtx, buffer, dst_nb_samples,
+#if 1
+            int real_out_samples = swr_convert(m_swrCtx, buffer, dst_nb_samples,
                                   (const uint8_t **)frame->extended_data, frame->nb_samples);
-            if (err<0)
-                logError("Error resampling", err);
-
-            if (tmpSwrCtx)
-            {
-                swr_free(&tmpSwrCtx);
-            }
+            if (real_out_samples<0)
+                logError("Error resampling", real_out_samples);
 #else
             int channels = av_get_channel_layout_nb_channels(frame->channel_layout);
 #ifdef DEBUG
             std::cout << "samples copy" << frame->nb_samples << "  " << channels << std::endl;
 #endif
             av_samples_copy(buffer, frame->extended_data, 0, 0, frame->nb_samples, channels, static_cast<AVSampleFormat>(frame->format));
+            real_out_samples = frame->nb_samples;
 #endif
 #ifdef DEBUG
             std::cout << "writting frame at " << currentDecodingPosition() << std::endl;
+            std::cout << "writing " << real_out_samples << " out samples " << std::endl;
 #endif
 
-            m_output->written(dst_nb_samples);
+            m_output->written(real_out_samples);
 #ifdef DEBUG
             std::cout << "wrote frame at " << currentDecodingPosition() << std::endl;
 #endif
@@ -456,7 +508,7 @@ void AudioFile::drainDecoder()
 #ifdef DEBUG
     std::cout << "drainDecoder" << std::endl;
 #endif
-    if((err = avcodec_send_packet(m_codecCtx, NULL)) == 0)
+    if ((err = avcodec_send_packet(m_codecCtx, NULL)) == 0)
     {
         err = receiveFramesAndHandle();
         if (err != AVERROR(EAGAIN) && err != AVERROR_EOF)
@@ -466,6 +518,31 @@ void AudioFile::drainDecoder()
     {
         logError("Send error", err);
     }
+
+// Now we drain the resampler context which might be buffering data
+
+    int out_samples = swr_get_out_samples(m_swrCtx, 0);
+#ifdef DEBUG
+    std::cout << "draining swr prepare " << out_samples << " samples" << std::endl;
+#endif
+
+    m_output->prepare(out_samples);
+    uint8_t **buffer = m_output->getBuffer(out_samples);
+    if (!buffer)
+    {
+        std::cout << "buffer is NULL" << std::endl;
+        return;
+    }
+    int real_out_samples = swr_convert(m_swrCtx, buffer, out_samples,
+                                       NULL, 0);
+    if (real_out_samples<0)
+        logError("Error resampling", real_out_samples);
+
+#ifdef DEBUG
+    std::cout << "draining swr using actually " << real_out_samples << " samples" << std::endl;
+#endif
+
+    m_output->written(real_out_samples);
 }
 
 void AudioFile::setOutput(DecodeOutput *output)
@@ -518,11 +595,7 @@ int AudioFile::decode()
 
     int64_t estimatedSamples = (int) ((m_outSampleRate * (double)stream->time_base.num / stream->time_base.den) * stream->duration);
 
-#ifdef RESAMPLE
     m_output->init(m_outChannelNumber, m_outSampleFmt, estimatedSamples, m_outSampleRate);
-#else
-    m_output->init(m_outChannelNumber, m_codecCtx->request_sample_fmt, estimatedSamples, m_codecCtx->sample_rate);
-#endif
     if (!m_output->isValid())
     {
         fprintf(stderr, "Error initializing output\n");

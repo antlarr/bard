@@ -27,6 +27,7 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include <tuple>
 #include <boost/program_options.hpp>
 
 using namespace boost::program_options;
@@ -81,6 +82,9 @@ int main(int argc, char *argv[]) {
         ("buffer", value<bool>()->default_value(true), "Use buffer")
         ("input-file", value<string>()->required(), "Input file")
         ("reference-file", value<string>(), "File with reference data")
+        ("sample-rate", value<long>()->default_value(0), "Set output sample rate")
+        ("sample-format", value<string>()->default_value(""), "Set output sample format")
+        ("channels", value<string>()->default_value(""), "Set output channels number")
         ("output", value<string>()->default_value(""), "Output file");
 
     positional_options_description p;
@@ -122,6 +126,30 @@ int main(int argc, char *argv[]) {
     if (outFilename.empty())
         outFilename = std::string(filename) + ".raw";
 
+    if (vm["sample-rate"].as<long>())
+    {
+        audiofile.setOutSampleRate(vm["sample-rate"].as<long>());
+    }
+    if (!vm["sample-format"].as<string>().empty())
+    {
+        audiofile.setOutSampleFormat(vm["sample-format"].as<string>());
+    }
+    if (!vm["channels"].as<string>().empty())
+    {
+        // It can be a number or something like "5.1" or "quad"
+        const std::string ch = vm["channels"].as<string>();
+        if (ch.find_first_not_of("0123456789") == std::string::npos)
+        {
+            int nch = strtol(ch.c_str(), NULL, 10);
+            audiofile.setOutChannels(nch);
+        }
+        else
+        {
+            std::cout << "set channels to " << vm["channels"].as<string>() << std::endl;
+            audiofile.setOutChannelLayout(vm["channels"].as<string>());
+        }
+    }
+
     DecodeOutput *output;
 
     if (vm["buffer"].as<bool>())
@@ -149,10 +177,16 @@ int main(int argc, char *argv[]) {
     std::cout << "stream sample format: " << audiofile.streamSampleFormatName() << std::endl;
     std::cout << "output sample format: " << output->sampleFormatName() << std::endl;
     std::cout << "output bytes per sample: " << output->bytesPerSample() << std::endl;
+    std::cout << "output sample rate: " << output->sampleRate() << std::endl;
     std::cout << "libavcodec: " << LIBAVCODEC_IDENT << std::endl;
     std::cout << "libavformat: " << LIBAVFORMAT_IDENT << std::endl;
     std::cout << "libavutil: " << LIBAVUTIL_IDENT << std::endl;
     std::cout << "libswresample: " << LIBSWRESAMPLE_IDENT << std::endl;
+    auto loggedMessages = audiofile.loggedMessages();
+    for (auto it: loggedMessages)
+    {
+        std::cout << std::get<0>(it) << std::get<1>(it) << std::get<2>(it) << std::endl;
+    }
 
     bool ok = true;
     if (output->referenceData())
