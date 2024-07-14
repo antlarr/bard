@@ -534,14 +534,13 @@ int AudioFile::decode()
         return -1;
     }
 
-    AVPacket packet;
-    av_init_packet(&packet);
+    AVPacket* packet = av_packet_alloc();
 #ifdef DEBUG
     std::cout << "iterating on frames..." << std::endl;
 #endif
 
     int frame_idx = 0;
-    while ((err = av_read_frame(m_formatCtx, &packet)) != AVERROR_EOF)
+    while ((err = av_read_frame(m_formatCtx, packet)) != AVERROR_EOF)
     {
 #ifdef DEBUG
         std::cout << "reading frame " << frame_idx++ << std::endl;
@@ -551,24 +550,24 @@ int AudioFile::decode()
             logError("Read frame error", err);
             break;
         }
-        if(packet.stream_index != m_audioStreamIndex)
+        if(packet->stream_index != m_audioStreamIndex)
         {
 #ifdef DEBUG
             std::cout << "packet not from audio stream" << std::endl;
 #endif
-            av_packet_unref(&packet);
+            av_packet_unref(packet);
             continue;
         }
 
-        if((err = avcodec_send_packet(m_codecCtx, &packet)) == 0)
+        if((err = avcodec_send_packet(m_codecCtx, packet)) == 0)
         {
-            av_packet_unref(&packet);
+            av_packet_unref(packet);
         } else {
             if (err == AVERROR(EAGAIN))
                 logError("Send packet error eagain", err);
             else
                 logError("Send packet error", err);
-            av_packet_unref(&packet);
+            av_packet_unref(packet);
         }
 
         // EAGAIN -> more packets need to be sent to the codec in order to receive a frame back.
@@ -585,6 +584,7 @@ int AudioFile::decode()
     drainDecoder();
 
     m_output->terminate();
+    av_packet_free(&packet);
 
     return 0;
 }
@@ -630,4 +630,3 @@ int AudioFile::streamBitsPerRawSample() const
 {
     return m_formatCtx->streams[m_audioStreamIndex]->codecpar->bits_per_raw_sample;
 }
-
