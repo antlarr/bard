@@ -86,7 +86,7 @@ class Ratings:
         Ratings.cached = True
 
     def getSongUserRatings(self, user_id, song_id, verbose=False):
-        if Ratings.user_ratings:
+        if Ratings.cached:
             try:
                 return Ratings.user_ratings[user_id][song_id]
             except KeyError:
@@ -100,10 +100,12 @@ class Ratings:
         sql = text(sql).bindparams(user_id=user_id,
                                    song_id=song_id)
         result = c.execute(sql).fetchone()
+        if not result:
+            return None
         return result[0]
 
     def getSongAvgRatings(self, user_id, song_id, verbose=False):
-        if Ratings.avg_ratings:
+        if Ratings.cached:
             try:
                 return Ratings.avg_ratings[user_id][song_id]
             except KeyError:
@@ -117,6 +119,8 @@ class Ratings:
         sql = text(sql).bindparams(user_id=user_id,
                                    song_id=song_id)
         result = c.execute(sql).fetchone()
+        if not result:
+            return None
         return result[0]
 
     def getSongRatings(self, user_id, song_id):
