@@ -85,13 +85,14 @@ class Ratings:
                     Ratings.avg_ratings[user_id][song_id] = int(rating)
         Ratings.cached = True
 
-    def getSongUserRatings(self, user_id, song_id):
+    def getSongUserRatings(self, user_id, song_id, verbose=False):
         if Ratings.user_ratings:
             try:
                 return Ratings.user_ratings[user_id][song_id]
             except KeyError:
                 return None
-        print('Songs user ratings not cached')
+        if verbose:
+            print('Songs user ratings not cached')
         c = MusicDatabase.getCursor()
         sql = ('SELECT rating '
                '  FROM songs_ratings '
@@ -101,13 +102,14 @@ class Ratings:
         result = c.execute(sql).fetchone()
         return result[0]
 
-    def getSongAvgRatings(self, user_id, song_id):
+    def getSongAvgRatings(self, user_id, song_id, verbose=False):
         if Ratings.avg_ratings:
             try:
                 return Ratings.avg_ratings[user_id][song_id]
             except KeyError:
                 return None
-        print('Average songs ratings not cached')
+        if verbose:
+            print('Average songs ratings not cached')
         c = MusicDatabase.getCursor()
         sql = ('SELECT avg_rating '
                '  FROM avg_songs_ratings '
