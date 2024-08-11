@@ -71,6 +71,8 @@ def processLine(line, columns):
             except ValueError:
                 r[name] = datetime.strptime(value,
                                             '%Y-%m-%d %H:%M:%S')
+        elif type == 'uuid':
+            r[name] = UUID(value)
         else:
             r[name] = value
     return r

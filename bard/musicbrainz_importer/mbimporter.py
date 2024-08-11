@@ -900,6 +900,12 @@ class MusicBrainzImporter:
         return set(x['parent'] for x in table.getlines_matching_values(
                    'id', ids))
 
+    def get_link_attribute_types_without_parent(self):
+        table = self.get_mbdump_tableiter('link_attribute_type')
+
+        return set(x['id'] for x in table.getlines_matching_values(
+                   'parent', [None]))
+
     def get_mediums_from_release_ids(self):
         table = self.get_mbdump_tableiter('medium')
 
@@ -1271,6 +1277,11 @@ class MusicBrainzImporter:
         self.import_table('series')
         self.import_elements_from_table('link_type')
         if 'link_attribute_type' in self.parent_ids:
+            # First import elements without parents as they're unsorted in the db dump
+            lat_without_parents = self.get_link_attribute_types_without_parent()
+            print(f'link_attribute_types without parent: {len(lat_without_parents)}')
+            (self.import_elements_from_table('link_attribute_type',
+             column='id', ids=lat_without_parents))
             (self.import_elements_from_table('link_attribute_type',
              column='id', ids=self.parent_ids['link_attribute_type']))
 

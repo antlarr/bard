@@ -24,7 +24,7 @@ def find_matching_parenthesis(text, pos):
 def convert_type(t):
     t = t.lower()
     types = [('integer', 'int'),
-             ('uuid', 'str'),
+             ('uuid', 'uuid'),
              ('varchar', 'str'),
              ('text', 'str'),
              ('char', 'str'),
@@ -32,6 +32,7 @@ def convert_type(t):
              ('timestamp', 'datetime'),
              ('smallint', 'int'),
              ('int', 'int'),
+             ('bigint', 'int'),
              ('boolean', 'bool')]
 
     for old, new in types:
@@ -79,8 +80,20 @@ while pos < len(contents):
     if end_pos == -1:
         break
     table_name = contents[begin + len('create table'):begin_pos].strip()
-    columns = extract_column_names(contents[begin_pos + 1:end_pos])
-    tables[table_name] = columns
+    table_name = re.search('(\w+)', table_name).group(1)
+
+    print(f'new table: {table_name}')
+    m = re.match(r'create table \w+[\n ]+partition of (\w+) for values in \([^)]*\)',
+                contents[begin:end_pos+1])
+    if m:
+        # we have a partition table, not a regular create table
+        partitioned_table = m.group(1)
+        print(f'partition of {partitioned_table}')
+        tables[table_name] = tables[partitioned_table][:]
+    else:
+        # regular create table statement
+        columns = extract_column_names(contents[begin_pos + 1:end_pos])
+        tables[table_name] = columns
     pos = end_pos + 1
 
 directory = os.path.expanduser('~/.local/share/bard')
