@@ -2,7 +2,48 @@
 
 ## Next release
 
-*
+#### New features and improvements:
+* Very much improved initial bard usage experience. A number of issues have been fixed when using bard for the first time.
+  * Fix creating schemas in the initial database creation with postgresql
+  * Fix initial case when there's no rating in the db
+* Refactor update process which is now much faster
+* Use SQLAlchemy >= 2.0
+* Add compatibility with latest MusicBrainz database schema and other improvements to MusicBrainz data importer
+* Re-decode audio with lower sample rate to use less resources when a file is using too much memory (usually DSD128 and such files).
+* Commit each song to database as they're processed
+* Add a verbose parameter to getSongUserRatings and getSongAvgRatings
+* Do not use `av_init_packet` which is deprecated in ffmpeg
+* Ignore lrc and webm files
+* Fix format and decode property and decode message names
+* Add alembic support which should allow automatic database migration in the future to new versions.
+* Allow to specify a database host and port in the configuration
+* Add a --length-threshold parameter to compare-dirs
+* Print timing output to test scanning speed
+* Reduce the buffer size as much as needed to fix DSD file support
+* Normalize more tags correctly, including ab:genre and ab:mood tags
+* Allow to work without essentia installed
+* Add webp support for cover images
+* Draw percentage bars when doing a backup
+* Improve documentation
+
+#### New commands:
+* New command `calculate-dr` to calculate the Dynamic Range of songs
+* New command `scan-file` that reads a file and checks if there are similar songs in the database without importing it.
+* New command `mb-check-redirected-uuids` that checks if there are songs in the database that have old obsolete MusicBrainz UUIDs that should be retagged with new ones.
+* New parameter `--show-decode-messages` to the `info` command that shows warning/error decode messages.
+* Update the bash completion script
+
+#### web-ui:
+* Update JQuery-UI to 1.13.2
+* Update jquery to 3.7.0
+* Start adding support for playing music on different devices
+* Remove context menu support
+* Add test code to create a context menu
+
+#### picard script:
+* Merge joinphrase " con " with " y " when saving files
+* Fix use of artists and support useonlyfirstartist
+* When processing files already organized, keep genres and images
 
 ## 0.5.0 (2021-01-10)
 
