@@ -828,11 +828,11 @@ class Bard:
                not path.startswith('/tmp/')):
                 self.addSong(path)
 
-    def findAudioDuplicates(self, from_song_id=None, songs=[]):  # noqa: C901
+    def findAudioDuplicates(self, from_song_id=None, songs=[],
+                            verbose=False):  # noqa: C901
         c = MusicDatabase.getCursor()
         info = {}
         print_stats = True
-        verbose = True
         matchThreshold = config.config['match_threshold']
         storeThreshold = config.config['store_threshold']
         shortSongStoreThreshold = config.config['short_song_store_threshold']
@@ -1671,7 +1671,7 @@ class Bard:
                   f'bard/config.example to {config_path}')
 
     def processSongs(self, from_song_id=None, verbose=False):
-        self.findAudioDuplicates(from_song_id)
+        self.findAudioDuplicates(from_song_id, verbose=verbose)
         self.analyzeSongs(from_song_id=from_song_id, verbose=verbose)
 
     def updateMusicBrainzDBDump(self, verbose):
@@ -1699,7 +1699,7 @@ class Bard:
             help='''The following commands are available:
 init                initializes the database
 find-duplicates     find duplicate files comparing the checksums
-find-audio-duplicates [--from-song-id <song_id>] [song_id ...]
+find-audio-duplicates [-v] [--from-song-id <song_id>] [song_id ...]
                     find duplicate files comparing the audio fingerprint
 compare-songs [-i] [id_or_path] [id_or_path]
                     compares two songs given their paths or song id
@@ -1800,6 +1800,8 @@ mb-import [-v] [--update]
         parser = sps.add_parser('find-audio-duplicates',
                                 description='Find duplicate files comparing '
                                             'the audio fingerprint')
+        parser.add_argument('-v', '--verbose', dest='verbose',
+                            action='store_true', help='Be verbose')
         parser.add_argument('--from-song-id', type=int, metavar='from_song_id',
                             help='Starts fixing checksums from a specific '
                                  'song_id')
@@ -2184,7 +2186,7 @@ mb-import [-v] [--update]
                                 removeMissingFiles=options.remove_missing_files
                                 )
         elif options.command == 'find-audio-duplicates':
-            self.findAudioDuplicates(options.from_song_id, options.songs)
+            self.findAudioDuplicates(options.from_song_id, options.songs, verbose=options.verbose)
         elif options.command == 'compare-songs':
             self.compareSongIDsOrPaths(options.song1, options.song2,
                                        options.interactive)
