@@ -1317,8 +1317,16 @@ class Bard:
                     self.info([songID2])
                     first = False
 
-    def calculateDR(self, ids_or_paths):
+    def calculateDR(self, ids_or_paths, force_recalculate=True):
         collection = []
+        if force_recalculate:
+            for path in ids_or_paths:
+                song = Song(path)
+                print(f'DR: {song.dr14}')
+                print(f'Peak dB: {song.db_peak:0.3f}')
+                print(f'RMS dB: {song.db_rms:0.3f}')
+            return
+
         for id_or_path in ids_or_paths:
             collection.extend(getSongsFromIDorPath(id_or_path))
 
@@ -2110,6 +2118,10 @@ mb-import [-v] [--update]
         parser = sps.add_parser('calculate-dr',
                                 description='Parse a file and calculate '
                                 'its Dynamic Range')
+        parser.add_argument('-f', '--force', dest='force',
+                            action='store_true', help='Force the recalculation'
+                            ' of the dynamic range instead of reading it from '
+                            'the database')
         parser.add_argument('ids_or_paths', nargs='*')
         # update-musicbrainz-artists command
         parser = sps.add_parser('update-musicbrainz-artists', description=''
@@ -2270,7 +2282,7 @@ mb-import [-v] [--update]
         elif options.command == 'scan-file':
             self.scanFile(options.path, printMatchInfo=options.printMatchInfo)
         elif options.command == 'calculate-dr':
-            self.calculateDR(options.ids_or_paths)
+            self.calculateDR(options.ids_or_paths, options.force)
 
 
 def main():
