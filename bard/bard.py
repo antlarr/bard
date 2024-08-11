@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from bard.utils import fixTags, calculateFileSHA256, printSongsInfo, \
     fingerprint_AudioSegment, alignColumns, decodeAudio, \
     calculateSHA256_data, formatLength, colorizeTime, colorizeAll
