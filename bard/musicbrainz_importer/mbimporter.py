@@ -6,6 +6,7 @@ import json
 import urllib.request
 import subprocess
 import copy
+import shlex
 # from datetime import datetime
 # import inspect
 from functools import partial
@@ -1298,3 +1299,72 @@ class MusicBrainzImporter:
         MusicBrainzDatabase.cacheMusicBrainzDB()
 
         self.import_ratings()
+
+    def check_redirected_uuids(self):
+        mbdb = MusicBrainzDatabase()
+        self.uuids = {}
+        self.uuids['artist'] = mbdb.get_all_artists()
+        self.uuids['recording'] = mbdb.get_all_recordings()
+        self.uuids['release_group'] = mbdb.get_all_releasegroups()
+        self.uuids['release'] = mbdb.get_all_releases()
+        self.uuids['track'] = mbdb.get_all_tracks()
+        self.uuids['work'] = mbdb.get_all_works()
+
+
+        self.redirected = {}
+        paths = set()
+        c = MusicDatabase.getCursor()
+        # First get songs from songs_mb
+        for entity in ['recording', 'release_group', 'release', 'track']:
+            table = self.get_mbdump_tableiter(f'{entity}_gid_redirect')
+            redirected = [x['gid'] for x in table.getlines_matching_values('gid', self.uuids[entity])]
+
+            print(entity)
+            print(redirected)
+            entity_col = {'recording': 'recordingid',
+                          'release_group': 'releasegroupid',
+                          'track': 'releasetrackid',
+                          'release': 'releaseid'}[entity]
+            sql = text('SELECT a.path '
+                       '  FROM albums a, album_songs _as, songs_mb smb '
+                       ' WHERE a.id = _as.album_id '
+                       '   AND _as.song_id = smb.song_id '
+                       f'  AND smb.{entity_col} in :uuids')
+            result = c.execute(sql, {'uuids': tuple(redirected)})
+            paths.update(x[0] for x in result.fetchall())
+
+        table = self.get_mbdump_tableiter(f'artist_gid_redirect')
+        redirected = [x['gid'] for x in table.getlines_matching_values('gid', self.uuids['artist'])]
+        sql = text('SELECT a.path '
+                   '  FROM albums a, album_songs _as, songs_mb_artistids smb '
+                   ' WHERE a.id = _as.album_id '
+                   '   AND _as.song_id = smb.song_id '
+                   '   AND smb.artistid in :uuids')
+        result = c.execute(sql, {'uuids': tuple(redirected)})
+        paths.update(x[0] for x in result.fetchall())
+        sql = text('SELECT a.path '
+                   '  FROM albums a, album_songs _as, songs_mb_albumartistids smb '
+                   ' WHERE a.id = _as.album_id '
+                   '   AND _as.song_id = smb.song_id '
+                   '   AND smb.albumartistid in :uuids')
+        result = c.execute(sql, {'uuids': tuple(redirected)})
+        paths.update(x[0] for x in result.fetchall())
+
+        table = self.get_mbdump_tableiter(f'work_gid_redirect')
+        redirected = [x['gid'] for x in table.getlines_matching_values('gid', self.uuids['work'])]
+        sql = text('SELECT a.path '
+                   '  FROM albums a, album_songs _as, songs_mb_workids smb '
+                   ' WHERE a.id = _as.album_id '
+                   '   AND _as.song_id = smb.song_id '
+                   '   AND smb.workid in :uuids')
+        result = c.execute(sql, {'uuids': tuple(redirected)})
+        paths.update(x[0] for x in result.fetchall())
+
+
+        paths = sorted(paths)
+        size = 30
+        print('-----')
+        for i in range(0, len(paths), size):
+            g = paths[i:i + size]
+            print(' '.join(shlex.quote(path) for path in g))
+        print('-----')

@@ -1688,6 +1688,12 @@ class Bard:
         importer.import_everything()
         print('Data from musicbrainz imported')
 
+    def checkRedirectedMusicBrainzUUIDs(self, verbose):
+        importer = MusicBrainzImporter()
+
+        print('Checking redirected uuids...')
+        importer.check_redirected_uuids()
+
     def parseCommandLine(self):  # noqa: C901
         main_parser = ArgumentParser(
             description='Manage your music collection',
@@ -1789,6 +1795,9 @@ mb-update [-v]
                     Download the latest MusicBrainz database
 mb-import [-v] [--update]
                     Import downloaded MusicBrainz data into the bard database
+mb-check-redirected-uuids [-v]
+                    Check if there are songs which have old musicbrainz uuids
+                    that should be retagged
 ''')
         # init command
         sps.add_parser('init', description='Initialize the database')
@@ -2153,6 +2162,12 @@ mb-import [-v] [--update]
                             action='store_true', help='Before importing the '
                             'MusicBrainz data, update the local copy from '
                             'which the data is imported')
+        # mb-check-redirected-uuids command
+        parser = sps.add_parser('mb-check-redirected-uuids', description='Check'
+                                ' if there are songs with old MB uuids that '
+                                'should be retagged')
+        parser.add_argument('-v', '--verbose', dest='verbose',
+                            action='store_true', help='Be verbose')
 
         options = main_parser.parse_args()
 
@@ -2280,6 +2295,8 @@ mb-import [-v] [--update]
             if options.update:
                 self.updateMusicBrainzDBDump(verbose=options.verbose)
             self.importMusicBrainzData(verbose=options.verbose)
+        elif options.command == 'mb-check-redirected-uuids':
+            self.checkRedirectedMusicBrainzUUIDs(verbose=options.verbose)
         elif options.command == 'scan-file':
             self.scanFile(options.path, printMatchInfo=options.printMatchInfo)
         elif options.command == 'calculate-dr':
