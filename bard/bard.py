@@ -350,7 +350,7 @@ class Bard:
                 path = os.path.join(dirpath, filename)
                 id_ = self.addSong(path, rootDir=directory,
                                    removedSongsAudioSHA256=removedSongsSHA256,
-                                   mtime=mtime, commit=False, verbose=verbose)
+                                   mtime=mtime, commit=True, verbose=verbose)
                 if id_:
                     songsIDs.append(id_)
             MusicDatabase.commit()
