@@ -221,7 +221,7 @@ class Bard:
 
         self.db = MusicDatabase()
         self.ignore_files = ['*.jpg', '*.jpeg', '*.bmp', '*.tif', '*.png',
-                             '*.gif', '*.xcf', '*.webp',
+                             '*.gif', '*.xcf', '*.webp', '*.avif',
                              '*.m3u', '*.pls', '*.cue', '*.m3u8', '*.au',
                              '*.mid', '*.kar', '*.lyrics', '*.lrc',
                              '*.url', '*.lnk', '*.ini', '*.rar', '*.zip',
