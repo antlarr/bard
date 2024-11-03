@@ -536,6 +536,15 @@ def DecodedAudioPropertiesTupleFromDict(properties):
     for time_position, level, message in properties['messages']:
         messages.append(DecodeMessageRecord(time_position, level,
                                             message.decode("utf-8", "ignore")))
+    if 'samples' not in properties:
+        properties['decoded_duration'] = None
+        properties['decoded_sample_format'] = None
+        properties['decoded_sample_rate'] = None
+        properties['decoded_bytes_per_sample'] = None
+        properties['decoded_channels'] = None
+        properties['is_planar'] = None
+        properties['samples'] = None
+
     return DecodedAudioPropertiesTuple(**properties)._replace(
         messages=messages)
 
