@@ -1495,21 +1495,23 @@ or name {like} '%%MusicBrainz/Track Id'"""))
             print(f'{result.rowcount} orphan albums removed')
 
     @staticmethod
-    def getAlbumProperties(albumID):
-        c = MusicDatabase.getCursor()
+    def getAlbumProperties(albumID, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getConnection()
         sql = text('select * from album_properties '
                    ' where album_id = :albumID')
-        r = c.execute(sql, {'albumID': albumID})
-        return r.fetchall()
+        r = connection.execute(sql, {'albumID': albumID})
+        return [x._mapping for x in r.fetchall()]
 
     @staticmethod
-    def getAlbumCoversCount(albumID):
-        c = MusicDatabase.getCursor()
+    def getAlbumCoversCount(albumID, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getConnection()
         sql = text('select count(distinct covermd5) '
                    '  from songs, album_songs '
                    ' where id = song_id '
                    '   and album_id = :albumID')
-        r = c.execute(sql, {'albumID': albumID})
+        r = connection.execute(sql, {'albumID': albumID})
         return r.fetchone()[0]
 
     @staticmethod
@@ -1575,7 +1577,7 @@ or name {like} '%%MusicBrainz/Track Id'"""))
         result = c.execute(sql.bindparams(owner_id=userID,
                                           playlistID=playlistID,
                                           index=index + 1))
-        return result.fetchone()
+        return result.fetchone()._mapping
 
     @staticmethod
     def get_next_album_song(albumID, mediumNumber, track_position):
@@ -1599,7 +1601,7 @@ or name {like} '%%MusicBrainz/Track Id'"""))
         result = c.execute(sql.bindparams(albumID=albumID,
                                           mediumNumber=mediumNumber,
                                           track_position=track_position))
-        return result.fetchone()
+        return result.fetchone()._mapping
 
     @staticmethod
     def refresh_album_tables():
@@ -1657,15 +1659,16 @@ or name {like} '%%MusicBrainz/Track Id'"""))
         c.commit()
 
     @staticmethod
-    def get_songs_ratings(song_ids, user_id):
+    def get_songs_ratings(song_ids, user_id, *, connection=None):
         if not song_ids:
             return {}
-        c = MusicDatabase.getCursor()
+        if not connection:
+            connection = MusicDatabase.getConnection()
         sel = (select(SongsRatings.c.song_id, SongsRatings.c.rating)
                .where(and_(SongsRatings.c.user_id == user_id,
                            SongsRatings.c.song_id.in_(song_ids),
                            SongsRatings.c.rating.isnot(None))))
-        r = c.execute(sel)
+        r = connection.execute(sel)
 
 #        result = {row['song_id']: (row['rating'], 'user')
 #                  for row in r.fetchall()}
@@ -1680,7 +1683,7 @@ or name {like} '%%MusicBrainz/Track Id'"""))
                    .where(and_(AvgSongsRatings.c.user_id == user_id,
                                AvgSongsRatings.c.song_id.in_(rem_song_ids),
                                AvgSongsRatings.c.avg_rating.isnot(None))))
-            r = c.execute(sel)
+            r = connection.execute(sel)
 
             result.update({row.song_id: (float(row.avg_rating), 'avg')
                            for row in r.fetchall()})
@@ -1693,15 +1696,16 @@ or name {like} '%%MusicBrainz/Track Id'"""))
         return result
 
     @staticmethod
-    def get_albums_ratings(album_ids, user_id):
+    def get_albums_ratings(album_ids, user_id, *, connection=None):
         if not album_ids:
             return {}
-        c = MusicDatabase.getCursor()
+        if not connection:
+            connection = MusicDatabase.getConnection()
         sel = (select(AlbumsRatings.c.album_id, AlbumsRatings.c.rating)
                .where(and_(AlbumsRatings.c.user_id == user_id,
                            AlbumsRatings.c.album_id.in_(album_ids))))
 
-        r = c.execute(sel)
+        r = connection.execute(sel)
 
         result = {row['album_id']: (row['rating'], 'user')
                   for row in r.fetchall()}
@@ -1715,9 +1719,9 @@ or name {like} '%%MusicBrainz/Track Id'"""))
                .where(and_(AlbumsRatings.c.user_id != user_id,
                            AlbumsRatings.c.album_id.in_(rem_album_ids)))
                .group_by(AlbumsRatings.c.album_id))
-        r = c.execute(sel)
+        r = connection.execute(sel)
 
-        result.update({row['album_id']: (float(row['avgrating']), 'avg')
+        result.update({row.album_id: (float(row.avgrating), 'avg')
                        for row in r.fetchall()})
 
         rem_album_ids = tuple(x for x in rem_album_ids

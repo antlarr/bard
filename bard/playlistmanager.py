@@ -1,4 +1,4 @@
-from bard.musicdatabase import MusicDatabase
+from bard.musicdatabase import MusicDatabase, DatabaseEnum
 from sqlalchemy import text
 from bard.playlist import Playlist, PlaylistTypes
 from bard.searchplaylist import SearchPlaylist
@@ -37,9 +37,22 @@ class PlaylistManager:
         else:
             result = c.execute(text(statement))
 
-        pltype = {1: Playlist, 4: GeneratedPlaylist}
-        return [pltype[x.playlist_type](db_row=x)
-                for x in result.fetchall()]
+        #pltype = {1: Playlist, 4: GeneratedPlaylist}
+        pltype = {'user': Playlist,
+                  'search': SearchPlaylist,
+                  'generated': GeneratedPlaylist}
+
+        pltype_dbenum = DatabaseEnum('playlist_type')
+        #return [pltype[x.playlist_type](db_row=x)
+        #        for x in result.fetchall()]
+        r = []
+
+        for x in result.fetchall():
+            print(x)
+            Y = pltype[pltype_dbenum.name(x.playlist_type)]
+            y = Y(db_row=x)
+            r.append(y)
+        return r
 
     @staticmethod
     def load_id_from_db(playlistID, ownerID=None):

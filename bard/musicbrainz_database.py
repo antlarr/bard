@@ -119,7 +119,7 @@ def getList(tags, metadata_tags):
             continue
         return value
 
-    return None
+    return []
 
 
 def getValue(tags, metadata_tags):
@@ -186,8 +186,6 @@ class MusicBrainzDatabase:
 
     @staticmethod
     def insertMBArtistIDs(song_id, artistIDs, *, connection):
-        if not artistIDs:
-            return
         songs_mb_artistids = table('songs_mb_artistids')
 
         s = select(songs_mb_artistids.c.artistid) \
@@ -208,8 +206,6 @@ class MusicBrainzDatabase:
 
     @staticmethod
     def insertMBAlbumArtistIDs(song_id, albumArtistIDs, *, connection):
-        if not albumArtistIDs:
-            return
         songs_mb_albumartistids = table('songs_mb_albumartistids')
 
         s = select(songs_mb_albumartistids.c.albumartistid) \
@@ -230,8 +226,6 @@ class MusicBrainzDatabase:
 
     @staticmethod
     def insertMBWorkIDs(song_id, workIDs, *, connection):
-        if not workIDs:
-            return
         songs_mb_workids = table('songs_mb_workids')
 
         s = select(songs_mb_workids.c.workid) \
@@ -597,21 +591,21 @@ union select rel.artist_credit_id
         else:
             qfilter = ''
         c = MusicDatabase.getCursor()
-        sql = ('select min(subq.offset) from ('
-               '       select row_number() over(order by locale_name)'
-               '                           as offset,'
-               '              locale_name, id'
-               f'         from artists_mb {qfilter}) as subq'
-               '  where subq.locale_name ilike :search')
+        sql = text('select min(subq.offset) from ('
+                   '       select row_number() over(order by locale_name)'
+                   '                           as offset,'
+                   '              locale_name, id'
+                   f'         from artists_mb {qfilter}) as subq'
+                   '  where subq.locale_name ilike :search')
         result = c.execute(sql, {'search': letter + '%'})
         return result.fetchone()[0] - 1
 
     @staticmethod
     def get_artist_image_path(artistID):
         c = MusicDatabase.getCursor()
-        sql = ('select ap.path, ap.image_filename '
-               'from artists_mb amb, artist_paths ap '
-               'where amb.id = :artistid and amb.artist_path_id = ap.id')
+        sql = text('select ap.path, ap.image_filename '
+                   'from artists_mb amb, artist_paths ap '
+                   'where amb.id = :artistid and amb.artist_path_id = ap.id')
         result = c.execute(sql, {'artistid': artistID})
         r = result.fetchone()
         if not r:
@@ -620,6 +614,8 @@ union select rel.artist_credit_id
 
     @staticmethod
     def get_artist_info(*, artistID=None, artistMBID=None, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         artist = table('musicbrainz.artist')
         artists_mb = table('artists_mb')
         artist_paths = table('artist_paths')
@@ -690,33 +686,33 @@ union select rel.artist_credit_id
     @staticmethod
     def get_artist_release_groups(artistID):
         c = MusicDatabase.getCursor()
-        sql = ('select rg.id, mbid, rg.name, disambiguation, '
-               'rgt.name as release_group_type, rg.artist_credit_id, '
-               'ac.name as artist_credit_name'
-               ' from musicbrainz.release_group as rg, '
-               '      musicbrainz.artist_credit as ac, '
-               '      musicbrainz.artist_credit_name as acn, '
-               '      musicbrainz.enum_release_group_type_values as rgt '
-               'where rg.artist_credit_id = ac.id '
-               '  and rg.artist_credit_id = acn.artist_credit_id '
-               '  and rg.release_group_type = rgt.id_value '
-               '  and acn.artist_id = :artistID '
-               '  and exists(select ar.album_id '
-               '               from album_release ar, musicbrainz.release rel '
-               '              where ar.release_id = rel.id '
-               '                and rel.release_group_id = rg.id)')
+        sql = text('select rg.id, mbid, rg.name, disambiguation, '
+                   'rgt.name as release_group_type, rg.artist_credit_id, '
+                   'ac.name as artist_credit_name'
+                   ' from musicbrainz.release_group as rg, '
+                   '      musicbrainz.artist_credit as ac, '
+                   '      musicbrainz.artist_credit_name as acn, '
+                   '      musicbrainz.enum_release_group_type_values as rgt '
+                   'where rg.artist_credit_id = ac.id '
+                   '  and rg.artist_credit_id = acn.artist_credit_id '
+                   '  and rg.release_group_type = rgt.id_value '
+                   '  and acn.artist_id = :artistID '
+                   '  and exists(select ar.album_id '
+                   '               from album_release ar, musicbrainz.release rel '
+                   '              where ar.release_id = rel.id '
+                   '                and rel.release_group_id = rg.id)')
         result = c.execute(sql, {'artistID': artistID})
         return result.fetchall()
 
     @staticmethod
     def get_release_group_directories(rgMBID):
         c = MusicDatabase.getCursor()
-        sql = ('select path '
-               '  from songs '
-               ' where id in (select song_id '
-               '               from songs_mb '
-               '              where releasegroupid=:rgMBID) '
-               ' order by id')
+        sql = text('select path '
+                   '  from songs '
+                   ' where id in (select song_id '
+                   '               from songs_mb '
+                   '              where releasegroupid=:rgMBID) '
+                   ' order by id')
         result = c.execute(sql, {'rgMBID': rgMBID})
         return set(os.path.dirname(path) for (path,) in result.fetchall())
 
@@ -724,8 +720,8 @@ union select rel.artist_credit_id
     def get_link_type_id(name, entity_type0, entity_type1):
         if not getattr(MusicBrainzDatabase, 'link_types', None):
             c = MusicDatabase.getCursor()
-            sql = ('select id, name, entity_type0, entity_type1 '
-                   'from musicbrainz.link_type')
+            sql = text('select id, name, entity_type0, entity_type1 '
+                       'from musicbrainz.link_type')
             r = c.execute(sql)
             MusicBrainzDatabase.link_types = \
                 {(lt_name, lt_entity_t0, lt_entity_t1): lt_id
@@ -757,15 +753,15 @@ union select rel.artist_credit_id
 
         rel_table = f'l_{entity_type0}_{entity_type1}'
 
-        sql = ('select link.id link_id, entity0, entity1, link_order, '
-               '        entity0_credit, entity1_credit, '
-               '        begin_date_year, begin_date_month, begin_date_day,'
-               '        end_date_year, end_date_month, end_date_day'
-               f'   from musicbrainz.{rel_table} l, '
-               '        musicbrainz.link link '
-               '  where link.id = l.link_id '
-               '    and link.link_type_id=:lt_id '
-               f'    and {clause}')
+        sql = text('select link.id link_id, entity0, entity1, link_order, '
+                   '        entity0_credit, entity1_credit, '
+                   '        begin_date_year, begin_date_month, begin_date_day,'
+                   '        end_date_year, end_date_month, end_date_day'
+                   f'   from musicbrainz.{rel_table} l, '
+                   '        musicbrainz.link link '
+                   '  where link.id = l.link_id '
+                   '    and link.link_type_id=:lt_id '
+                   f'    and {clause}')
         r = c.execute(sql, {'lt_id': lt_id, 'entity': entity})
         return r.fetchall()
 
@@ -782,11 +778,11 @@ union select rel.artist_credit_id
     @staticmethod
     def get_link_attributes(link_id):
         c = MusicDatabase.getCursor()
-        sql = ('select id, name '
-               '   from musicbrainz.link_attribute la, '
-               '        musicbrainz.link_attribute_type lat '
-               '  where la.link_id = :link_id '
-               '    and la.link_attribute_type_id = lat.id ')
+        sql = text('select id, name '
+                   '   from musicbrainz.link_attribute la, '
+                   '        musicbrainz.link_attribute_type lat '
+                   '  where la.link_id = :link_id '
+                   '    and la.link_attribute_type_id = lat.id ')
         r = c.execute(sql, {'link_id': link_id})
         return r.fetchall()
 
@@ -804,7 +800,7 @@ union select rel.artist_credit_id
             if x.entity1 != artistID:
                 ids.append(x.entity1)
 
-        artists = {x.id: x._mapping  # dict(x._mapping) ? (2023/05/31)
+        artists = {x.id: dict(x._mapping)
                    for x in MusicBrainzDatabase.get_artists_info(ids)}
         # print(artists)
 
@@ -851,7 +847,7 @@ union select rel.artist_credit_id
                     ac.c.name.label('artist_name'))
              .where(and_(rec.c.artist_credit_id == ac.c.id,
                          rec.c.id == recordingID)))
-        return connection.execute(s).fetchone()
+        return connection.execute(s).fetchone()._mapping
 
     @staticmethod
     def get_release_group_info(rgID, *, connection=None):
@@ -865,22 +861,24 @@ union select rel.artist_credit_id
                     ac.c.name.label('artist_name'))
              .where(and_(rg.c.artist_credit_id == ac.c.id,
                          rg.c.id == rgID)))
-        return connection.execute(s).fetchone()
+        return connection.execute(s).fetchone()._mapping
 
     @staticmethod
-    def get_release_group_secondary_types(rgID):
-        c = MusicDatabase.getCursor()
+    def get_release_group_secondary_types(rgID, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         sql = ('select name '
                '  from musicbrainz.release_group_secondary_type_join, '
                '       musicbrainz.enum_release_group_secondary_type_values '
                ' where release_group_id = :rgID '
                '   and secondary_type = id_value')
-        r = c.execute(text(sql), {'rgID': rgID})
+        r = connection.execute(text(sql), {'rgID': rgID})
         return [x[0] for x in r.fetchall()]
 
     @staticmethod
-    def get_release_group_releases(rgID):
-        c = MusicDatabase.getCursor()
+    def get_release_group_releases(rgID, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         sql = text('select album_id, r.id, mbid, r.name, disambiguation, '
                    '       release_status, language, barcode, '
                    '       artist_credit_id, ac.name artist_name, '
@@ -891,44 +889,49 @@ union select rel.artist_credit_id
                    ' where ar.release_id = r.id '
                    '   and r.artist_credit_id = ac.id '
                    '   and r.release_group_id = :rgID ')
-        r = c.execute(sql, {'rgID': rgID})
-        return r.fetchall()
+        r = connection.execute(sql, {'rgID': rgID})
+        return [x._mapping for x in r.fetchall()]
 
     @staticmethod
-    def get_release_group_album_count(rgID):
-        c = MusicDatabase.getCursor()
+    def get_release_group_album_count(rgID, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         sql = text('select count(*) '
                    '  from album_release ar, musicbrainz.release r '
                    ' where ar.release_id = r.id '
                    '   and r.release_group_id = :rgID')
-        r = c.execute(sql, {'rgID': rgID}).fetchone()
+        r = connection.execute(sql, {'rgID': rgID}).fetchone()
         if not r or not r[0]:
             return 0
         return r[0]
 
     @staticmethod
-    def get_release_tracks_count(releaseID):
-        c = MusicDatabase.getCursor()
+    def get_release_tracks_count(releaseID, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         sql = text('select m.position, count(*) '
                    '  from musicbrainz.medium m, '
                    '       musicbrainz.track t '
                    ' where m.release_id=:releaseID '
                    '   and t.medium_id=m.id group by 1 order by 1')
-        r = c.execute(sql, {'releaseID': releaseID})
+        r = connection.execute(sql, {'releaseID': releaseID})
         return [count for pos, count in r.fetchall()]
 
     @staticmethod
-    def get_release_group_albums(rgID):
-        c = MusicDatabase.getCursor()
+    def get_release_group_albums(rgID, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         sql = text('select ar.album_id'
                    '  from album_release ar, musicbrainz.release r '
                    ' where ar.release_id = r.id '
                    '   and r.release_group_id = :rgID')
-        r = c.execute(sql, {'rgID': rgID}).fetchall()
+        r = connection.execute(sql, {'rgID': rgID}).fetchall()
         return [x[0] for x in r]
 
     @staticmethod
-    def get_release_mediums(releaseID):
+    def get_release_mediums(releaseID, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         m = table('musicbrainz.medium')
         emfv = table('musicbrainz.enum_medium_format_values')
         s = (select(m.c.id, m.c.release_id, m.c.position,
@@ -937,7 +940,7 @@ union select rel.artist_credit_id
              .where(and_(m.c.format == emfv.c.id_value,
                          m.c.release_id == releaseID))
              .order_by(m.c.position))
-        return MusicDatabase.execute(s).fetchall()
+        return [x._mapping for x in connection.execute(s).fetchall()]
 
     @staticmethod
     def mediumlist_to_string(mediumlist):
@@ -962,28 +965,32 @@ union select rel.artist_credit_id
         return '+'.join(r)
 
     @staticmethod
-    def get_release_directories(releaseMBID):
-        c = MusicDatabase.getCursor()
+    def get_release_directories(releaseMBID, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         sql = ('select path '
                '  from songs '
                ' where id in (select song_id '
                '               from songs_mb '
                '              where releaseid=:releaseMBID)')
-        result = c.execute(text(sql), {'releaseMBID': releaseMBID})
+        result = connection.execute(text(sql), {'releaseMBID': releaseMBID})
         return set(os.path.dirname(path) for (path,) in result.fetchall())
 
     @staticmethod
-    def get_release_label(releaseID):
+    def get_release_label(releaseID, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         rl = table('musicbrainz.release_label')
         label = table('musicbrainz.label')
         s = (select(label.c.name.label('label_name'), rl.c.catalog_number)
              .where(and_(rl.c.label_id == label.c.id,
                          rl.c.release_id == releaseID)))
-        return MusicDatabase.execute(s).fetchall()
+        return [x._mapping for x in connection.execute(s).fetchall()]
 
     @staticmethod
-    def getAlbumDisambiguation(release, use_uselabel=False):
-        c = MusicDatabase.getCursor()
+    def getAlbumDisambiguation(release, use_uselabel=False, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         sql = text('select name, value '
                    '  from tags, album_songs '
                    ' where tags.song_id = album_songs.song_id '
@@ -991,8 +998,8 @@ union select rel.artist_credit_id
                    '   and name IN (\'comment\',\'usereleasecomment\','
                    '                \'uselabel\') '
                    ' group by name, value')
-        r = c.execute(sql, {'albumID': release['album_id']})
-        album = {x.name: x.value for x in r.fetchall()}
+        r = connection.execute(sql, {'albumID': release['album_id']})
+        album = {x[0]: x[1] for x in r.fetchall()}
         # print(release, album)
         try:
             usereleasecomment = int(album['usereleasecomment'])
@@ -1029,8 +1036,9 @@ union select rel.artist_credit_id
         return ','.join(result)
 
     @staticmethod
-    def get_album_info(albumID):
-        c = MusicDatabase.getCursor()
+    def get_album_info(albumID, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         sql = text('select album_id, r.id release_id, mbid release_mbid, '
                    '       r.name, disambiguation, '
                    '       release_status, language, barcode, '
@@ -1042,24 +1050,25 @@ union select rel.artist_credit_id
                    ' where ar.release_id = r.id '
                    '   and r.artist_credit_id = ac.id '
                    '   and ar.album_id = :albumID ')
-        result = c.execute(sql, {'albumID': albumID})
-        return result.fetchone()
+        result = connection.execute(sql, {'albumID': albumID})
+        return result.fetchone()._mapping
 
     @staticmethod
-    def get_release_events(releaseID):
-        c = MusicDatabase.getCursor()
+    def get_release_events(releaseID, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
         sql = text('select a.name country, date_year, date_month, date_day '
                    '  from musicbrainz.release_country rc, '
                    '       musicbrainz.area a '
                    ' where rc.release_id = :releaseID '
                    '   and rc.country_id = a.id')
-        result = c.execute(sql, {'releaseID': releaseID})
-        r = result.fetchall()
+        result = connection.execute(sql, {'releaseID': releaseID})
+        r = [x._mapping for x in result.fetchall()]
         sql = text('select NULL country, date_year, date_month, date_day '
                    '  from musicbrainz.release_unknown_country rc '
                    ' where rc.release_id = :releaseID')
-        result = c.execute(sql, {'releaseID': releaseID})
-        r.extend(result.fetchall())
+        result = connection.execute(sql, {'releaseID': releaseID})
+        r.extend(x._mapping for x in result.fetchall())
         return r
 
     @staticmethod
@@ -1087,8 +1096,7 @@ union select rel.artist_credit_id
                            Track.c.artist_credit_id == ArtistCredit.c.id))
                .order_by(Medium.c.position, Track.c.position))
         result = c.execute(sel)
-
-        return result.fetchall()
+        return [x._mapping for x in result.fetchall()]
 
     @staticmethod
     def get_album_songs(albumID):
@@ -1099,7 +1107,7 @@ union select rel.artist_credit_id
                ' where album_songs.song_id = songs_mb.song_id '
                '   and album_songs.album_id = :albumID ')
         result = c.execute(text(sql), {'albumID': albumID})
-        return result.fetchall()
+        return [x._mapping for x in result.fetchall()]
 
     @staticmethod
     def get_songs_information_for_webui(*, songIDs=None,
@@ -1225,21 +1233,21 @@ union select rel.artist_credit_id
     def get_release_group_date(releaseGroupID):
         c = MusicDatabase.getCursor()
         sql = ('select min(date_year)'
-               '  from musicbrainz.release_country rc,'
-               '       musicbrainz.release r'
-               ' WHERE r.id = rc.release_id '
-               '   AND r.release_group_id = :releaseGroupID ')
+                   '  from musicbrainz.release_country rc,'
+                   '       musicbrainz.release r'
+                   ' WHERE r.id = rc.release_id '
+                   '   AND r.release_group_id = :releaseGroupID ')
         r = c.execute(text(sql), {'releaseGroupID': releaseGroupID}).fetchone()
         if r and r[0]:
             return r[0]
 
         sql = ('select min(s.date)'
-               '  from songs s, album_songs aso, album_release ar, '
-               '       musicbrainz.release r'
-               ' WHERE r.release_group_id = :releaseGroupID '
-               '   AND ar.release_id = r.id '
-               '   AND aso.album_id = ar.album_id '
-               '   AND s.id = aso.song_id ')
+                   '  from songs s, album_songs aso, album_release ar, '
+                   '       musicbrainz.release r'
+                   ' WHERE r.release_group_id = :releaseGroupID '
+                   '   AND ar.release_id = r.id '
+                   '   AND aso.album_id = ar.album_id '
+                   '   AND s.id = aso.song_id ')
         r = c.execute(text(sql), {'releaseGroupID': releaseGroupID}).fetchone()
         if not r or not r[0]:
             return None

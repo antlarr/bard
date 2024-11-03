@@ -75,11 +75,11 @@ class Playlist:
                                  playlist_type=self.playlist_type))
 
         try:
-            sql = "SELECT currval(pg_get_serial_sequence('playlists','id'))"
+            sql = text("SELECT currval(pg_get_serial_sequence('playlists','id'))")
             result = c.execute(sql)
         except exc.OperationalError:
             # Try the sqlite way
-            sql = 'SELECT last_insert_rowid()'
+            sql = text('SELECT last_insert_rowid()')
             result = c.execute(sql)
         self.id = result.fetchone()[0]
 

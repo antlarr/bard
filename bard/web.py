@@ -511,23 +511,24 @@ def release_group_releases():
     rgID = request.args.get('id', type=int)
     print('id', rgID)
     use_bard_tags = config.config['use_bard_tags']
+    c = MusicDatabase.getConnection()
     MBD = MusicBrainzDatabase
-    releases = MBD.get_release_group_releases(rgID)
-    release_group_info = MBD.get_release_group_info(rgID)
-    secondary_types = MBD.get_release_group_secondary_types(rgID)
+    releases = MBD.get_release_group_releases(rgID, connection=c)
+    release_group_info = MBD.get_release_group_info(rgID, connection=c)
+    secondary_types = MBD.get_release_group_secondary_types(rgID, connection=c)
     result = []
     for release in releases:
-        mediums = MBD.get_release_mediums(release['id'])
+        mediums = MBD.get_release_mediums(release['id'], connection=c)
         rel = dict(release)
         album_id = rel['album_id']
         rel['mediums_desc'] = MBD.mediumlist_to_string(mediums)
         rel['audio_properties'] = [album_properties_to_string(x)
                                    for x in MusicDatabase.getAlbumProperties(
-                                       release['album_id'])]
+                                       release['album_id'], connection=c)]
         rel['album_disambiguation'] = (MBD.getAlbumDisambiguation(release,
-                                       use_uselabel=use_bard_tags))
-        rel['tracks_count'] = MBD.get_release_tracks_count(release['id'])
-        release_events = MBD.get_release_events(rel['id'])
+                                       use_uselabel=use_bard_tags, connection=c))
+        rel['tracks_count'] = MBD.get_release_tracks_count(release['id'], connection=c)
+        release_events = MBD.get_release_events(rel['id'], connection=c)
         if rel['language']:
             rel['language'] = LanguageEnum.name(rel['language'])
         if rel['release_status']:
@@ -541,7 +542,7 @@ def release_group_releases():
         rel['release_group_secondary_types'] = secondary_types
         rel['release_events'] = [dict(x) for x in release_events]
         ratings = MusicDatabase.get_albums_ratings([album_id],
-                                                   current_user.userID)
+                                                   current_user.userID, connection=c)
         rel['rating'] = ratings[album_id]
         result.append(rel)
 
