@@ -88,8 +88,15 @@ function appendArtistArtistRelations( jq, relation_name1, list1, relation_name2,
         var artist = list1[i][0];
         var date_range = dateTuplesRangeToString(list1[i][1], list1[i][2]);
         var date_range_str = date_range ? ("<span class=\"date_range\">(" + date_range + ")</span>") : "";
-        var attrs = list1[i][3].join(', ');
-        var attrs_str = attrs ? ("<span class=\"attributes\">(" + attrs + ")</span>") : "";
+	if (list1[i][3])
+	{
+            var attrs = list1[i][3].join(', ');
+            var attrs_str = attrs ? ("<span class=\"attributes\">(" + attrs + ")</span>") : "";
+	}
+	else
+	{
+            var attrs_str = "";
+	}
         r+="<li><a onclick=\"openArtist('" + artist.id + "')\"><span class=\"artist_name\">" + artist.name + "</span></a> " + attrs_str + " " + date_range_str + "</li>";
     };
     if (r) {
@@ -103,8 +110,15 @@ function appendArtistArtistRelations( jq, relation_name1, list1, relation_name2,
         var artist = list2[i][0];
         var date_range = dateTuplesRangeToString(list2[i][1], list2[i][2]);
         var date_range_str = date_range ? ("<span class=\"date_range\">(" + date_range + ")</span>") : "";
-        var attrs = list2[i][3].join(', ');
-        var attrs_str = attrs ? ("<span class=\"attributes\">(" + attrs + ")</span>") : "";
+	if (list2[i][3])
+	{
+            var attrs = list2[i][3].join(', ');
+            var attrs_str = attrs ? ("<span class=\"attributes\">(" + attrs + ")</span>") : "";
+	}
+	else
+	{
+            var attrs_str = "";
+	}
         memberof.push("<a onclick=\"openArtist('" + artist.id + "')\"><span class=\"artist_name\">" + artist.name + "</span></a> " + attrs_str + " " + date_range_str);
     };
     if (memberof.length > 0) {
