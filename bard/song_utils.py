@@ -40,21 +40,23 @@ def print_song_info(song, userID=None, print_analysis=True, print_decode_message
 
     for k in sorted(song.metadata):
         v = song.metadata[k]
-        print(TerminalColors.Header + str(k) + TerminalColors.ENDC +
-              ' : ' + str(v)[:100])
         if k in ('TMCL', 'TIPL'):
-            if len(v) > 1:
-                print('*** More than one %s tag in file: ' +
-                      'The following list might be incomplete ***')
-            txt_repr = v[0]
-            m = re.search(r'people=', txt_repr)
-            if m:
-                pos_bracket = simple_find_matching_square_bracket(
-                    txt_repr, m.end())
-                txt = txt_repr[m.end():pos_bracket + 1]
-                list_artists = eval(txt)
-                for instrument, artist in list_artists:
-                    print('    %s : %s' % (instrument, artist))
+            for person in sorted(v):
+                instrument, artist = person.split(':')
+                print('    %s : %s' % (instrument, artist))
+        else:
+            print(TerminalColors.Header + str(k) + TerminalColors.ENDC +
+                  ' : ' + str(v)[:100])
+#            txt_repr = v[0]
+#            m = re.search(r'people=', txt_repr)
+#            print(m, txt_repr)
+#            if m:
+#                pos_bracket = simple_find_matching_square_bracket(
+#                    txt_repr, m.end())
+#                txt = txt_repr[m.end():pos_bracket + 1]
+#                list_artists = eval(txt)
+#                for instrument, artist in list_artists:
+#                    print('    %s : %s' % (instrument, artist))
 
     print("file sha256sum: ", song.fileSha256sum())
     print("audio track sha256sum: ", song.audioSha256sum())
