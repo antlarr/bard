@@ -157,21 +157,30 @@ def get_albumartist_folder_tag(tagger, metadata, track, release,
 
     last = len(artists) - 2
     mbids = []
+    allowsemicolons = (len([x for x in artists if x['joinphrase'] == '; ']) == 1)
     for idx, artist in enumerate(artists):
         a = artist['artist']
         name = get_artist_name(a)
         mbids.append(a['id'])
         disambiguation = a['disambiguation']
+        # print('A', artist)
+        # print(f'joinphrase "{artist["joinphrase"]}"')
+        # print('D', disambiguation)
         if not use_disambiguation or disambiguation == '.':
             disambiguation = ''
         elif disambiguation:
             disambiguation = ' (' + disambiguation + ')'
         result += name + disambiguation
         if idx < last:
-            result += ', '
+            if allowsemicolons and artist['joinphrase'] == '; ':
+                result += artist['joinphrase']
+            else:
+                result += ', '
         elif idx == last:
             if artist['joinphrase'] in [' y ', ' con ']:
                 result += ' y '
+            elif allowsemicolons and artist['joinphrase'] == '; ':
+                result += artist['joinphrase']
             else:
                 result += ' & '
 
