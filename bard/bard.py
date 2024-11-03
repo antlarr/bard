@@ -284,16 +284,19 @@ class Bard:
         if config.config['immutable_database']:
             print("Error: Can't add song %s : "
                   "The database is configured as immutable" % path)
-            return None
+            return None, None
         isSongInDatabase = MusicDatabase.isSongInDatabase(path, file_mtime=mtime)
         if isSongInDatabase == 1:
             #if verbose:
             #    print('Already in db: %s' % path)
-            return None
+            return None, None
         elif isSongInDatabase == -1:
             print(f'Updating song {path}')
+            songStatus = 'updated'
         else:
             print(f'Adding song {path}')
+            songStatus = 'new'
+
         song = Song(path, rootDir=rootDir)
         if not song.isValid:
             msg = f'Song {path} is not valid'
@@ -314,6 +317,7 @@ class Bard:
                     removedSong = removedSongs[0]
 
                 song.moveFrom(removedSong)
+                songStatus = 'renamed'
             else:
                 removedPaths = '\n'.join([x.path() for x in removedSongs])
                 print(f'{removedPaths} was/were removed and {song.path()} is '
@@ -325,7 +329,7 @@ class Bard:
         if commit:
             MusicDatabase.commit()
 
-        return song.id
+        return song.id, songStatus
 
 
     def addDirectoryRecursively(self, directory, verbose=False,
@@ -334,7 +338,7 @@ class Bard:
             print("Error: Can't add directory %s : "
                   "The database is configured as immutable" % directory)
             return None
-        songsIDs = []
+        songsIDs = {'new': [], 'updated': [], 'renamed': []}
         if not directory.endswith('/'):
             directory += '/'
         for dirpath in sorted(self.songMTimeCache.keys()):
@@ -348,24 +352,24 @@ class Bard:
             for filename in sorted(filenames_mtimes.keys()):
                 mtime = filenames_mtimes[filename]
                 path = os.path.join(dirpath, filename)
-                id_ = self.addSong(path, rootDir=directory,
+                id_, songStatus = self.addSong(path, rootDir=directory,
                                    removedSongsAudioSHA256=removedSongsSHA256,
                                    mtime=mtime, commit=True, verbose=verbose)
                 if id_:
-                    songsIDs.append(id_)
+                    songsIDs[songStatus].append(id_)
             MusicDatabase.commit()
 
         return songsIDs
 
 
     def add(self, args, verbose=False, removedSongsAudioSHA256={}):
-        songsIDs = []
+        songsIDs = {'new': [], 'updated': [], 'renamed': []}
         for arg in args:
             if os.path.isfile(arg):
-                id_ = (self.addSong(os.path.normpath(arg),
-                       removedSongsAudioSHA256=removedSongsAudioSHA256))
+                id_, songStatus = (self.addSong(os.path.normpath(arg),
+                                   removedSongsAudioSHA256=removedSongsAudioSHA256))  # noqa
                 if id_:
-                    songsIDs.append(id_)
+                    songsIDs[songStatus].append(id_)
 
             elif os.path.isdir(arg):
                 if verbose:
@@ -374,7 +378,9 @@ class Bard:
                                                  verbose,
                                                  removedSongsAudioSHA256)
                 if r:
-                    songsIDs.extend(r)
+                    songsIDs['new'].extend(r['new'])
+                    songsIDs['updated'].extend(r['updated'])
+                    songsIDs['renamed'].extend(r['renamed'])
         return songsIDs
 
     def cacheFiles(self, paths, verbose=False):
@@ -437,7 +443,7 @@ class Bard:
             print(removedSongsAudioSHA256)
             print("adding...", paths)
 
-        ids = self.add(paths, verbose=verbose,
+        songIDs = self.add(paths, verbose=verbose,
                        removedSongsAudioSHA256=removedSongsAudioSHA256)
         if verbose:
             t_4 = time.time()
@@ -453,6 +459,8 @@ class Bard:
             t_5 = time.time()
             print("removed things", t_5 - t_4, t_5 - t_init)
 
+        ids = songIDs['new'] + songIDs['updated'] + songIDs['renamed']
+
         # do things for new songs
         MusicBrainzDatabase.updateMusicBrainzIDs(ids)
         MusicDatabase.refresh_album_tables()
@@ -460,6 +468,11 @@ class Bard:
         if verbose:
             t_6 = time.time()
             print("updated db", t_6 - t_5, t_6 - t_init)
+        print('----')
+        print(f'Total songs added: {len(songIDs["new"])}')
+        print(f'Total songs updated: {len(songIDs["updated"])}')
+        print(f'Total songs renamed: {len(songIDs["renamed"])}')
+        print(f'Total songs removed: {len(removedSongs) - len(songIDs["renamed"])}')
 
     def info(self, ids_or_paths, currentlyPlaying=False, show_analysis=False,
              show_decode_messages=False):
