@@ -1701,11 +1701,14 @@ class Bard:
         importer.import_everything()
         print('Data from musicbrainz imported')
 
-    def checkRedirectedMusicBrainzUUIDs(self, verbose):
+    def checkRedirectedMusicBrainzUUIDs(self, list_songs=False, group_size=30, verbose=False):
         importer = MusicBrainzImporter()
 
         print('Checking redirected uuids...')
-        importer.check_redirected_uuids()
+        if list_songs:
+            importer.check_redirected_uuids_songs(group_size, verbose)
+        else:
+            importer.check_redirected_uuids(group_size, verbose)
 
     def parseCommandLine(self):  # noqa: C901
         main_parser = ArgumentParser(
@@ -1808,7 +1811,7 @@ mb-update [-v]
                     Download the latest MusicBrainz database
 mb-import [-v] [--update]
                     Import downloaded MusicBrainz data into the bard database
-mb-check-redirected-uuids [-v]
+mb-check-redirected-uuids [-v] [--list-songs] [--group-size N]
                     Check if there are songs which have old musicbrainz uuids
                     that should be retagged
 ''')
@@ -2181,6 +2184,13 @@ mb-check-redirected-uuids [-v]
                                 'should be retagged')
         parser.add_argument('-v', '--verbose', dest='verbose',
                             action='store_true', help='Be verbose')
+        parser.add_argument('--list-songs', dest='list_songs',
+                            action='store_true', help='List the specific songs'
+                            ' with old MB uuids instead of the albums '
+                            'containing them')
+        parser.add_argument('--group-size', type=int, metavar='group_size',
+                            default=30, help='Group results in line of this '
+                            'size elements')
 
         options = main_parser.parse_args()
 
@@ -2309,7 +2319,9 @@ mb-check-redirected-uuids [-v]
                 self.updateMusicBrainzDBDump(verbose=options.verbose)
             self.importMusicBrainzData(verbose=options.verbose)
         elif options.command == 'mb-check-redirected-uuids':
-            self.checkRedirectedMusicBrainzUUIDs(verbose=options.verbose)
+            self.checkRedirectedMusicBrainzUUIDs(list_songs=options.list_songs,
+                                                 group_size=options.group_size,
+                                                 verbose=options.verbose)
         elif options.command == 'scan-file':
             self.scanFile(options.path, printMatchInfo=options.printMatchInfo)
         elif options.command == 'calculate-dr':
