@@ -43,7 +43,7 @@ FileDecodeOutput::FileDecodeOutput(const std::string &filename) : m_filename(fil
 {
     m_outFile = fopen(filename.c_str(), "w+");
     if(m_outFile == NULL) {
-        fprintf(stderr, "Unable to open output file \"%s\".\n", filename.c_str());
+        std::cerr << "Unable to open output file \"" << filename << "\"." << std::endl;
     }
 }
 
@@ -69,7 +69,7 @@ void FileDecodeOutput::prepare(int samples)
                                      samples, m_sampleFmt, 0);
 
     if (ret<0)
-        printf("Error1\n");
+        std::cout << "Error in FileDecodeOutput::prepare: Cannot allocate buffer for " << samples << " samples" << std::endl;
     m_maxSamples = samples;
 }
 uint8_t **FileDecodeOutput::getBuffer(int samples)
@@ -80,7 +80,10 @@ void FileDecodeOutput::written(int samples)
 {
     m_samplesCount += samples;
     int size = samples * m_channelCount * m_bytesPerSample;
+
+#if DEBUG && DEBUG >= 2
     std::cout << "written " << size << " bytes" << std::endl;
+#endif
 
     if (m_referenceData)
         m_referenceData->checkData(m_data[0], size, 0);

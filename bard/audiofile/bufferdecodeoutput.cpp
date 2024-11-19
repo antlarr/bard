@@ -59,7 +59,7 @@ void BufferDecodeOutput::init(int channels, enum AVSampleFormat sampleFmt, int64
 #endif
     // If we don't have an estimated number of samples, reserve space for 30 seconds
     if (estimatedSamples < 1)
-        estimatedSamples = 30 * sampleRate * channels;
+        estimatedSamples = 30L * sampleRate * channels;
 
     m_samplesCount = 0;
     m_bytesWritten = 0;
@@ -69,7 +69,7 @@ void BufferDecodeOutput::init(int channels, enum AVSampleFormat sampleFmt, int64
 
     int sample_size = av_get_bytes_per_sample(sampleFmt);
     int64_t seconds = 60;
-    while (((int64_t)channels * m_samplesReserved > (INT_MAX - (1 * channels)) / sample_size) && seconds > 1)
+    while (((int64_t)channels * m_samplesReserved > ((uint64_t)INT_MAX - channels) / sample_size) && seconds > 1)
     {
         // We won't have space for the whole audio, so let's reserve 60 seconds and it'll be dumped and adjusted as needed
         m_samplesReserved = seconds * m_channelCount * m_sampleRate;
