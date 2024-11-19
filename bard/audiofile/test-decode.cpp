@@ -92,6 +92,12 @@ int main(int argc, char *argv[]) {
 
     variables_map vm;
     store(command_line_parser(argc, argv).options(desc).positional(p).run(), vm);
+    if (vm.count("help"))
+    {
+        std::cout << desc << std::endl;
+        exit(1);
+    }
+
     notify(vm);
 
     string filename = vm["input-file"].as<string>();
