@@ -24,6 +24,17 @@
 #include "bufferaviocontext.h"
 #include "decodeoutput.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <libavutil/channel_layout.h>
+#include <libavcodec/version.h>
+
+#ifdef __cplusplus
+}
+#endif
+
 using std::string;
 struct AVPacket;
 struct AVFrame;
@@ -115,14 +126,25 @@ protected:
     string m_filename;
     string m_outFilename;
 
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
     uint64_t m_outChannelLayout = 0;
     int m_outChannelNumber = 0;
+#else
+    bool m_outChannelLayoutIsSet = false;
+    AVChannelLayout m_outChannelLayout;
+#endif
     int m_outSampleRate = 0;
     enum AVSampleFormat m_outSampleFmt = AV_SAMPLE_FMT_S16;
 
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
     uint64_t m_inChannelLayout = 0;
+#else
+    AVChannelLayout m_inChannelLayout;
+#endif
     int m_inSampleRate = 0;
     enum AVSampleFormat m_inSampleFmt = AV_SAMPLE_FMT_S16;
+
+    int64_t m_lastDecodedPTS = 0;
 
     BufferAVIOContext *m_avioContext = nullptr;
     DecodeOutput *m_output = nullptr;
