@@ -382,27 +382,23 @@ void AudioFile::handleFrame(const AVFrame* frame)
             std::cout << "prepared " << std::endl;
 #endif
 
-            bool fix_broken_frame = false;
-            SwrContext *tmpSwrCtx = nullptr;
-            if (!tmpSwrCtx && (frame->sample_rate != m_inSampleRate
+            if (frame->sample_rate != m_inSampleRate
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
                 || frame->channel_layout != m_inChannelLayout
 #else
                 || av_channel_layout_compare(&(frame->ch_layout), &m_inChannelLayout) != 0
 #endif
-                || frame->format != m_inSampleFmt))
+                || frame->format != m_inSampleFmt)
             {
                 std::cout << "broken frame with " << frame->nb_samples << " samples and invalid params at " << currentDecodingPosition() << std::endl;
                 if (frame->sample_rate != m_inSampleRate)
                 {
                     std::cout << "  sample_rate:" << frame->sample_rate << " (m_inSampleRate: " << m_inSampleRate << ")" << std::endl;
-                    fix_broken_frame = true;
                 }
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
                 if (frame->channel_layout != m_inChannelLayout)
                 {
                     std::cout << "  channel_layout:" << frame->channel_layout << " (m_inChannelLayout: " << m_inChannelLayout << ")" << std::endl;
-                    fix_broken_frame = true;
                 }
 #else
                 if (av_channel_layout_compare(&(frame->ch_layout), &m_inChannelLayout) != 0)
@@ -412,89 +408,84 @@ void AudioFile::handleFrame(const AVFrame* frame)
                     av_channel_layout_describe(&(frame->ch_layout), buf_frame, 128);
                     av_channel_layout_describe(&m_inChannelLayout, buf_in, 128);
                     std::cout << "  channel_layout:" << buf_frame << " (m_inChannelLayout: " << buf_in << ")" << std::endl;
-                    fix_broken_frame = true;
                 }
 #endif
                 if (frame->format != m_inSampleFmt)
                 {
                     std::cout << "  sample_fmt:" << frame->format << " (m_inSampleFmt: " << m_inSampleFmt << ")" << std::endl;
-                    fix_broken_frame = true;
                 }
 
-                if (fix_broken_frame)
-                {
-                    tmpSwrCtx = swr_alloc();
-                    if (!tmpSwrCtx) {
-                        logError("Could not allocate resampler context");
-                        return;
-                    }
+                SwrContext *tmpSwrCtx = swr_alloc();
+                if (!tmpSwrCtx) {
+                    logError("Could not allocate resampler context");
+                    return;
+                }
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
-                    av_opt_set_int(tmpSwrCtx, "in_channel_layout", frame->channel_layout, 0);
-                    av_opt_set_int(tmpSwrCtx, "out_channel_layout", m_outChannelLayout, 0);
+                av_opt_set_int(tmpSwrCtx, "in_channel_layout", frame->channel_layout, 0);
+                av_opt_set_int(tmpSwrCtx, "out_channel_layout", m_outChannelLayout, 0);
 #else
-                    av_opt_set_chlayout(tmpSwrCtx, "in_chlayout", &(frame->ch_layout), 0);
-                    av_opt_set_chlayout(tmpSwrCtx, "out_chlayout", &(m_outChannelLayout), 0);
+                av_opt_set_chlayout(tmpSwrCtx, "in_chlayout", &(frame->ch_layout), 0);
+                av_opt_set_chlayout(tmpSwrCtx, "out_chlayout", &(m_outChannelLayout), 0);
 #endif
 
-                    av_opt_set_int(tmpSwrCtx, "in_sample_rate", frame->sample_rate, 0);
-                    av_opt_set_sample_fmt(tmpSwrCtx, "in_sample_fmt", static_cast<AVSampleFormat>(frame->format), 0);
+                av_opt_set_int(tmpSwrCtx, "in_sample_rate", frame->sample_rate, 0);
+                av_opt_set_sample_fmt(tmpSwrCtx, "in_sample_fmt", static_cast<AVSampleFormat>(frame->format), 0);
 
-                    av_opt_set_int(tmpSwrCtx, "out_sample_rate", m_outSampleRate, 0);
-                    av_opt_set_sample_fmt(tmpSwrCtx, "out_sample_fmt", m_outSampleFmt, 0);
+                av_opt_set_int(tmpSwrCtx, "out_sample_rate", m_outSampleRate, 0);
+                av_opt_set_sample_fmt(tmpSwrCtx, "out_sample_fmt", m_outSampleFmt, 0);
 
 #ifdef DEBUG
  #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
-                    std::cout << "Temporarily resampling frame from " << frame->channel_layout << "/" << frame->sample_rate << "/" << frame->format << " to " << m_outChannelLayout << "/" << m_outSampleRate << "/" << m_outSampleFmt << std::endl;
+                std::cout << "Temporarily resampling frame from " << frame->channel_layout << "/" << frame->sample_rate << "/" << frame->format << " to " << m_outChannelLayout << "/" << m_outSampleRate << "/" << m_outSampleFmt << std::endl;
  #else
-                    char buf_in[128];
-                    char buf_out[128];
-                    av_channel_layout_describe(&frame->channel_layout, buf_in, 128);
-                    av_channel_layout_describe(&m_outChannelLayout, buf_out, 128);
-                    std::cout << "Temporarily resampling frame from " << buf_in << "/" << frame->sample_rate << "/" << frame->format << " to " << buf_out << "/" << m_outSampleRate << "/" << m_outSampleFmt << std::endl;
+                char buf_in[128];
+                char buf_out[128];
+                av_channel_layout_describe(&frame->ch_layout, buf_in, 128);
+                av_channel_layout_describe(&m_outChannelLayout, buf_out, 128);
+                std::cout << "Temporarily resampling frame from " << buf_in << "/" << frame->sample_rate << "/" << frame->format << " to " << buf_out << "/" << m_outSampleRate << "/" << m_outSampleFmt << std::endl;
  #endif
 #endif
 
-                    if ((swr_init(tmpSwrCtx)) < 0) {
-                        logError("Failed to initialize the resampling context for broken frame");
-                        return;
-                    }
-                    uint8_t **buffer = m_output->getBuffer(dst_nb_samples);
-                    int real_out_samples = swr_convert(tmpSwrCtx, buffer, dst_nb_samples,
-                                          (const uint8_t **)frame->extended_data, frame->nb_samples);
-                    if (real_out_samples<0)
-                        logError("Error resampling", real_out_samples);
+                if ((swr_init(tmpSwrCtx)) < 0) {
+                    logError("Failed to initialize the resampling context for broken frame");
+                    return;
+                }
+                uint8_t **buffer = m_output->getBuffer(dst_nb_samples);
+                int real_out_samples = swr_convert(tmpSwrCtx, buffer, dst_nb_samples,
+                                      (const uint8_t **)frame->extended_data, frame->nb_samples);
+                if (real_out_samples<0)
+                    logError("Error resampling", real_out_samples);
 #ifdef DEBUG
-                    std::cout << "writing " << real_out_samples << " out samples " << std::endl;
+                std::cout << "writing " << real_out_samples << " out samples " << std::endl;
 #endif
-                    m_output->written(real_out_samples);
+                m_output->written(real_out_samples);
 
-                    int out_samples = swr_get_out_samples(tmpSwrCtx, 0);
+                int out_samples = swr_get_out_samples(tmpSwrCtx, 0);
 #ifdef DEBUG
-                    std::cout << "draining tmpswr prepare " << out_samples << " samples" << std::endl;
+                std::cout << "draining tmpswr prepare " << out_samples << " samples" << std::endl;
 #endif
-                    m_output->prepare(out_samples);
+                m_output->prepare(out_samples);
 
-                    buffer = m_output->getBuffer(out_samples);
-                    if (!buffer)
-                    {
-                        std::cout << "buffer is NULL" << std::endl;
-                        swr_free(&tmpSwrCtx);
-                        return;
-                    }
-                    real_out_samples = swr_convert(tmpSwrCtx, buffer, out_samples, NULL, 0);
-                    if (real_out_samples<0)
-                        logError("Error resampling", real_out_samples);
-
-#ifdef DEBUG
-                    std::cout << "draining swr using actually " << real_out_samples << " samples" << std::endl;
-#endif
-
-                    m_output->written(real_out_samples);
-
+                buffer = m_output->getBuffer(out_samples);
+                if (!buffer)
+                {
+                    std::cout << "buffer is NULL" << std::endl;
                     swr_free(&tmpSwrCtx);
                     return;
                 }
+                real_out_samples = swr_convert(tmpSwrCtx, buffer, out_samples, NULL, 0);
+                if (real_out_samples<0)
+                    logError("Error resampling", real_out_samples);
+
+#ifdef DEBUG
+                std::cout << "draining swr using actually " << real_out_samples << " samples" << std::endl;
+#endif
+
+                m_output->written(real_out_samples);
+
+                swr_free(&tmpSwrCtx);
+                return;
             }
 
 #ifdef DEBUG
