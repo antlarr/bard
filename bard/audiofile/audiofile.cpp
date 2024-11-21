@@ -634,8 +634,13 @@ int AudioFile::decode()
     logDebug(DecodeParameters) << "channel_layout: " << m_codecCtx->channel_layout << std::endl;
     logDebug(DecodeParameters) << "out channel_layout: " << m_outChannelLayout << std::endl;
 #else
-    av_opt_set_chlayout(m_swrCtx, "in_chlayout", &(m_codecCtx->ch_layout), 0);
+
     av_channel_layout_copy(&m_inChannelLayout, &(m_codecCtx->ch_layout));
+
+    if (m_inChannelLayout.order == AV_CHANNEL_ORDER_UNSPEC)
+        av_channel_layout_default(&m_inChannelLayout, m_inChannelLayout.nb_channels);
+
+    av_opt_set_chlayout(m_swrCtx, "in_chlayout", &m_inChannelLayout, 0);
     av_opt_set_chlayout(m_swrCtx, "out_chlayout", &m_outChannelLayout, 0);
 
     char buf_in[128];
