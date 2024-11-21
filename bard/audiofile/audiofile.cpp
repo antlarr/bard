@@ -673,7 +673,7 @@ int AudioFile::decode()
     av_opt_set_sample_fmt(m_swrCtx, "out_sample_fmt", m_outSampleFmt, 0);
 
     if ((swr_init(m_swrCtx)) < 0) {
-        fprintf(stderr, "Failed to initialize the resampling context\n");
+        std::cerr << "Failed to initialize the resampling context" << std::endl;
         return -1;
     }
 
@@ -690,7 +690,7 @@ int AudioFile::decode()
             m_outSampleFmt, estimatedSamples, m_outSampleRate);
     if (!m_output->isValid())
     {
-        fprintf(stderr, "Error initializing output\n");
+        std::cerr << "Error initializing output" << std::endl;
         return -2;
     }
 
