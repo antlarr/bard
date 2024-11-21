@@ -110,7 +110,9 @@ protected:
     void pushBackLogMessage(AudioFile::LogLevel level, const string &msg);
     double currentDecodingPosition() const;
 //    double getSample(uint8_t* buffer, int sampleIndex) const;
-    void handleFrame(const AVFrame* frame);
+    void resampleFrame(AVFrame *outFrame, const AVFrame *inFrame);
+    void handleOutFrame(const AVFrame *frame);
+    void writeOutFrame(const AVFrame *frame);
     int receiveFramesAndHandle();
     void drainDecoder();
 
@@ -122,6 +124,7 @@ protected:
     int m_audioStreamIndex = -1;
     SwrContext *m_swrCtx = nullptr;
     AVFrame *m_frame = nullptr;
+    AVFrame *m_outFrame = nullptr;
 
     string m_filename;
     string m_outFilename;
@@ -131,7 +134,7 @@ protected:
     int m_outChannelNumber = 0;
 #else
     bool m_outChannelLayoutIsSet = false;
-    AVChannelLayout m_outChannelLayout;
+    AVChannelLayout m_outChannelLayout = {};
 #endif
     int m_outSampleRate = 0;
     enum AVSampleFormat m_outSampleFmt = AV_SAMPLE_FMT_S16;
@@ -139,7 +142,7 @@ protected:
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
     uint64_t m_inChannelLayout = 0;
 #else
-    AVChannelLayout m_inChannelLayout;
+    AVChannelLayout m_inChannelLayout = {};
 #endif
     int m_inSampleRate = 0;
     enum AVSampleFormat m_inSampleFmt = AV_SAMPLE_FMT_S16;

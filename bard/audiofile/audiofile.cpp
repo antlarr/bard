@@ -55,6 +55,7 @@ AudioFile::AudioFile()
 AudioFile::~AudioFile()
 {
     av_frame_free(&m_frame);
+    av_frame_free(&m_outFrame);
 
     swr_free(&m_swrCtx);
 
@@ -368,165 +369,207 @@ int AudioFile::logError(const std::string &msg, int errorCode)
     return errorCode;
 }
 
-void AudioFile::handleFrame(const AVFrame* frame)
+void AudioFile::resampleFrame(AVFrame *outFrame, const AVFrame *inFrame)
 {
-            m_lastDecodedPTS = frame->pts;
-            int dst_nb_samples = frame->nb_samples;
-            int out_samples = swr_get_out_samples(m_swrCtx, frame->nb_samples);
-            dst_nb_samples = out_samples;
+    int dst_nb_samples = inFrame->nb_samples;
+    int out_samples = swr_get_out_samples(m_swrCtx, inFrame->nb_samples);
+    dst_nb_samples = out_samples;
+
+    outFrame->format = m_outSampleFmt;
+    outFrame->sample_rate = m_outSampleRate;
+    av_channel_layout_copy(&(outFrame->ch_layout), &m_outChannelLayout);
+
 #ifdef DEBUG
-            std::cout << "handling frame at " << currentDecodingPosition() << std::endl;
-            std::cout << "preparing " << dst_nb_samples << " samples" << std::endl;
+    logDebug(TraceDecode) << "handling frame at " << currentDecodingPosition() << std::endl;
+    logDebug(TraceDecode) << "preparing " << dst_nb_samples << " samples" << std::endl;
 #endif
 
-            m_output->prepare(dst_nb_samples);
-#ifdef DEBUG
-            std::cout << "prepared " << std::endl;
-#endif
 
-            if (frame->sample_rate != m_inSampleRate
+    if (inFrame->sample_rate != m_inSampleRate
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
-                || frame->channel_layout != m_inChannelLayout
+        || inFrame->channel_layout != m_inChannelLayout
 #else
-                || av_channel_layout_compare(&(frame->ch_layout), &m_inChannelLayout) != 0
+        || av_channel_layout_compare(&(inFrame->ch_layout), &m_inChannelLayout) != 0
 #endif
-                || frame->format != m_inSampleFmt)
-            {
-                std::cout << "broken frame with " << frame->nb_samples << " samples and invalid params at " << currentDecodingPosition() << std::endl;
-                if (frame->sample_rate != m_inSampleRate)
-                {
-                    std::cout << "  sample_rate:" << frame->sample_rate << " (m_inSampleRate: " << m_inSampleRate << ")" << std::endl;
-                }
+        || inFrame->format != m_inSampleFmt)
+    {
+        logDebug(DecodeBrokenFrame) << "broken frame with " << inFrame->nb_samples << " samples and invalid params at " << currentDecodingPosition() << std::endl;
+        if (inFrame->sample_rate != m_inSampleRate)
+        {
+            logDebug(DecodeBrokenFrame) << "  sample_rate:" << inFrame->sample_rate << " (m_inSampleRate: " << m_inSampleRate << ")" << std::endl;
+        }
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
-                if (frame->channel_layout != m_inChannelLayout)
-                {
-                    std::cout << "  channel_layout:" << frame->channel_layout << " (m_inChannelLayout: " << m_inChannelLayout << ")" << std::endl;
-                }
+        if (inFrame->channel_layout != m_inChannelLayout)
+        {
+            logDebug(DecodeBrokenFrame) << "  channel_layout:" << inFrame->channel_layout << " (m_inChannelLayout: " << m_inChannelLayout << ")" << std::endl;
+        }
 #else
-                if (av_channel_layout_compare(&(frame->ch_layout), &m_inChannelLayout) != 0)
-                {
-                    char buf_frame[128];
-                    char buf_in[128];
-                    av_channel_layout_describe(&(frame->ch_layout), buf_frame, 128);
-                    av_channel_layout_describe(&m_inChannelLayout, buf_in, 128);
-                    std::cout << "  channel_layout:" << buf_frame << " (m_inChannelLayout: " << buf_in << ")" << std::endl;
-                }
-#endif
-                if (frame->format != m_inSampleFmt)
-                {
-                    std::cout << "  sample_fmt:" << frame->format << " (m_inSampleFmt: " << m_inSampleFmt << ")" << std::endl;
-                }
-
-                SwrContext *tmpSwrCtx = swr_alloc();
-                if (!tmpSwrCtx) {
-                    logError("Could not allocate resampler context");
-                    return;
-                }
-
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
-                av_opt_set_int(tmpSwrCtx, "in_channel_layout", frame->channel_layout, 0);
-                av_opt_set_int(tmpSwrCtx, "out_channel_layout", m_outChannelLayout, 0);
-#else
-                av_opt_set_chlayout(tmpSwrCtx, "in_chlayout", &(frame->ch_layout), 0);
-                av_opt_set_chlayout(tmpSwrCtx, "out_chlayout", &(m_outChannelLayout), 0);
-#endif
-
-                av_opt_set_int(tmpSwrCtx, "in_sample_rate", frame->sample_rate, 0);
-                av_opt_set_sample_fmt(tmpSwrCtx, "in_sample_fmt", static_cast<AVSampleFormat>(frame->format), 0);
-
-                av_opt_set_int(tmpSwrCtx, "out_sample_rate", m_outSampleRate, 0);
-                av_opt_set_sample_fmt(tmpSwrCtx, "out_sample_fmt", m_outSampleFmt, 0);
-
-#ifdef DEBUG
- #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
-                std::cout << "Temporarily resampling frame from " << frame->channel_layout << "/" << frame->sample_rate << "/" << frame->format << " to " << m_outChannelLayout << "/" << m_outSampleRate << "/" << m_outSampleFmt << std::endl;
- #else
-                char buf_in[128];
-                char buf_out[128];
-                av_channel_layout_describe(&frame->ch_layout, buf_in, 128);
-                av_channel_layout_describe(&m_outChannelLayout, buf_out, 128);
-                std::cout << "Temporarily resampling frame from " << buf_in << "/" << frame->sample_rate << "/" << frame->format << " to " << buf_out << "/" << m_outSampleRate << "/" << m_outSampleFmt << std::endl;
- #endif
-#endif
-
-                if ((swr_init(tmpSwrCtx)) < 0) {
-                    logError("Failed to initialize the resampling context for broken frame");
-                    return;
-                }
-                uint8_t **buffer = m_output->getBuffer(dst_nb_samples);
-                int real_out_samples = swr_convert(tmpSwrCtx, buffer, dst_nb_samples,
-                                      (const uint8_t **)frame->extended_data, frame->nb_samples);
-                if (real_out_samples<0)
-                    logError("Error resampling", real_out_samples);
-#ifdef DEBUG
-                std::cout << "writing " << real_out_samples << " out samples " << std::endl;
-#endif
-                m_output->written(real_out_samples);
-
-                int out_samples = swr_get_out_samples(tmpSwrCtx, 0);
-#ifdef DEBUG
-                std::cout << "draining tmpswr prepare " << out_samples << " samples" << std::endl;
-#endif
-                m_output->prepare(out_samples);
-
-                buffer = m_output->getBuffer(out_samples);
-                if (!buffer)
-                {
-                    std::cout << "buffer is NULL" << std::endl;
-                    swr_free(&tmpSwrCtx);
-                    return;
-                }
-                real_out_samples = swr_convert(tmpSwrCtx, buffer, out_samples, NULL, 0);
-                if (real_out_samples<0)
-                    logError("Error resampling", real_out_samples);
-
-#ifdef DEBUG
-                std::cout << "draining swr using actually " << real_out_samples << " samples" << std::endl;
-#endif
-
-                m_output->written(real_out_samples);
-
-                swr_free(&tmpSwrCtx);
-                return;
-            }
-
-#ifdef DEBUG
- #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
-            std::cout << "decode samples: " << frame->nb_samples << " (" << m_inSampleRate << ") -> " << dst_nb_samples << " (" << m_outSampleRate << ") . channel " << frame->channel_layout << std::endl;
- #else
+        if (av_channel_layout_compare(&(inFrame->ch_layout), &m_inChannelLayout) != 0)
+        {
+            char buf_frame[128];
             char buf_in[128];
-            av_channel_layout_describe(&frame->ch_layout, buf_in, 128);
-            std::cout << "decode samples: " << frame->nb_samples << " (" << m_inSampleRate << ") -> " << dst_nb_samples << " (" << m_outSampleRate << ") . channel " << buf_in << std::endl;
- #endif
+            av_channel_layout_describe(&(inFrame->ch_layout), buf_frame, 128);
+            av_channel_layout_describe(&m_inChannelLayout, buf_in, 128);
+            logDebug(DecodeBrokenFrame) << "  channel_layout:" << buf_frame << " (m_inChannelLayout: " << buf_in << ")" << std::endl;
+        }
 #endif
-            uint8_t **buffer = m_output->getBuffer(dst_nb_samples);
-            if (!buffer)
-            {
-                std::cout << "buffer is NULL" << std::endl;
-                return;
-            }
-#if 1
-            int real_out_samples = swr_convert(m_swrCtx, buffer, dst_nb_samples,
-                                  (const uint8_t **)frame->extended_data, frame->nb_samples);
-            if (real_out_samples<0)
-                logError("Error resampling", real_out_samples);
+        if (inFrame->format != m_inSampleFmt)
+        {
+            logDebug(DecodeBrokenFrame) << "  sample_fmt:" << inFrame->format << " (m_inSampleFmt: " << m_inSampleFmt << ")" << std::endl;
+        }
+
+        SwrContext *tmpSwrCtx = swr_alloc();
+        if (!tmpSwrCtx)
+        {
+            logError("Could not allocate resampler context");
+            return;
+        }
+
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
+        av_opt_set_int(tmpSwrCtx, "in_channel_layout", inFrame->channel_layout, 0);
+        av_opt_set_int(tmpSwrCtx, "out_channel_layout", m_outChannelLayout, 0);
 #else
-            int channels = av_get_channel_layout_nb_channels(frame->channel_layout);
-#ifdef DEBUG
-            std::cout << "samples copy" << frame->nb_samples << "  " << channels << std::endl;
-#endif
-            av_samples_copy(buffer, frame->extended_data, 0, 0, frame->nb_samples, channels, static_cast<AVSampleFormat>(frame->format));
-            real_out_samples = frame->nb_samples;
-#endif
-#ifdef DEBUG
-            std::cout << "writting frame at " << currentDecodingPosition() << std::endl;
-            std::cout << "writing " << real_out_samples << " out samples " << std::endl;
+        av_opt_set_chlayout(tmpSwrCtx, "in_chlayout", &(inFrame->ch_layout), 0);
+        av_opt_set_chlayout(tmpSwrCtx, "out_chlayout", &(m_outChannelLayout), 0);
 #endif
 
-            m_output->written(real_out_samples);
+        av_opt_set_int(tmpSwrCtx, "in_sample_rate", inFrame->sample_rate, 0);
+        av_opt_set_sample_fmt(tmpSwrCtx, "in_sample_fmt", static_cast<AVSampleFormat>(inFrame->format), 0);
+
+        av_opt_set_int(tmpSwrCtx, "out_sample_rate", m_outSampleRate, 0);
+        av_opt_set_sample_fmt(tmpSwrCtx, "out_sample_fmt", m_outSampleFmt, 0);
+
 #ifdef DEBUG
-            std::cout << "wrote frame at " << currentDecodingPosition() << std::endl;
+ #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
+        logDebug(DecodeBrokenFrame) << "Temporarily resampling frame from "
+                  << inFrame->channel_layout << "/" << inFrame->sample_rate << "/" << av_get_sample_fmt_name(static_cast<AVSampleFormat>(inFrame->format))
+                  << " to "
+                  << m_outChannelLayout << "/" << m_outSampleRate << "/" << av_get_sample_fmt_name(m_outSampleFmt) << std::endl;
+ #else
+        char buf_in[128];
+        char buf_out[128];
+        av_channel_layout_describe(&inFrame->ch_layout, buf_in, 128);
+        av_channel_layout_describe(&m_outChannelLayout, buf_out, 128);
+        logDebug(DecodeBrokenFrame) << "Temporarily resampling frame from "
+                  << buf_in << "/" << inFrame->sample_rate << "/" << av_get_sample_fmt_name(static_cast<AVSampleFormat>(inFrame->format))
+                  << " to "
+                  << buf_out << "/" << m_outSampleRate << "/" << av_get_sample_fmt_name(m_outSampleFmt) << std::endl;
+ #endif
 #endif
+
+        if ((swr_init(tmpSwrCtx)) < 0)
+        {
+            logError("Failed to initialize the resampling context for broken frame");
+            return;
+        }
+
+        //int r = swr_convert_frame(tmpSwrCtx, outFrame, inFrame);
+        outFrame->nb_samples = swr_get_out_samples(tmpSwrCtx, inFrame->nb_samples);
+
+        int ret;
+        if ((ret = av_frame_get_buffer(outFrame, 0)) < 0) {
+            logError("Error obtaining buffer for output frame", ret);
+            return;
+        }
+
+        ret = swr_convert(tmpSwrCtx, (uint8_t **)outFrame->extended_data, outFrame->nb_samples,
+                                     (const uint8_t **)inFrame->extended_data, inFrame->nb_samples);
+        if (ret < 0)
+        {
+            outFrame->nb_samples = 0;
+            logError("Error resampling", ret);
+            return;
+        }
+
+        outFrame->nb_samples = ret;
+
+        logDebug(DecodeBrokenFrame) << "input  Frame samples: " << inFrame->nb_samples << std::endl;
+        logDebug(DecodeBrokenFrame) << "output Frame samples: " << outFrame->nb_samples << std::endl;
+
+        int remaining_samples = swr_get_out_samples(tmpSwrCtx, 0);
+        if (ret > 0 && remaining_samples > 0)
+        {
+            logDebug(DecodeBrokenFrame) << "Remaining samples: " << remaining_samples << std::endl;
+            handleOutFrame(outFrame);
+            //AVFrame *tmp1 = av_frame_clone(outFrame);
+            av_frame_unref(outFrame);
+
+            //AVFrame *tmp2 = av_frame_alloc();
+
+            outFrame->format = m_outSampleFmt;
+            outFrame->sample_rate = m_outSampleRate;
+            av_channel_layout_copy(&(outFrame->ch_layout), &m_outChannelLayout);
+
+            outFrame->nb_samples = remaining_samples;
+
+            if ((ret = av_frame_get_buffer(outFrame, 0)) < 0) {
+                logError("Error obtaining buffer for output remaining frame", ret);
+                return;
+            }
+
+            ret = swr_convert(tmpSwrCtx, (uint8_t **)outFrame->extended_data, outFrame->nb_samples,
+                                         NULL, 0);
+            if (ret < 0)
+            {
+                outFrame->nb_samples = 0;
+                logError("Error resampling", ret);
+                return;
+            }
+            outFrame->nb_samples = ret;
+
+
+            remaining_samples = swr_get_out_samples(tmpSwrCtx, 0);
+        }
+        logDebug(DecodeBrokenFrame) << "Remaining samples: " << remaining_samples << std::endl;
+
+        swr_free(&tmpSwrCtx);
+
+        return;
+    }
+
+    logDebug() << "prepared " << std::endl;
+
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
+    logDebug() << "decode samples: " << inFrame->nb_samples << " (" << m_inSampleRate << ") -> " << dst_nb_samples << " (" << m_outSampleRate << ") . channel " << inFrame->channel_layout << std::endl;
+#else
+    char buf_in[128];
+    av_channel_layout_describe(&inFrame->ch_layout, buf_in, 128);
+    logDebug() << "decode samples: " << inFrame->nb_samples << " (" << m_inSampleRate << ") -> " << dst_nb_samples << " (" << m_outSampleRate << ") . channel " << buf_in << std::endl;
+#endif
+    int r = swr_convert_frame(m_swrCtx, outFrame, inFrame);
+    if (r != 0)
+    {
+        logError("error resampling frame", r);
+    }
+
+
+#ifdef DEBUG
+    int remaining_samples = swr_get_out_samples(m_swrCtx, 0);
+    if (remaining_samples)
+        logDebug(TraceSamples) << "Remaining samples: " << remaining_samples << std::endl;
+
+    logDebug(TraceDecode) << "resampled frame at " << currentDecodingPosition() << std::endl;
+#endif
+}
+
+void AudioFile::writeOutFrame(const AVFrame *frame)
+{
+#ifdef DEBUG
+    logDebug(TraceDecode) << "writting frame to output (" << frame->nb_samples << " samples)" << std::endl;
+#endif
+    m_output->prepare(frame->nb_samples);
+    uint8_t **buffer = m_output->getBuffer(frame->nb_samples);
+    int channels = frame->ch_layout.nb_channels;
+    av_samples_copy(buffer, frame->extended_data, 0, 0, frame->nb_samples, channels, static_cast<AVSampleFormat>(frame->format));
+    m_output->written(frame->nb_samples);
+#ifdef DEBUG
+    logDebug(TraceDecode) << "written" << std::endl;
+#endif
+}
+
+void AudioFile::handleOutFrame(const AVFrame *frame)
+{
+    writeOutFrame(frame);
 }
 
 int AudioFile::firstAudioStreamIndex() const
@@ -558,7 +601,12 @@ int AudioFile::receiveFramesAndHandle() {
     std::cout << "receiveFramesAndHandle" << std::endl;
 #endif
     while((err = avcodec_receive_frame(m_codecCtx, m_frame)) == 0) {
-        handleFrame(m_frame);
+        m_lastDecodedPTS = m_frame->pts;
+
+        resampleFrame(m_outFrame, m_frame);
+        handleOutFrame(m_outFrame);
+
+        av_frame_unref(m_outFrame);
         av_frame_unref(m_frame);
     }
     return err;
@@ -682,6 +730,11 @@ int AudioFile::decode()
 
     m_frame = av_frame_alloc();
     if (m_frame == NULL) {
+        return -1;
+    }
+
+    m_outFrame = av_frame_alloc();
+    if (m_outFrame == NULL) {
         return -1;
     }
 
