@@ -502,7 +502,7 @@ void AudioFile::handleFrame(const AVFrame* frame)
             std::cout << "decode samples: " << frame->nb_samples << " (" << m_inSampleRate << ") -> " << dst_nb_samples << " (" << m_outSampleRate << ") . channel " << frame->channel_layout << std::endl;
  #else
             char buf_in[128];
-            av_channel_layout_describe(&frame->channel_layout, buf_in, 128);
+            av_channel_layout_describe(&frame->ch_layout, buf_in, 128);
             std::cout << "decode samples: " << frame->nb_samples << " (" << m_inSampleRate << ") -> " << dst_nb_samples << " (" << m_outSampleRate << ") . channel " << buf_in << std::endl;
  #endif
 #endif
