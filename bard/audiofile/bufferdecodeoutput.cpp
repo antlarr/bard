@@ -16,6 +16,7 @@
 */
 
 #include "bufferdecodeoutput.h"
+#include "log.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,9 +55,8 @@ BufferDecodeOutput::~BufferDecodeOutput()
 
 void BufferDecodeOutput::init(int channels, enum AVSampleFormat sampleFmt, int64_t estimatedSamples, int sampleRate)
 {
-#ifdef DEBUG
-    std::cout << "BufferDecodeOutput::init. estimated samples: " << estimatedSamples << std::endl;
-#endif
+    logDebug(BufferDecodeOutputArea) << "BufferDecodeOutput::init. estimated samples: " << estimatedSamples << std::endl;
+
     // If we don't have an estimated number of samples, reserve space for 30 seconds
     if (estimatedSamples < 1)
         estimatedSamples = 30L * sampleRate * channels;
@@ -93,15 +93,12 @@ void BufferDecodeOutput::init(int channels, enum AVSampleFormat sampleFmt, int64
 
 void BufferDecodeOutput::prepare(int samples)
 {
-#ifdef DEBUG
-    std::cout << "samplesCount: " << m_samplesCount << " . prepare: " << samples << " (" << m_samplesCount + samples << ") . samples reserved: " << m_samplesReserved << std::endl;
-#endif
+    logDebug(BufferDecodeOutputArea) << "samplesCount: " << m_samplesCount << " . prepare: " << samples
+        << " (" << m_samplesCount + samples << ") . samples reserved: " << m_samplesReserved << std::endl;
 
     if (m_samplesCount + samples > m_samplesReserved)
     {
-#ifdef DEBUG
-        std::cout << "increasing buffer decode output size, samples:" << samples << std::endl;
-#endif
+        logDebug(BufferDecodeOutputArea) << "increasing buffer decode output size, samples:" << samples << std::endl;
         uint8_t **newData = nullptr;
         int newLineSize = 0;
         // Always reserve space for at least 5 more seconds

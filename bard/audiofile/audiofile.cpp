@@ -16,6 +16,7 @@
 */
 
 #include "audiofile.h"
+#include "log.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -38,7 +39,8 @@ extern "C" {
 using std::string;
 
 //#define TRACE 1
-#undef DEBUG
+//#undef DEBUG
+//
 
 AudioFile::AudioFile()
 {
@@ -565,9 +567,7 @@ int AudioFile::receiveFramesAndHandle() {
 void AudioFile::drainDecoder()
 {
     int err = 0;
-#ifdef DEBUG
-    std::cout << "drainDecoder" << std::endl;
-#endif
+    logDebug(TraceDecode) << "drainDecoder" << std::endl;
     if ((err = avcodec_send_packet(m_codecCtx, NULL)) == 0)
     {
         err = receiveFramesAndHandle();
@@ -582,9 +582,7 @@ void AudioFile::drainDecoder()
 // Now we drain the resampler context which might be buffering data
 
     int out_samples = swr_get_out_samples(m_swrCtx, 0);
-#ifdef DEBUG
-    std::cout << "draining swr prepare " << out_samples << " samples" << std::endl;
-#endif
+    logDebug(TraceDecode) << "draining swr prepare " << out_samples << " samples" << std::endl;
 
     m_output->prepare(out_samples);
     uint8_t **buffer = m_output->getBuffer(out_samples);
@@ -598,9 +596,7 @@ void AudioFile::drainDecoder()
     if (real_out_samples<0)
         logError("Error resampling", real_out_samples);
 
-#ifdef DEBUG
-    std::cout << "draining swr using actually " << real_out_samples << " samples" << std::endl;
-#endif
+    logDebug(TraceDecode) << "draining swr using actually " << real_out_samples << " samples" << std::endl;
 
     m_output->written(real_out_samples);
 }
@@ -625,35 +621,29 @@ int AudioFile::decode()
         logError("Could not allocate resampler context");
         return AVERROR(ENOMEM);
     }
-#ifdef DEBUG
-    std::cout << "sample_rate: " << m_codecCtx->sample_rate << std::endl;
-    std::cout << "request_sample_fmt: " << av_get_sample_fmt_name (m_codecCtx->request_sample_fmt) << std::endl;
+    logDebug(DecodeParameters) << "sample_rate: " << m_codecCtx->sample_rate << std::endl;
+    logDebug(DecodeParameters) << "request_sample_fmt: " << av_get_sample_fmt_name (m_codecCtx->request_sample_fmt) << std::endl;
 
-    std::cout << "out sample_rate: " << m_outSampleRate << std::endl;
-    std::cout << "out request_sample_fmt: " << av_get_sample_fmt_name(m_outSampleFmt) << std::endl;
-#endif
+    logDebug(DecodeParameters) << "out sample_rate: " << m_outSampleRate << std::endl;
+    logDebug(DecodeParameters) << "out request_sample_fmt: " << av_get_sample_fmt_name(m_outSampleFmt) << std::endl;
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
     av_opt_set_int(m_swrCtx, "in_channel_layout", m_codecCtx->channel_layout, 0);
     m_inChannelLayout = m_codecCtx->channel_layout;
     av_opt_set_int(m_swrCtx, "out_channel_layout", m_outChannelLayout, 0);
- #ifdef DEBUG
-    std::cout << "channel_layout: " << m_codecCtx->channel_layout << std::endl;
-    std::cout << "out channel_layout: " << m_outChannelLayout << std::endl;
- #endif
+    logDebug(DecodeParameters) << "channel_layout: " << m_codecCtx->channel_layout << std::endl;
+    logDebug(DecodeParameters) << "out channel_layout: " << m_outChannelLayout << std::endl;
 #else
     av_opt_set_chlayout(m_swrCtx, "in_chlayout", &(m_codecCtx->ch_layout), 0);
     av_channel_layout_copy(&m_inChannelLayout, &(m_codecCtx->ch_layout));
     av_opt_set_chlayout(m_swrCtx, "out_chlayout", &m_outChannelLayout, 0);
 
- #ifdef DEBUG
     char buf_in[128];
     char buf_out[128];
     av_channel_layout_describe(&m_inChannelLayout, buf_in, 128);
     av_channel_layout_describe(&m_outChannelLayout, buf_out, 128);
-    std::cout << "channel_layout: " << buf_in << std::endl;
-    std::cout << "out channel_layout:" << buf_out << std::endl;
- #endif
+    logDebug(DecodeParameters) << "channel_layout: " << buf_in << std::endl;
+    logDebug(DecodeParameters) << "out channel_layout:" << buf_out << std::endl;
 #endif
     av_opt_set_int(m_swrCtx, "in_sample_rate", m_codecCtx->sample_rate, 0);
     av_opt_set_sample_fmt(m_swrCtx, "in_sample_fmt", m_codecCtx->request_sample_fmt, 0);
@@ -691,17 +681,13 @@ int AudioFile::decode()
     }
 
     AVPacket* packet = av_packet_alloc();
-#ifdef DEBUG
-    std::cout << "iterating on frames..." << std::endl;
+    logDebug(TraceDecode) << "iterating on frames..." << std::endl;
 
     int frame_idx = 0;
-#endif
 
     while ((err = av_read_frame(m_formatCtx, packet)) != AVERROR_EOF)
     {
-#ifdef DEBUG
-        std::cout << "reading frame " << frame_idx++ << std::endl;
-#endif
+        logDebug(TraceDecode) << "reading frame " << frame_idx++ << std::endl;
         if(err != 0)
         {
             logError("Read frame error", err);
@@ -709,9 +695,7 @@ int AudioFile::decode()
         }
         if(packet->stream_index != m_audioStreamIndex)
         {
-#ifdef DEBUG
-            std::cout << "packet not from audio stream" << std::endl;
-#endif
+            logDebug(TraceDecode) << "packet not from audio stream" << std::endl;
             av_packet_unref(packet);
             continue;
         }
@@ -734,9 +718,7 @@ int AudioFile::decode()
         }
     }
 
-#ifdef DEBUG
-    std::cout << "will drain now" << std::endl;
-#endif
+    logDebug(TraceDecode) << "will drain now" << std::endl;
 
     drainDecoder();
 

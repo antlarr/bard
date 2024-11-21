@@ -21,6 +21,7 @@
 #include "filedecodeoutput.h"
 #include "bufferdecodeoutput.h"
 #include "referencedata.h"
+#include "log.h"
 
 #include <stdio.h>
 #include <string>
@@ -76,6 +77,7 @@ void saveToFile(BufferDecodeOutput *output, const string& filename)
 }
 
 int main(int argc, char *argv[]) {
+    initLog();
     options_description desc{"Options"};
     desc.add_options()
         ("help,h", "Help screen")
