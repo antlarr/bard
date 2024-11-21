@@ -194,7 +194,7 @@ int main(int argc, char *argv[]) {
     auto loggedMessages = audiofile.loggedMessages();
     for (auto it: loggedMessages)
     {
-        std::cout << std::get<0>(it) << std::get<1>(it) << std::get<2>(it) << std::endl;
+        std::cout << std::get<0>(it) << " " << std::get<1>(it) << " " << std::get<2>(it) << std::endl;
     }
 
     bool ok = true;
