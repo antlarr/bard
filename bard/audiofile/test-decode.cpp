@@ -82,6 +82,7 @@ int main(int argc, char *argv[]) {
     desc.add_options()
         ("help,h", "Help screen")
         ("buffer", value<bool>()->default_value(true), "Use buffer")
+        ("read-from-buffer", value<bool>()->default_value(true), "Use read buffer")
         ("input-file", value<string>()->required(), "Input file")
         ("reference-file", value<string>(), "File with reference data")
         ("sample-rate", value<long>()->default_value(0), "Set output sample rate")
@@ -108,7 +109,7 @@ int main(int argc, char *argv[]) {
     int err = 0;
     AudioFile audiofile;
 
-    if (vm["buffer"].as<bool>())
+    if (vm["read-from-buffer"].as<bool>())
     {
         long dataSize;
         data  = readFromFile(filename, &dataSize);
