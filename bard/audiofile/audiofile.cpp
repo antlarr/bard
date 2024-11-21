@@ -54,14 +54,14 @@ AudioFile::AudioFile()
 
 AudioFile::~AudioFile()
 {
-    av_frame_free(&m_frame);
+    av_frame_free(&m_inFrame);
     av_frame_free(&m_outFrame);
 
     swr_free(&m_swrCtx);
 
-    avcodec_free_context(&m_codecCtx);
+    avcodec_free_context(&m_inCodecCtx);
 
-    avformat_close_input(&m_formatCtx);
+    avformat_close_input(&m_inFormatCtx);
 
     delete m_avioContext;
 
@@ -72,16 +72,16 @@ AudioFile::~AudioFile()
 
 int AudioFile::open(const string &path)
 {
-    m_filename = path;
+    m_inFilename = path;
 
-    m_formatCtx = avformat_alloc_context();
-    if (!m_formatCtx)
+    m_inFormatCtx = avformat_alloc_context();
+    if (!m_inFormatCtx)
         return logError("Error allocating avformat context");
 
-    m_formatCtx->flags = 0;
+    m_inFormatCtx->flags = 0;
 
     int err;
-    if ((err = avformat_open_input(&m_formatCtx, path.c_str(), NULL, 0)) != 0) {
+    if ((err = avformat_open_input(&m_inFormatCtx, path.c_str(), NULL, 0)) != 0) {
         return logError("Error opening file", err);
     }
 
@@ -90,15 +90,15 @@ int AudioFile::open(const string &path)
 
 int AudioFile::open(const char *data, long size, const std::string &filename)
 {
-    m_filename = filename;
+    m_inFilename = filename;
     m_avioContext = new BufferAVIOContext(data, size);
-    m_formatCtx = avformat_alloc_context();
-    if (!m_formatCtx)
+    m_inFormatCtx = avformat_alloc_context();
+    if (!m_inFormatCtx)
         return logError("Error allocating avformat context");
 
-    m_formatCtx->flags = 0;
+    m_inFormatCtx->flags = 0;
 
-    m_formatCtx->pb = m_avioContext->avioContext();
+    m_inFormatCtx->pb = m_avioContext->avioContext();
 
     AVProbeData probeData;
     probeData.buf = const_cast<unsigned char *>(reinterpret_cast<const unsigned char *>(data));
@@ -106,11 +106,11 @@ int AudioFile::open(const char *data, long size, const std::string &filename)
     probeData.filename = filename.c_str();
     probeData.mime_type = filename.c_str();
 
-    m_formatCtx->iformat = av_probe_input_format(&probeData, 1);
-    m_formatCtx->flags |= AVFMT_FLAG_CUSTOM_IO;
+    m_inFormatCtx->iformat = av_probe_input_format(&probeData, 1);
+    m_inFormatCtx->flags |= AVFMT_FLAG_CUSTOM_IO;
 
     int err;
-    if ((err = avformat_open_input(&m_formatCtx, "", NULL, 0)) != 0) {
+    if ((err = avformat_open_input(&m_inFormatCtx, "", NULL, 0)) != 0) {
         return logError("Error opening file.", err);
     }
 
@@ -119,12 +119,12 @@ int AudioFile::open(const char *data, long size, const std::string &filename)
 
 int AudioFile::readStreamsInfo()
 {
-    avformat_find_stream_info(m_formatCtx, NULL);
+    avformat_find_stream_info(m_inFormatCtx, NULL);
 
     int audioStreamIndex = firstAudioStreamIndex();
     if(audioStreamIndex == -1) {
         logError("No audio streams found");
-        avformat_close_input(&m_formatCtx);
+        avformat_close_input(&m_inFormatCtx);
         return -1;
     }
 
@@ -133,96 +133,96 @@ int AudioFile::readStreamsInfo()
 
 int AudioFile::selectAudioStream(int audioStream)
 {
-    avcodec_free_context(&m_codecCtx);
-    m_codecCtx = nullptr;
+    avcodec_free_context(&m_inCodecCtx);
+    m_inCodecCtx = nullptr;
 
     m_audioStreamIndex = audioStream;
-    m_codec = avcodec_find_decoder(m_formatCtx->streams[m_audioStreamIndex]->codecpar->codec_id);
-    if (m_codec == NULL) {
-        return logError(std::string("Decoder not found. The codec '") + std::to_string(m_formatCtx->streams[m_audioStreamIndex]->codecpar->codec_id) + "' is not supported");
+    m_inCodec = avcodec_find_decoder(m_inFormatCtx->streams[m_audioStreamIndex]->codecpar->codec_id);
+    if (m_inCodec == NULL) {
+        return logError(std::string("Decoder not found. The codec '") + std::to_string(m_inFormatCtx->streams[m_audioStreamIndex]->codecpar->codec_id) + "' is not supported");
     }
 
-    m_codecCtx = avcodec_alloc_context3(m_codec);
-    if (m_codecCtx == NULL) {
+    m_inCodecCtx = avcodec_alloc_context3(m_inCodec);
+    if (m_inCodecCtx == NULL) {
         return logError("Could not allocate a decoding context");
     }
 
     int err;
-    if ((err = avcodec_parameters_to_context(m_codecCtx, m_formatCtx->streams[m_audioStreamIndex]->codecpar)) != 0)
+    if ((err = avcodec_parameters_to_context(m_inCodecCtx, m_inFormatCtx->streams[m_audioStreamIndex]->codecpar)) != 0)
     {
         return logError("Error setting codec context parameters.", err);
     }
 
-    m_codecCtx->request_sample_fmt = m_codecCtx->sample_fmt;
-    m_codecCtx->skip_frame = AVDISCARD_NONE;
-    m_codecCtx->skip_loop_filter = AVDISCARD_NONE;
-    m_codecCtx->skip_idct = AVDISCARD_NONE;
+    m_inCodecCtx->request_sample_fmt = m_inCodecCtx->sample_fmt;
+    m_inCodecCtx->skip_frame = AVDISCARD_NONE;
+    m_inCodecCtx->skip_loop_filter = AVDISCARD_NONE;
+    m_inCodecCtx->skip_idct = AVDISCARD_NONE;
 
-    m_outSampleFmt = av_get_alt_sample_fmt(m_codecCtx->sample_fmt, 0);
+    m_outSampleFmt = av_get_alt_sample_fmt(m_inCodecCtx->sample_fmt, 0);
 
     if ((m_outSampleFmt == AV_SAMPLE_FMT_FLT || m_outSampleFmt == AV_SAMPLE_FMT_FLTP)
-        && (m_codecCtx->codec_id == AV_CODEC_ID_MP2
-         || m_codecCtx->codec_id == AV_CODEC_ID_MP3
-         || m_codecCtx->codec_id == AV_CODEC_ID_AAC
-         || m_codecCtx->codec_id == AV_CODEC_ID_OPUS
-         || m_codecCtx->codec_id == AV_CODEC_ID_VORBIS
-         || m_codecCtx->codec_id == AV_CODEC_ID_WMAV1
-         || m_codecCtx->codec_id == AV_CODEC_ID_WMAV2 ))
+        && (m_inCodecCtx->codec_id == AV_CODEC_ID_MP2
+         || m_inCodecCtx->codec_id == AV_CODEC_ID_MP3
+         || m_inCodecCtx->codec_id == AV_CODEC_ID_AAC
+         || m_inCodecCtx->codec_id == AV_CODEC_ID_OPUS
+         || m_inCodecCtx->codec_id == AV_CODEC_ID_VORBIS
+         || m_inCodecCtx->codec_id == AV_CODEC_ID_WMAV1
+         || m_inCodecCtx->codec_id == AV_CODEC_ID_WMAV2 ))
         m_outSampleFmt = AV_SAMPLE_FMT_S16;
 
 // ffmpeg 5.1.4 59.37.100
 // ffmpeg 6.1.1 60.31.102
 // ffmpeg 7.1   61.19.100
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
-    if (m_codecCtx->channel_layout == 0)
+    if (m_inCodecCtx->channel_layout == 0)
     {
         pushBackLogMessage(Error, "Input channel count and layout are unset. Assuming stereo audio");
-        m_codecCtx->channel_layout = av_get_default_channel_layout(2);
+        m_inCodecCtx->channel_layout = av_get_default_channel_layout(2);
     }
-    m_outChannelLayout = m_codecCtx->channel_layout;
+    m_outChannelLayout = m_inCodecCtx->channel_layout;
     m_outChannelNumber = av_get_channel_layout_nb_channels(m_outChannelLayout);
 #else
-    if (m_codecCtx->ch_layout.nb_channels == 0)
+    if (m_inCodecCtx->ch_layout.nb_channels == 0)
     {
         pushBackLogMessage(Error, "Input channel count and layout are unset. Assuming stereo audio");
-        av_channel_layout_default(&m_codecCtx->ch_layout, 2);
+        av_channel_layout_default(&m_inCodecCtx->ch_layout, 2);
     }
-    av_channel_layout_copy(&m_outChannelLayout, &(m_codecCtx->ch_layout));
+    av_channel_layout_copy(&m_outChannelLayout, &(m_inCodecCtx->ch_layout));
     m_outChannelLayoutIsSet = true;
 #endif
-    m_outSampleRate = m_codecCtx->sample_rate;
+    m_outSampleRate = m_inCodecCtx->sample_rate;
 
     return 0;
 }
 
 void AudioFile::setRequestSampleFormat(const std::string &sampleFormat)
 {
-    m_codecCtx->request_sample_fmt = av_get_sample_fmt(sampleFormat.c_str());
+    m_inCodecCtx->request_sample_fmt = av_get_sample_fmt(sampleFormat.c_str());
 }
 
 std::string AudioFile::requestSampleFormat() const
 {
-    if (!m_codecCtx)
+    if (!m_inCodecCtx)
         return std::string();
-    return std::string(av_get_sample_fmt_name(m_codecCtx->request_sample_fmt));
+    return std::string(av_get_sample_fmt_name(m_inCodecCtx->request_sample_fmt));
 }
 
 int AudioFile::channels() const
 {
-    if (!m_codecCtx)
+    if (!m_inCodecCtx)
         return 0;
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
-    return av_get_channel_layout_nb_channels(m_codecCtx->channel_layout);
+    return av_get_channel_layout_nb_channels(m_inCodecCtx->channel_layout);
 #else
-    return m_codecCtx->ch_layout.nb_channels;
+    return m_inCodecCtx->ch_layout.nb_channels;
 #endif
 }
 
 int AudioFile::sampleRate() const
 {
-    if (!m_codecCtx)
+    if (!m_inCodecCtx)
         return 0;
-    return m_codecCtx->sample_rate;
+    return m_inCodecCtx->sample_rate;
 }
 
 void AudioFile::setOutChannels(int channels)
@@ -301,12 +301,12 @@ AudioFile *AudioFile::s_self = nullptr;
 
 double AudioFile::currentDecodingPosition() const
 {
-    if (m_codecCtx && m_formatCtx)
+    if (m_inCodecCtx && m_inFormatCtx)
     {
-        AVStream *stream = m_formatCtx->streams[m_audioStreamIndex];
+        AVStream *stream = m_inFormatCtx->streams[m_audioStreamIndex];
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
-        return m_codecCtx->pts_correction_last_pts * (double)stream->time_base.num / (double)stream->time_base.den;
+        return m_inCodecCtx->pts_correction_last_pts * (double)stream->time_base.num / (double)stream->time_base.den;
 #else
         return m_lastDecodedPTS * (double)stream->time_base.num / (double)stream->time_base.den;
 #endif
@@ -575,8 +575,8 @@ void AudioFile::handleOutFrame(const AVFrame *frame)
 int AudioFile::firstAudioStreamIndex() const
 {
     int audioStreamIndex = -1;
-    for(size_t i = 0; i < m_formatCtx->nb_streams; ++i) {
-        if(m_formatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+    for(size_t i = 0; i < m_inFormatCtx->nb_streams; ++i) {
+        if(m_inFormatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
             audioStreamIndex = i;
             break;
         }
@@ -587,8 +587,8 @@ int AudioFile::firstAudioStreamIndex() const
 std::vector<int> AudioFile::audioStreamIndexes() const
 {
     std::vector <int> indexes;
-    for(size_t i = 0; i < m_formatCtx->nb_streams; ++i) {
-        if(m_formatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+    for(size_t i = 0; i < m_inFormatCtx->nb_streams; ++i) {
+        if(m_inFormatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
             indexes.push_back(i);
         }
     }
@@ -600,14 +600,14 @@ int AudioFile::receiveFramesAndHandle() {
 #ifdef TRACE
     std::cout << "receiveFramesAndHandle" << std::endl;
 #endif
-    while((err = avcodec_receive_frame(m_codecCtx, m_frame)) == 0) {
-        m_lastDecodedPTS = m_frame->pts;
+    while((err = avcodec_receive_frame(m_inCodecCtx, m_inFrame)) == 0) {
+        m_lastDecodedPTS = m_inFrame->pts;
 
-        resampleFrame(m_outFrame, m_frame);
+        resampleFrame(m_outFrame, m_inFrame);
         handleOutFrame(m_outFrame);
 
         av_frame_unref(m_outFrame);
-        av_frame_unref(m_frame);
+        av_frame_unref(m_inFrame);
     }
     return err;
 }
@@ -616,7 +616,7 @@ void AudioFile::drainDecoder()
 {
     int err = 0;
     logDebug(TraceDecode) << "drainDecoder" << std::endl;
-    if ((err = avcodec_send_packet(m_codecCtx, NULL)) == 0)
+    if ((err = avcodec_send_packet(m_inCodecCtx, NULL)) == 0)
     {
         err = receiveFramesAndHandle();
         if (err != AVERROR(EAGAIN) && err != AVERROR_EOF)
@@ -654,36 +654,22 @@ void AudioFile::setOutput(DecodeOutput *output)
     m_output = output;
 }
 
-int AudioFile::decode()
+int AudioFile::initResampler()
 {
-    int err;
-
-    if ((err = avcodec_open2(m_codecCtx, m_codec, NULL)) != 0)
-    {
-        logError("Error opening codec", err);
-        return -1;
-    }
-
     m_swrCtx = swr_alloc();
     if (!m_swrCtx) {
         logError("Could not allocate resampler context");
         return AVERROR(ENOMEM);
     }
-    logDebug(DecodeParameters) << "sample_rate: " << m_codecCtx->sample_rate << std::endl;
-    logDebug(DecodeParameters) << "request_sample_fmt: " << av_get_sample_fmt_name (m_codecCtx->request_sample_fmt) << std::endl;
-
-    logDebug(DecodeParameters) << "out sample_rate: " << m_outSampleRate << std::endl;
-    logDebug(DecodeParameters) << "out request_sample_fmt: " << av_get_sample_fmt_name(m_outSampleFmt) << std::endl;
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
-    av_opt_set_int(m_swrCtx, "in_channel_layout", m_codecCtx->channel_layout, 0);
-    m_inChannelLayout = m_codecCtx->channel_layout;
+    m_inChannelLayout = m_inCodecCtx->channel_layout;
+    av_opt_set_int(m_swrCtx, "in_channel_layout", m_inChannelLayout, 0);
     av_opt_set_int(m_swrCtx, "out_channel_layout", m_outChannelLayout, 0);
-    logDebug(DecodeParameters) << "channel_layout: " << m_codecCtx->channel_layout << std::endl;
-    logDebug(DecodeParameters) << "out channel_layout: " << m_outChannelLayout << std::endl;
+    logDebug(DecodeParameters) << " in channel_layout: " << m_inChannelLayout << std::endl
+                               << "out channel_layout: " << m_outChannelLayout << std::endl;
 #else
-
-    av_channel_layout_copy(&m_inChannelLayout, &(m_codecCtx->ch_layout));
+    av_channel_layout_copy(&m_inChannelLayout, &(m_inCodecCtx->ch_layout));
 
     if (m_inChannelLayout.order == AV_CHANNEL_ORDER_UNSPEC)
         av_channel_layout_default(&m_inChannelLayout, m_inChannelLayout.nb_channels);
@@ -695,23 +681,44 @@ int AudioFile::decode()
     char buf_out[128];
     av_channel_layout_describe(&m_inChannelLayout, buf_in, 128);
     av_channel_layout_describe(&m_outChannelLayout, buf_out, 128);
-    logDebug(DecodeParameters) << "channel_layout: " << buf_in << std::endl;
+    logDebug(DecodeParameters) << " in channel_layout: " << buf_in << std::endl;
     logDebug(DecodeParameters) << "out channel_layout:" << buf_out << std::endl;
 #endif
-    av_opt_set_int(m_swrCtx, "in_sample_rate", m_codecCtx->sample_rate, 0);
-    av_opt_set_sample_fmt(m_swrCtx, "in_sample_fmt", m_codecCtx->request_sample_fmt, 0);
-    m_inSampleRate = m_codecCtx->sample_rate;
-    m_inSampleFmt = m_codecCtx->request_sample_fmt;
+    m_inSampleRate = m_inCodecCtx->sample_rate;
+    m_inSampleFmt = m_inCodecCtx->request_sample_fmt;
+
+    av_opt_set_int(m_swrCtx, "in_sample_rate", m_inSampleRate, 0);
+    av_opt_set_sample_fmt(m_swrCtx, "in_sample_fmt", m_inSampleFmt, 0);
 
     av_opt_set_int(m_swrCtx, "out_sample_rate", m_outSampleRate, 0);
     av_opt_set_sample_fmt(m_swrCtx, "out_sample_fmt", m_outSampleFmt, 0);
 
-    if ((swr_init(m_swrCtx)) < 0) {
+    logDebug(DecodeParameters) << " in sample_rate: " << m_inSampleRate << std::endl
+                               << " in sample_fmt: " << av_get_sample_fmt_name (m_inSampleFmt) << std::endl
+                               << "out sample_rate: " << m_outSampleRate << std::endl
+                               << "out sample_fmt: " << av_get_sample_fmt_name(m_outSampleFmt) << std::endl;
+
+    if (int err = swr_init(m_swrCtx) < 0) {
         std::cerr << "Failed to initialize the resampling context" << std::endl;
+        return err;
+    }
+
+    return 0;
+}
+
+int AudioFile::decode()
+{
+    int err;
+    if (err = initResampler() < 0)
+        return err;
+
+    if ((err = avcodec_open2(m_inCodecCtx, m_inCodec, NULL)) != 0)
+    {
+        logError("Error opening codec", err);
         return -1;
     }
 
-    AVStream *stream = m_formatCtx->streams[m_audioStreamIndex];
+    AVStream *stream = m_inFormatCtx->streams[m_audioStreamIndex];
 
     int64_t estimatedSamples = (int) ((m_outSampleRate * (double)stream->time_base.num / stream->time_base.den) * stream->duration);
 
@@ -728,8 +735,8 @@ int AudioFile::decode()
         return -2;
     }
 
-    m_frame = av_frame_alloc();
-    if (m_frame == NULL) {
+    m_inFrame = av_frame_alloc();
+    if (m_inFrame == NULL) {
         return -1;
     }
 
@@ -742,8 +749,7 @@ int AudioFile::decode()
     logDebug(TraceDecode) << "iterating on frames..." << std::endl;
 
     int frame_idx = 0;
-
-    while ((err = av_read_frame(m_formatCtx, packet)) != AVERROR_EOF)
+    while ((err = av_read_frame(m_inFormatCtx, packet)) != AVERROR_EOF)
     {
         logDebug(TraceDecode) << "reading frame " << frame_idx++ << std::endl;
         if(err != 0)
@@ -758,7 +764,7 @@ int AudioFile::decode()
             continue;
         }
 
-        if((err = avcodec_send_packet(m_codecCtx, packet)) == 0)
+        if((err = avcodec_send_packet(m_inCodecCtx, packet)) == 0)
         {
             av_packet_unref(packet);
         } else {
@@ -781,6 +787,7 @@ int AudioFile::decode()
     drainDecoder();
 
     m_output->terminate();
+
     av_packet_free(&packet);
 
     return 0;
@@ -788,42 +795,42 @@ int AudioFile::decode()
 
 std::string AudioFile::codecName() const
 {
-    return m_codec->name;
+    return m_inCodec->name;
 }
 
 std::string AudioFile::formatName() const
 {
-    return m_formatCtx->iformat->name;
+    return m_inFormatCtx->iformat->name;
 }
 
 double AudioFile::containerDuration() const
 {
-    return m_formatCtx->duration / (double)AV_TIME_BASE;
+    return m_inFormatCtx->duration / (double)AV_TIME_BASE;
 }
 
 int AudioFile::containerBitrate() const
 {
-    return m_formatCtx->bit_rate;
+    return m_inFormatCtx->bit_rate;
 }
 
 int AudioFile::streamBitrate() const
 {
-    return m_formatCtx->streams[m_audioStreamIndex]->codecpar->bit_rate;
+    return m_inFormatCtx->streams[m_audioStreamIndex]->codecpar->bit_rate;
 }
 
 std::string AudioFile::streamSampleFormatName() const
 {
-    AVSampleFormat format=static_cast<AVSampleFormat>(m_formatCtx->streams[m_audioStreamIndex]->codecpar->format);
+    AVSampleFormat format=static_cast<AVSampleFormat>(m_inFormatCtx->streams[m_audioStreamIndex]->codecpar->format);
     return av_get_sample_fmt_name(format);
 }
 
 int AudioFile::streamBytesPerSample() const
 {
-    AVSampleFormat format=static_cast<AVSampleFormat>(m_formatCtx->streams[m_audioStreamIndex]->codecpar->format);
+    AVSampleFormat format=static_cast<AVSampleFormat>(m_inFormatCtx->streams[m_audioStreamIndex]->codecpar->format);
     return av_get_bytes_per_sample(format);
 }
 
 int AudioFile::streamBitsPerRawSample() const
 {
-    return m_formatCtx->streams[m_audioStreamIndex]->codecpar->bits_per_raw_sample;
+    return m_inFormatCtx->streams[m_audioStreamIndex]->codecpar->bits_per_raw_sample;
 }

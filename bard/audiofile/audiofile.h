@@ -103,6 +103,7 @@ public:
 
 protected:
     int readStreamsInfo();
+    int initResampler();
 
     static void avlog_callback(void *avcl, int level, const char *fmt, va_list vl);
 
@@ -116,17 +117,15 @@ protected:
     int receiveFramesAndHandle();
     void drainDecoder();
 
-
-
-    const AVCodec *m_codec = nullptr;
-    AVCodecContext *m_codecCtx = nullptr;
-    AVFormatContext *m_formatCtx = nullptr;
+    const AVCodec *m_inCodec = nullptr;
+    AVCodecContext *m_inCodecCtx = nullptr;
+    AVFormatContext *m_inFormatCtx = nullptr;
     int m_audioStreamIndex = -1;
     SwrContext *m_swrCtx = nullptr;
-    AVFrame *m_frame = nullptr;
+    AVFrame *m_inFrame = nullptr;
     AVFrame *m_outFrame = nullptr;
 
-    string m_filename;
+    string m_inFilename;
     string m_outFilename;
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
