@@ -35,7 +35,7 @@ corrupt: 0|1 : If 1, it means the file is corrupt and the audio skips or ends un
 $if(%forcealbum%,$set(album,%forcealbum%))
 $set(_firstgenre,$if(%albumgenre%,%albumgenre%,$rreplace(%genre%,;.*,)))
 $set(_year,$if(%date%,$left(%date%,4)))
-$set(_indexyear,$if($or($eq([non-album tracks],%album%),$eq([standalone recordings],%album%)),,$if($and(%originalyear%,$not(%usepersonalalbum%)),%originalyear%,%_year%)))
+$set(_indexyear,$if($or($eq([non-album tracks],%album%),$eq([standalone recordings],%album%)),,$if(%originalyear%,%originalyear%,%_year%)))
 $if($eq(%usereleasegroupinpath%,1),$set(_albumyearprefix,%_year%),
 $set(_albumyearprefix,%_indexyear%)
 $set(_albumyearsuffix,$if($and($ne(%_indexyear%,%_year%),$not(%mixes%)),%_year%,)))
