@@ -23,6 +23,7 @@
 #include <algorithm>
 #include "bufferaviocontext.h"
 #include "decodeoutput.h"
+#include "encoder.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -85,6 +86,7 @@ public:
     void setOutput(DecodeOutput *output);
 
     int decode();
+    int recode(const string &outFilename, const string &encoder, int bitrate=0);
 
     std::vector<std::string> errors() const;
 
@@ -124,6 +126,8 @@ protected:
     SwrContext *m_swrCtx = nullptr;
     AVFrame *m_inFrame = nullptr;
     AVFrame *m_outFrame = nullptr;
+
+    Encoder *m_encoder = nullptr;
 
     string m_inFilename;
     string m_outFilename;

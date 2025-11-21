@@ -88,6 +88,9 @@ int main(int argc, char *argv[]) {
         ("sample-rate", value<long>()->default_value(0), "Set output sample rate")
         ("sample-format", value<string>()->default_value(""), "Set output sample format")
         ("channels", value<string>()->default_value(""), "Set output channels number")
+        ("recode", value<bool>()->default_value(false), "Recode audio file")
+        ("codec", value<string>()->default_value(""), "Encoder to use")
+        ("bitrate", value<int>()->default_value(320), "Bitrate to use when recoding")
         ("output", value<string>()->default_value(""), "Output file");
 
     positional_options_description p;
@@ -159,34 +162,57 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    DecodeOutput *output;
 
-    if (vm["buffer"].as<bool>())
-        output = new BufferDecodeOutput();
-    else
-        output = new FileDecodeOutput(outFilename);
-
-    if (vm.count("reference-file"))
+    DecodeOutput *output = nullptr;
+    if (vm["recode"].as<bool>())
     {
-        output->setReferenceFile(vm["reference-file"].as<string>());
+        string encoder;
+        if (!vm["codec"].as<string>().empty())
+            encoder = vm["codec"].as<string>();
+        else
+        {
+            int pos = outFilename.rfind('.');
+            encoder = outFilename.substr(pos + 1);
+            std::cout << encoder << std::endl;
+        }
+        const int bitrate = vm["bitrate"].as<int>();
+
+        audiofile.recode(outFilename, encoder, bitrate * 1000);
+    }
+    else
+    {
+        if (vm["buffer"].as<bool>())
+            output = new BufferDecodeOutput();
+        else
+            output = new FileDecodeOutput(outFilename);
+
+        if (vm.count("reference-file"))
+        {
+            output->setReferenceFile(vm["reference-file"].as<string>());
+        }
+
+        audiofile.setOutput(output);
+        audiofile.decode();
     }
 
-    audiofile.setOutput(output);
-    audiofile.decode();
+
 
 
     std::cout << "codec name: " << audiofile.codecName() << std::endl;
     std::cout << "format name: " << audiofile.formatName() << std::endl;
     std::cout << "duration: " << audiofile.containerDuration() << std::endl;
-    std::cout << "decoded duration: " << output->duration() << std::endl;
     std::cout << "stream bitrate: " << audiofile.streamBitrate() << std::endl;
     std::cout << "container bitrate: " << audiofile.containerBitrate() << std::endl;
     std::cout << "stream bytes per sample: " << audiofile.streamBytesPerSample() << std::endl;
     std::cout << "stream bits per raw sample: " << audiofile.streamBitsPerRawSample() << std::endl;
     std::cout << "stream sample format: " << audiofile.streamSampleFormatName() << std::endl;
-    std::cout << "output sample format: " << output->sampleFormatName() << std::endl;
-    std::cout << "output bytes per sample: " << output->bytesPerSample() << std::endl;
-    std::cout << "output sample rate: " << output->sampleRate() << std::endl;
+    if (output)
+    {
+        std::cout << "decoded duration: " << output->duration() << std::endl;
+        std::cout << "output sample format: " << output->sampleFormatName() << std::endl;
+        std::cout << "output bytes per sample: " << output->bytesPerSample() << std::endl;
+        std::cout << "output sample rate: " << output->sampleRate() << std::endl;
+    }
     std::cout << "libavcodec: " << LIBAVCODEC_IDENT << std::endl;
     std::cout << "libavformat: " << LIBAVFORMAT_IDENT << std::endl;
     std::cout << "libavutil: " << LIBAVUTIL_IDENT << std::endl;
@@ -198,13 +224,13 @@ int main(int argc, char *argv[]) {
     }
 
     bool ok = true;
-    if (output->referenceData())
+    if (output && output->referenceData())
     {
         ok = output->referenceData()->isCheckOk();
         std::cout << "output matches reference data: "  << (ok ? "yes" : "no" ) << std::endl;
     }
 
-    if (vm["buffer"].as<bool>())
+    if (output && vm["buffer"].as<bool>())
         saveToFile(static_cast<BufferDecodeOutput *>(output), outFilename);
 
     delete output;

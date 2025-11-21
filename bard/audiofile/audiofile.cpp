@@ -17,6 +17,7 @@
 
 #include "audiofile.h"
 #include "log.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -371,9 +372,7 @@ int AudioFile::logError(const std::string &msg, int errorCode)
 
 void AudioFile::resampleFrame(AVFrame *outFrame, const AVFrame *inFrame)
 {
-    int dst_nb_samples = inFrame->nb_samples;
-    int out_samples = swr_get_out_samples(m_swrCtx, inFrame->nb_samples);
-    dst_nb_samples = out_samples;
+    int dst_nb_samples = swr_get_out_samples(m_swrCtx, (inFrame ? inFrame->nb_samples : 0L));
 
     outFrame->format = m_outSampleFmt;
     outFrame->sample_rate = m_outSampleRate;
@@ -385,13 +384,14 @@ void AudioFile::resampleFrame(AVFrame *outFrame, const AVFrame *inFrame)
 #endif
 
 
-    if (inFrame->sample_rate != m_inSampleRate
+    if (inFrame
+        && (inFrame->sample_rate != m_inSampleRate
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
         || inFrame->channel_layout != m_inChannelLayout
 #else
         || av_channel_layout_compare(&(inFrame->ch_layout), &m_inChannelLayout) != 0
 #endif
-        || inFrame->format != m_inSampleFmt)
+        || inFrame->format != m_inSampleFmt))
     {
         logDebug(DecodeBrokenFrame) << "broken frame with " << inFrame->nb_samples << " samples and invalid params at " << currentDecodingPosition() << std::endl;
         if (inFrame->sample_rate != m_inSampleRate)
@@ -529,19 +529,23 @@ void AudioFile::resampleFrame(AVFrame *outFrame, const AVFrame *inFrame)
 
     logDebug() << "prepared " << std::endl;
 
+    if (inFrame)
+    {
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
-    logDebug() << "decode samples: " << inFrame->nb_samples << " (" << m_inSampleRate << ") -> " << dst_nb_samples << " (" << m_outSampleRate << ") . channel " << inFrame->channel_layout << std::endl;
+        logDebug() << "decode samples: " << inFrame->nb_samples << " (" << m_inSampleRate << ") -> " << dst_nb_samples << " (" << m_outSampleRate << ") . channel " << inFrame->channel_layout << std::endl;
 #else
-    char buf_in[128];
-    av_channel_layout_describe(&inFrame->ch_layout, buf_in, 128);
-    logDebug() << "decode samples: " << inFrame->nb_samples << " (" << m_inSampleRate << ") -> " << dst_nb_samples << " (" << m_outSampleRate << ") . channel " << buf_in << std::endl;
+        char buf_in[128];
+        av_channel_layout_describe(&inFrame->ch_layout, buf_in, 128);
+        logDebug() << "decode samples: " << inFrame->nb_samples << " (" << m_inSampleRate << ") -> " << dst_nb_samples << " (" << m_outSampleRate << ") . channel " << buf_in << std::endl;
 #endif
+    }
+
     int r = swr_convert_frame(m_swrCtx, outFrame, inFrame);
     if (r != 0)
     {
         logError("error resampling frame", r);
     }
-
+    logDebug() << "resampled samples: " << outFrame->nb_samples << std::endl;
 
 #ifdef DEBUG
     int remaining_samples = swr_get_out_samples(m_swrCtx, 0);
@@ -569,7 +573,13 @@ void AudioFile::writeOutFrame(const AVFrame *frame)
 
 void AudioFile::handleOutFrame(const AVFrame *frame)
 {
-    writeOutFrame(frame);
+    static int samples_written = 0;
+    samples_written += frame->nb_samples;
+    logDebug(TraceSamples) << "samples written " << frame->nb_samples << " . Total written: " << samples_written << std::endl;
+    if (m_encoder)
+        m_encoder->pushFrame(frame);
+    else
+        writeOutFrame(frame);
 }
 
 int AudioFile::firstAudioStreamIndex() const
@@ -600,10 +610,16 @@ int AudioFile::receiveFramesAndHandle() {
 #ifdef TRACE
     std::cout << "receiveFramesAndHandle" << std::endl;
 #endif
+    static int samples_read = 0;
     while((err = avcodec_receive_frame(m_inCodecCtx, m_inFrame)) == 0) {
+
         m_lastDecodedPTS = m_inFrame->pts;
+        samples_read += m_inFrame->nb_samples;
+        logDebug(TraceSamples) << "samples read " << m_inFrame->nb_samples << " . Total read: " << samples_read << std::endl;
+
 
         resampleFrame(m_outFrame, m_inFrame);
+        logDebug(TraceSamples) << "last decoded pts " << m_lastDecodedPTS << "   samples: " << m_outFrame->nb_samples << std::endl;
         handleOutFrame(m_outFrame);
 
         av_frame_unref(m_outFrame);
@@ -628,7 +644,21 @@ void AudioFile::drainDecoder()
     }
 
 // Now we drain the resampler context which might be buffering data
+/*    m_outFrame->format = m_outSampleFmt;
+    m_outFrame->sample_rate = m_outSampleRate;
+    av_channel_layout_copy(&(m_outFrame->ch_layout), &m_outChannelLayout);
 
+    int r = swr_convert_frame(m_swrCtx, m_outFrame, 0);
+    if (r != 0)
+    {
+        logError("error resampling frame", r);
+    }
+*/
+    resampleFrame(m_outFrame, 0L);
+    handleOutFrame(m_outFrame);
+    av_frame_unref(m_outFrame);
+
+    /*
     int out_samples = swr_get_out_samples(m_swrCtx, 0);
     logDebug(TraceDecode) << "draining swr prepare " << out_samples << " samples" << std::endl;
 
@@ -647,6 +677,7 @@ void AudioFile::drainDecoder()
     logDebug(TraceDecode) << "draining swr using actually " << real_out_samples << " samples" << std::endl;
 
     m_output->written(real_out_samples);
+    */
 }
 
 void AudioFile::setOutput(DecodeOutput *output)
@@ -656,6 +687,7 @@ void AudioFile::setOutput(DecodeOutput *output)
 
 int AudioFile::initResampler()
 {
+    int err;
     m_swrCtx = swr_alloc();
     if (!m_swrCtx) {
         logError("Could not allocate resampler context");
@@ -698,7 +730,7 @@ int AudioFile::initResampler()
                                << "out sample_rate: " << m_outSampleRate << std::endl
                                << "out sample_fmt: " << av_get_sample_fmt_name(m_outSampleFmt) << std::endl;
 
-    if (int err = swr_init(m_swrCtx) < 0) {
+    if ((err = swr_init(m_swrCtx)) < 0) {
         std::cerr << "Failed to initialize the resampling context" << std::endl;
         return err;
     }
@@ -709,7 +741,7 @@ int AudioFile::initResampler()
 int AudioFile::decode()
 {
     int err;
-    if (err = initResampler() < 0)
+    if ((err = initResampler()) < 0)
         return err;
 
     if ((err = avcodec_open2(m_inCodecCtx, m_inCodec, NULL)) != 0)
@@ -722,17 +754,20 @@ int AudioFile::decode()
 
     int64_t estimatedSamples = (int) ((m_outSampleRate * (double)stream->time_base.num / stream->time_base.den) * stream->duration);
 
-    m_output->init(
+    if (m_output)
+    {
+        m_output->init(
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61,19,100)
             m_outChannelNumber,
 #else
             m_outChannelLayout.nb_channels,
 #endif
             m_outSampleFmt, estimatedSamples, m_outSampleRate);
-    if (!m_output->isValid())
-    {
-        std::cerr << "Error initializing output" << std::endl;
-        return -2;
+        if (!m_output->isValid())
+        {
+            std::cerr << "Error initializing output" << std::endl;
+            return -2;
+        }
     }
 
     m_inFrame = av_frame_alloc();
@@ -786,9 +821,35 @@ int AudioFile::decode()
 
     drainDecoder();
 
-    m_output->terminate();
+    if (m_output)
+        m_output->terminate();
 
     av_packet_free(&packet);
+
+    return 0;
+}
+
+int AudioFile::recode(const string &outFilename, const string &encoder, int bitrate)
+{
+    m_encoder = new Encoder();
+    m_encoder->setChannelLayout(m_outChannelLayout);
+    m_encoder->setSampleRate(m_outSampleRate);
+    m_encoder->setSampleFormat(m_outSampleFmt);
+    int err = m_encoder->openOutput(outFilename, encoder, bitrate);
+    if (err < 0)
+    {
+        return err;
+    }
+
+    std::cout << "decode" << std::endl;
+    decode();
+
+    std::cout << "terminate" << std::endl;
+    m_encoder->terminate();
+    std::cout << "terminate done" << std::endl;
+
+    delete m_encoder;
+    m_encoder = nullptr;
 
     return 0;
 }
