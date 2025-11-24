@@ -13,7 +13,7 @@ forceformat: text : Force format text
 mixes: 0|1|2 : The album is a personal mix that must be placed at Various Artists/Mixes if mixes is 1 or Various Artists/Playlists if mixes is 2
 usebarcode: 0|1 : Adds the barcode to the album
 userecordingtitle: 0|1 : Use the recording title instead of the track title
-userecordingcomment: 0|1 : Adds the comment tag to the filename suffix
+userecordingcomment: 0|1 : Adds the recordingcomment tag -- or comment if recordingcomment doesn't exist -- to the filename suffix
 useformat: 0|1|2 : Adds format, bitrate, etc to the album
 uselabel: 0|1|2 : Adds the label names to the album suffix. With 2, also adds catalog#
 usemedia: 0|1 : Adds media information, CD|LP|etc., to the album
@@ -89,7 +89,7 @@ $set(_albumsuffix,%_albumyearsuffix%)
 $if($and(%usereleasegroupcomment%,%_releasegroupcomment%,$ne(%usereleasegroupinpath%,1)),$set(_albumsuffix,%_albumsuffix%$if(%_albumsuffix%,\,)$if($eq(%usereleasegroupcomment%,2),%comment%,%_releasegroupcomment%)))
 $if($and(%usereleasegroupcomment%,%_releasegroupcomment%,$eq(%usereleasegroupinpath%,1)),$set(_releasegroupsuffix,$if($eq(%usereleasegroupcomment%,2),%comment%,%_releasegroupcomment%)))
 $set(_albumsuffix,%_albumsuffix%$if($and(%_albumsuffix%,%usereleasecomment%),\,)$if($eq(%usereleasecomment%,2),%comment%,$if($eq(%usereleasecomment%,3),%_releasegroupcomment%,$if(%usereleasecomment%,%_releasecomment%))))
-$set(_recordingsuffix,%_recordingsuffix%$if($and(%_recordingsuffix%,%userecordingcomment%,$ne(%userecordingcomment%,0)),\,)$if($eq(%userecordingcomment%,2),%comment%,$if($eq(%userecordingcomment%,1),%_recordingcomment%)))
+$set(_recordingsuffix,%_recordingsuffix%$if($and(%_recordingsuffix%,%userecordingcomment%,$ne(%userecordingcomment%,0)),\,)$if($eq(%userecordingcomment%,2),$if2(%recordingcomment%,%comment%),$if($eq(%userecordingcomment%,1),%_recordingcomment%)))
 $set(_recordingsuffix,%_recordingsuffix%$if($and(%_recordingsuffix%,%corrupt%),\,)$if($eq(%corrupt%,1),corrupt))
 $set(_albumsuffix,%_albumsuffix%$if($and(%_albumsuffix%,$gt(%usemedia%,0)),\,)$if($gt(%usemedia%,0),$if2(%forcemedia%,%_bard_album_mediaformat%,%media%)))
 $set(_albumsuffix,%_albumsuffix%$if($and(%_albumsuffix%,%usetotaldisctracks%),\,)$if(%usetotaldisctracks%,%totaltracks% tracks))
