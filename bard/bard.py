@@ -1488,7 +1488,7 @@ class Bard:
                                                        ).split()[0])
                 except subprocess.CalledProcessError:
                     size = -1
-                table.append((str(size) + 'M', root, count))
+                table.append((str(size) + 'M', root, str(count)))
             aligned = alignColumns(table, (False, True, False))
             for line in aligned:
                 print(line)
