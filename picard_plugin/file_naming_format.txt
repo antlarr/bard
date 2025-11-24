@@ -18,6 +18,7 @@ useformat: 0|1|2 : Adds format, bitrate, etc to the album
 uselabel: 0|1|2 : Adds the label names to the album suffix. With 2, also adds catalog#
 usemedia: 0|1 : Adds media information, CD|LP|etc., to the album
 usenormalizedalbumartist: 0|1 : Use _aaeStdAlbumArtists instead of albumartist . Note forcealbumartist has preference in any case
+usealbumartistdisambiguation: 0|1 : Add the disambiguation text for the albumartist in the artist folder.
 useonlyfirstartist: 0|1 : Use only the first artist in the directory name, not crediting the other artists
 usereleasecomment: 0|1|2|3 : With 1, adds the release dissambiguation text to the album suffix. With 2, adds the comment tag to the album suffix. With 3, use the release group comment.
 usereleasegroupcomment: 0|1|2 : With 1, adds the release group dissambiguation text to the releasegroup suffix. With 2, adds the comment tag to the relesegroup suffix. If usereleasegroup is not set [there's no releasegroup level], add it to the album suffix.
@@ -113,7 +114,7 @@ $set(_formatteddiscnumber,$if($gt(%totaldiscs%,9),$num(%discnumber%,2),%discnumb
 $setmulti(releasetype,%releasetype%)
 $unset(_typeset)
 $if($and(%mixes%,$not(%musicbrainz_albumid%)),Various Artists/$if($eq(%mixes%,1),Mixes,Playlists)/%_year% - %album%%_albumsuffix%/,
-$if2(%forcealbumartist%,$if($eq(Various Artists,%albumartist%),Various Artists/%_firstgenre%),$if($eq(%usenormalizedalbumartist%,1),%_aaeStdAlbumArtists%),$if2(%_bard_albumartist_folder%,%albumartist%,%artist%))/
+$if2(%forcealbumartist%,$if($eq(Various Artists,%albumartist%),Various Artists/%_firstgenre%),$if($eq(%usenormalizedalbumartist%,1),%_aaeStdAlbumArtists%),$if2(%_bard_albumartist_folder%,%albumartist%,%artist%)$if(%usealbumartistdisambiguation%, \($join(%_bard_albumartist_disambiguations%,\, )\)))/
 $if($and(%forcealbumartist%,$not(%_addartisttofile%)),$set(_addartisttofile,1))
 $if(%usepersonalalbum%,others/)
 $unset(_albumpathprefix)
