@@ -107,9 +107,14 @@ def get_artist_name(artist_metadata):
                (True, 'fr'), (True, 'de'), (None, 'fr'), (None, 'de')]
     for primary, locale in options:
         name = find_alias(artist_metadata['aliases'],
-                          primary=True, locale='en')
+                          primary=primary, locale=locale)
         if name:
             return name
+
+    name = find_alias(artist_metadata['aliases'],
+                      primary=True, locale='en')
+    if name:
+        return name
 
     if only_roman_chars(artist_metadata['name']):
         return artist_metadata['name']
@@ -230,7 +235,6 @@ def save_artist_mbid_file(file):
         mbids_tag_value = file.metadata['musicbrainz_artistid']
         mbids = [x.strip()
                  for x in mbids_tag_value.split(';')]
-        mbids = mbids[:1]
 
     if mbids:
         with open(filename, 'w') as fd:
