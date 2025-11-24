@@ -2,7 +2,8 @@
 
 import bard.config as config
 from bard.normalizetags import normalizeTagValues
-from bard.utils import DecodedAudioPropertiesTuple, DecodeMessageRecord
+from bard.utils import DecodedAudioPropertiesTuple, DecodeMessageRecord, \
+    removeNonPrintableCharacters
 from bard.album import albumPath
 from bard.db import metadata
 from bard.db.core import AlbumProperties, AlbumSongs, AlbumRelease, SongsMB, \
@@ -366,7 +367,7 @@ class MusicDatabase:
                   'artist': toString(song['artist']),
                   'album': song['album'],
                   'albumartist': song['albumartist'],
-                  'track': song['tracknumber'],
+                  'track': removeNonPrintableCharacters(song['tracknumber']),
                   'date': song['date'],
                   'genre': toString(song['genre']),
                   'discnumber': song['discnumber'],
@@ -516,7 +517,12 @@ class MusicDatabase:
             values['path'] = song.path()
             # print(values)
             ins = Songs.insert().values(**values)
-            result = c.execute(ins)
+            try:
+                result = c.execute(ins)
+            except ValueError:
+                c.rollback()
+                print(values)
+                raise
             song.id = result.inserted_primary_key[0]
 
             values = {'sha256sum': song.fileSha256sum(),

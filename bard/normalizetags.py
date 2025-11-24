@@ -333,6 +333,7 @@ def normalizeTagValue(obj, mutagenFile, tag,  # noqa: C901
                              'catalognumber',
                              'style',
                              'comment',
+                             'url',
                              'albumartists',
                              'ab:genre',
                              'ab:mood']):

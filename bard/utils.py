@@ -686,6 +686,11 @@ def printableLen(text):
         print(text, type(text))
         raise
 
+def removeNonPrintableCharacters(text):
+    if not text:
+        return None
+    r = ''.join(c for c in text if c.isprintable())
+    return r if r else None
 
 def alignColumns(lines, col_alignments=None):
     """Align columns of text.
