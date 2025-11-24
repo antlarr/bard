@@ -116,6 +116,7 @@ $unset(_typeset)
 $if($and(%mixes%,$not(%musicbrainz_albumid%)),Various Artists/$if($eq(%mixes%,1),Mixes,Playlists)/$left(%releasedate%,4) - %album%%_albumsuffix%/,
 $if2(%forcealbumartist%,$if($eq(Various Artists,%albumartist%),Various Artists/%_firstgenre%),$if($eq(%usenormalizedalbumartist%,1),%_aaeStdAlbumArtists%),$if2(%_bard_albumartist_folder%,%albumartist%,%artist%)$if(%usealbumartistdisambiguation%, \($join(%_bard_albumartist_disambiguations%,\, )\)))/
 $if($and(%forcealbumartist%,$not(%_addartisttofile%)),$set(_addartisttofile,1))
+$if($eq(%forceartistinfilename%,0),$unset(_addartisttofile))
 $if(%usepersonalalbum%,others/)
 $unset(_albumpathprefix)
 $if($inmulti(%releasetype%,compilation),$set(_albumpathprefix,%_albumpathprefix%compilation/))
