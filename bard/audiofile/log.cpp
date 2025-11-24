@@ -30,6 +30,27 @@ std::array<bool, LogArea::LastArea> current_areas_states;
 using std::string;
 using std::vector;
 
+const string &logAreaName(LogArea area)
+{
+    return s_logAreas.at(area);
+}
+
+LogArea logAreaByName(const string &name, bool *found=nullptr)
+{
+    for (const auto &it: s_logAreas)
+    {
+        if (it.second == name)
+        {
+            if (found)
+                *found=true;
+            return it.first;
+        }
+    }
+    if (found)
+        *found=false;
+    return Default;
+}
+
 vector <string> split(const string &s, char sep)
 {
     std::stringstream ss(s);
@@ -42,13 +63,23 @@ vector <string> split(const string &s, char sep)
     return v;
 }
 
+bool check_s_logAreas_integrity()
+{
+    return s_logAreas.size() == LastArea;
+}
+
 void initLog()
 {
+    if (!check_s_logAreas_integrity())
+        std::cerr << "Error: s_logAreas map needs to be updated (has " << s_logAreas.size()
+                  << " elements but the LogAreas enum has " << (int)LastArea << " elements)" << std::endl;
+
     const char * areas = secure_getenv("AUDIOFILE_LOG_AREAS");
     if (!areas)
        return;
 
     auto tokens = split(string(areas), ',');
+    bool found = false;
 
     for (const string &token: tokens)
     {
@@ -59,12 +90,18 @@ void initLog()
                 current_areas_states[i] = true;
             break;
         }
+        long v = logAreaByName(token, &found);
+        if (found)
+        {
+            current_areas_states[v] = true;
+            break;
+        }
+
         size_t idx;
-        long v;
         bool ok = true;
         try {
             v = std::stol(token.c_str(), &idx, 10);
-        } catch (std::invalid_argument) {
+        } catch (std::invalid_argument &) {
             ok = false;
         }
         if (!ok || idx != token.length())
@@ -88,7 +125,9 @@ std::ostream &logDebug(LogArea area)
 
 void setLogLevel(LogLevel level)
 {
+#ifdef DEBUG
     current_log_level = level;
+#endif
 }
 
 void setLogAreaState(LogArea area, bool enable)

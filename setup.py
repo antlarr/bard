@@ -35,7 +35,9 @@ bard_audiofile = Extension('bard.bard_audiofile',
                                     'bard/audiofile/decodeoutput.cpp',
                                     'bard/audiofile/filedecodeoutput.cpp',
                                     'bard/audiofile/referencedata.cpp',
-                                    'bard/audiofile/pyaudiofile.cpp'],
+                                    'bard/audiofile/pyaudiofile.cpp',
+                                    'bard/audiofile/encoder.cpp',
+                                    'bard/audiofile/log.cpp'],
                            extra_compile_args=extra_compile_args)
 setup(
     name="bard",

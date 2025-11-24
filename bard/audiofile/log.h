@@ -16,6 +16,8 @@
 */
 
 #include <iostream>
+#include <map>
+#include <string>
 
 enum LogLevel {
     Critical = 0,
@@ -38,7 +40,19 @@ enum LogArea {
     LastArea
 };
 
+static const std::map <LogArea, std::string> s_logAreas = {
+    {Default, "Default"},
+    {DecodeParameters, "DecodeParameters"},
+    {DecodeBrokenFrame, "DecodeBrokenFrame"},
+    {TraceDecode, "TraceDecode"},
+    {TraceSamples, "TraceSamples"},
+    {BufferDecodeOutputArea, "BufferDecodeOutputArea"},
+};
+
 void initLog();
+
+const std::string &logAreaName(LogArea area);
+LogArea logAreaByName(const std::string &name);
 
 std::ostream &logDebug(LogArea area=Default);
 
