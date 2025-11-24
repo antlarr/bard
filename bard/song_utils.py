@@ -7,6 +7,7 @@ from bard.musicdatabase_songs import getSongs
 from bard.analysis_database import AnalysisDatabase
 import os
 import re
+from datetime import datetime
 
 
 def get_probability_color(prob, prob_from_0_5=False):
@@ -26,6 +27,7 @@ def print_song_info(song, userID=None, print_analysis=True, print_decode_message
         filesize = "File not found"
     print("%s (%s)" % (song.path(), filesize))
     print("song id:", song.id)
+    print("mtime:", datetime.fromtimestamp(song.mtime()))
 
     rating = song.userRating(userID)
     if rating:
