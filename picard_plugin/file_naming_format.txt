@@ -113,7 +113,7 @@ $set(_recordingsuffix,$if(%_recordingsuffix%, [%_recordingsuffix%]))
 $set(_formatteddiscnumber,$if($gt(%totaldiscs%,9),$num(%discnumber%,2),%discnumber%))
 $setmulti(releasetype,%releasetype%)
 $unset(_typeset)
-$if($and(%mixes%,$not(%musicbrainz_albumid%)),Various Artists/$if($eq(%mixes%,1),Mixes,Playlists)/%_year% - %album%%_albumsuffix%/,
+$if($and(%mixes%,$not(%musicbrainz_albumid%)),Various Artists/$if($eq(%mixes%,1),Mixes,Playlists)/$left(%releasedate%,4) - %album%%_albumsuffix%/,
 $if2(%forcealbumartist%,$if($eq(Various Artists,%albumartist%),Various Artists/%_firstgenre%),$if($eq(%usenormalizedalbumartist%,1),%_aaeStdAlbumArtists%),$if2(%_bard_albumartist_folder%,%albumartist%,%artist%)$if(%usealbumartistdisambiguation%, \($join(%_bard_albumartist_disambiguations%,\, )\)))/
 $if($and(%forcealbumartist%,$not(%_addartisttofile%)),$set(_addartisttofile,1))
 $if(%usepersonalalbum%,others/)
