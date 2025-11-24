@@ -162,6 +162,7 @@ def get_albumartist_folder_tag(tagger, metadata, track, release,
 
     last = len(artists) - 2
     mbids = []
+    disambiguations = []
     allowsemicolons = (len([x for x in artists if x['joinphrase'] == '; ']) == 1)
     for idx, artist in enumerate(artists):
         a = artist['artist']
@@ -171,6 +172,7 @@ def get_albumartist_folder_tag(tagger, metadata, track, release,
         # print('A', artist)
         # print(f'joinphrase "{artist["joinphrase"]}"')
         # print('D', disambiguation)
+        disambiguations.append(disambiguation)
         if not use_disambiguation or disambiguation == '.':
             disambiguation = ''
         elif disambiguation:
@@ -189,22 +191,24 @@ def get_albumartist_folder_tag(tagger, metadata, track, release,
             else:
                 result += ' & '
 
-    return result, mbids
+    return result, mbids, disambiguations
 
 
 def add_bard_albumartist_folder_tag(tagger, metadata, track, release):
 
-    dirname, mbids = get_albumartist_folder_tag(tagger, metadata, track,
+    dirname, mbids, disambiguations = get_albumartist_folder_tag(tagger, metadata, track,
                                                 release,
                                                 use_disambiguation=False)
     if directory_matches_artist_mbids(dirname, mbids):
         metadata['~bard_albumartist_folder'] = [dirname]
+        metadata['~bard_albumartist_disambiguations'] = disambiguations
         return
 
-    dirname, mbids = get_albumartist_folder_tag(tagger, metadata, track,
+    dirname, mbids, disambiguations = get_albumartist_folder_tag(tagger, metadata, track,
                                                 release,
                                                 use_disambiguation=True)
     metadata['~bard_albumartist_folder'] = [dirname]
+    metadata['~bard_albumartist_disambiguations'] = disambiguations
 
 
 @register_track_metadata_processor
