@@ -475,7 +475,7 @@ class Bard:
         print(f'Total songs removed: {len(removedSongs) - len(songIDs["renamed"])}')
 
     def info(self, ids_or_paths, currentlyPlaying=False, show_analysis=False,
-             show_decode_messages=False):
+             show_decode_messages=False, verbose=False):
         songs = []
         for id_or_path in ids_or_paths:
             songs.extend(getSongsFromIDorPath(id_or_path))
@@ -487,7 +487,7 @@ class Bard:
         userID = MusicDatabase.getUserID(config.config['username'])
 
         for song in songs:
-            print_song_info(song, userID, show_analysis, show_decode_messages)
+            print_song_info(song, userID, show_analysis, show_decode_messages, verbose)
 
     def list(self, path, long_ls=False, show_id=False, query=None,
              group_by_directory=False, show_duration=False):
@@ -1752,7 +1752,7 @@ import [file_or_directory [file_or_directory ...]]
                     files/directories to import as arguments. If no
                     arguments are given in the command line, the
                     music_paths entries in the configuration file are used
-info [-p] [-a|--show-analysis] <file | song id>
+info [-p] [-a|--show-analysis] [-v|--verbose] <file | song id>
                     shows information about a song from the database
 list|ls [-l] [-d] [-i|--id] [--duration] [-r root] [-g genre] [--rating rating]
         [--my-rating rating] [--others-rating rating] [file | song_id ...]
@@ -1960,6 +1960,8 @@ mb-check-redirected-uuids [-v] [--list-songs] [--group-size N]
                             dest='show_decode_messages',
                             action='store_true', help='Show also the '
                             'decode messages')
+        parser.add_argument('-v', '--verbose', dest='verbose',
+                            action='store_true', help='Be verbose')
         parser.add_argument('paths', nargs='*')
         # list command
         parser = sps.add_parser('list',
@@ -2239,7 +2241,7 @@ mb-check-redirected-uuids [-v] [--list-songs] [--group-size N]
         elif options.command == 'fix-tags':
             self.fixTags(options.paths)
         elif options.command == 'info':
-            self.info(options.paths, options.playing, options.show_analysis, options.show_decode_messages)
+            self.info(options.paths, options.playing, options.show_analysis, options.show_decode_messages, options.verbose)
         elif options.command == 'list' or options.command == 'ls':
             if not (options.paths or options.root or options.genre or
                     options.rating or options.my_rating or

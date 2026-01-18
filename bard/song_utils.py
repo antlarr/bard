@@ -18,7 +18,7 @@ def get_probability_color(prob, prob_from_0_5=False):
     return TerminalColors.Gradient[int(prob * 10)]
 
 
-def print_song_info(song, userID=None, print_analysis=True, print_decode_messages=True):  # noqa: C901
+def print_song_info(song, userID=None, print_analysis=True, print_decode_messages=True, verbose=False):  # noqa: C901
     song.loadMetadataInfo()
     print("----------")
     try:
@@ -27,6 +27,11 @@ def print_song_info(song, userID=None, print_analysis=True, print_decode_message
         filesize = "File not found"
     print("%s (%s)" % (song.path(), filesize))
     print("song id:", song.id)
+
+    if verbose:
+        albumID = song.albumID()
+        print("album id:", albumID)
+
     print("mtime:", datetime.fromtimestamp(song.mtime()))
 
     rating = song.userRating(userID)

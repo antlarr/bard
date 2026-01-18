@@ -1480,6 +1480,18 @@ or name {like} '%%MusicBrainz/Track Id'"""))
             return albumID
 
     @staticmethod
+    def getAlbumIDForSongID(song_id, *, connection=None):
+        if not connection:
+            connection = MusicDatabase.getCursor()
+        album_songs = MusicDatabase.table('album_songs')
+        try:
+            stm = (select(album_songs.c.album_id)
+                    .where(album_songs.c.song_id == song_id))
+            return connection.execute(stm).fetchone()[0]
+        except (ValueError, KeyError):
+            return None
+
+    @staticmethod
     def setSongInAlbum(songID, albumID, *, connection=None):
         record = {'song_id': songID, 'album_id': albumID}
         album_songs = MusicDatabase.table('album_songs')

@@ -440,6 +440,12 @@ class Song:
             MusicDatabase.setSongInAlbum(self.id, albumID)
         return r
 
+    def albumID(self):
+        albumID = MusicDatabase.getAlbumIDForSongID(self.id)
+        if not albumID:
+            albumID = MusicDatabase.getAlbumID(albumPath(self._path))
+        return albumID
+
     def root(self):
         return self._root
 
