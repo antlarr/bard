@@ -22,7 +22,7 @@ Songs = \
           Column('track', Integer),
           Column('date', Text),
           Column('genre', Text),
-          Column('discnumber', Integer),
+          Column('discnumber', Integer, nullable=True),
           Column('coverwidth', Integer),
           Column('coverheight', Integer),
           Column('covermd5', Text),
