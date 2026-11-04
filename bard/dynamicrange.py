@@ -13,7 +13,7 @@ def calculate(audiodata, properties):
     else:
         sample_type = "int%d" % (properties.decoded_bytes_per_sample * 8)
 
-    Y = numpy.fromstring(audiodata, dtype=sample_type).reshape(
+    Y = numpy.frombuffer(audiodata, dtype=sample_type).reshape(
                nframes, channels)
 
     if sample_type == 'int16':
@@ -36,4 +36,4 @@ def calculate(audiodata, properties):
         raise
 
     (dr14, db_peak, db_rms) = compute_dr14(Y, properties.sample_rate)
-    return (dr14, db_peak, db_rms)
+    return (dr14, float(db_peak), float(db_rms))
