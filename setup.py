@@ -59,7 +59,6 @@ setup(
         "pyacoustid",
         "mutagen",
         "Pillow",
-        "pydub",
         "numpy",
         "dbus-python",
         "SQLAlchemy >= 2.0",

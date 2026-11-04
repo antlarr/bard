@@ -1,5 +1,5 @@
 from bard.utils import fixTags, calculateFileSHA256, printSongsInfo, \
-    fingerprint_AudioSegment, alignColumns, decodeAudio, \
+    fingerprintAudio, alignColumns, decodeAudio, \
     calculateSHA256_data, formatLength, colorizeTime, colorizeAll
 from bard.song import Song, Ratings, DifferentLengthException, \
     CantCompareSongsException
@@ -138,9 +138,10 @@ def summation(m, n):
     return (n + 1 - m) * (n + m) / 2
 
 
-def compare_AudioSegments(audio1, audio2, showAudioOffsets=True):
-    fpa1 = fingerprint_AudioSegment(audio1)
-    fpa2 = fingerprint_AudioSegment(audio2)
+def compare_AudioSegments(audio1, properties1, audio2, properties2,
+                          showAudioOffsets=True):
+    fpa1 = fingerprintAudio(audio1, properties1)
+    fpa2 = fingerprintAudio(audio2, properties2)
     dfpa1 = chromaprint.decode_fingerprint(fpa1)
     dfpa2 = chromaprint.decode_fingerprint(fpa2)
 
@@ -153,8 +154,12 @@ def compare_AudioSegments(audio1, audio2, showAudioOffsets=True):
     fpm.setCancelThreshold(store_threshold)
     fpm.setShortSongCancelThreshold(short_song_store_threshold)
     fpm.setShortSongLength(short_song_length)
-    fpm.addSong(1, dfpa1[0], len(audio1) / 1000)
-    fpm.addSong(2, dfpa2[0], len(audio2) / 1000)
+    length1 = (properties1.decoded_duration or
+               properties1.container_duration)
+    length2 = (properties2.decoded_duration or
+               properties2.container_duration)
+    fpm.addSong(1, dfpa1[0], length1)
+    fpm.addSong(2, dfpa2[0], length2)
 
     values = fpm.compareSongsVerbose(1, 2)
     if showAudioOffsets:

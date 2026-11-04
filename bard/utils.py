@@ -5,7 +5,6 @@ import time
 import re
 import hashlib
 import math
-from pydub import AudioSegment
 import mutagen
 import mutagen.mp3
 import mutagen.mp4
@@ -17,10 +16,9 @@ import mutagen.wavpack
 import chromaprint
 from collections import namedtuple
 from PIL import Image
-import bard.config as config
 from bard.terminalcolors import TerminalColors
 from bard import bard_audiofile
-from pydub.utils import db_to_float
+import numpy as np
 import itertools
 import io
 
@@ -94,69 +92,165 @@ class DecodeMessageRecord(namedtuple('DecodeMessageRecord',
                                   TerminalColors.ENDC, self.message)
 
 
-def detect_silence_at_beginning_and_end(audio_segment, min_silence_len=1000,
-                                        silence_thresh=-16, seek_step=1):
-    seg_len = len(audio_segment)
+def db_to_float(db):
+    """Return a linear amplitude value given a dBFS value.
 
-    # you can't have a silent portion of a sound that is longer than the sound
-    if seg_len < min_silence_len:
+    Equivalent to pydub.utils.db_to_float."""
+    return 10 ** (db / 20)
+
+
+def detect_silence_at_beginning_and_end(audiodata, properties,
+                                        min_silence_len=1000,
+                                        silence_thresh=-16, seek_step=1):
+    """Detect silences at the beginning and end of the audio.
+
+    audiodata is the raw decoded audio data and properties the
+    corresponding DecodedAudioPropertiesTuple, as returned by
+    decodeAudio().
+
+    min_silence_len and seek_step are given in milliseconds and
+    silence_thresh in dBFS. Returns a list of [start, end] ranges
+    in milliseconds.
+    """
+    channels = properties.decoded_channels
+    samples = properties.samples
+    width = properties.decoded_bytes_per_sample
+    sample_fmt_map = {
+        'u8': 'uint8', 's16': 'int16', 's32': 'int32', 's64': 'int64',
+        'flt': 'float32', 'dbl': 'float64',
+    }
+    fmt = properties.decoded_sample_format
+    try:
+        dtype = sample_fmt_map[fmt]
+    except KeyError:
+        raise RuntimeError(f"Unsupported sample format: {fmt}")
+
+    audio = np.frombuffer(audiodata, dtype=dtype,
+                          count=samples * channels)
+    if dtype == 'uint8':
+        # Convert unsigned 8-bit samples to a signed representation
+        audio = audio.astype(np.int16) - 128
+
+    is_float = dtype.startswith('float')
+
+    sample_rate = properties.decoded_sample_rate
+    if not sample_rate:
+        sample_rate = properties.sample_rate
+
+    # Maximum possible amplitude in raw sample values
+    max_amplitude = 1.0 if is_float else 2 ** (8 * width - 1)
+    # Convert silence threshold to a float value (so we can compare it
+    # to rms)
+    thresh = db_to_float(silence_thresh) * max_amplitude
+
+    def rms_at(start, length):
+        chunk = audio[start * channels:(start + length) * channels]
+        if not len(chunk):
+            return 0.0
+        chunk = chunk.astype(np.float64)
+        return np.sqrt(np.mean(np.square(chunk)))
+
+    ms_per_sample = 1000 / sample_rate
+
+    def to_ms(samplepos):
+        return int(samplepos * ms_per_sample)
+
+    # you can't have a silent portion of a sound that is longer than the
+    # sound
+    seg_len_ms = to_ms(samples)
+    if samples < min_silence_len * sample_rate / 1000:
         return []
 
-    # convert silence threshold to a float value (so we can compare it to rms)
-    silence_thresh = (db_to_float(silence_thresh) *
-                      audio_segment.max_possible_amplitude)
+    len_in_samples = int(min_silence_len * sample_rate / 1000)
+    step_in_samples = max(1, int(seek_step * sample_rate / 1000))
 
     # check successive (1 sec by default) chunk of sound for silence
-    # try a chunk at every "seek step" (or every chunk for a seek step == 1)
-    last_slice_start = seg_len - min_silence_len
-    slice_starts = range(0, last_slice_start + 1, seek_step)
+    # try a chunk at every "seek step" (or every chunk for a seek
+    # step == 1)
+    last_slice_start = samples - len_in_samples
+    slice_starts = range(0, last_slice_start + 1, step_in_samples)
 
     # guarantee last_slice_start is included in the range
     # to make sure the last portion of the audio is seached
-    if last_slice_start % seek_step:
+    if last_slice_start % step_in_samples:
         slice_starts = itertools.chain(slice_starts, [last_slice_start])
+    slice_starts = list(slice_starts)
 
     song_start = 0
-    song_end = seg_len
+    song_end = samples
     for i in slice_starts:
-        audio_slice = audio_segment[i:i + min_silence_len]
-        if audio_slice.rms > silence_thresh:
+        if rms_at(i, len_in_samples) > thresh:
             if i == 0:
                 song_start = 0
             else:
-                song_start = i + min_silence_len
+                song_start = i + len_in_samples
             break
     else:
-        return [[0, 0], [song_end, song_end]]
+        return [[0, 0], [seg_len_ms, seg_len_ms]]
 
     for i in reversed(slice_starts):
-        audio_slice = audio_segment[i:i + min_silence_len]
-        if audio_slice.rms > silence_thresh:
-            if song_end == slice_starts[-1]:
-                song_end = seg_len
-            else:
-                song_end = i
+        if rms_at(i, len_in_samples) > thresh:
+            song_end = i
             break
 
-    return [[0, song_start], [song_end, seg_len]]
+    return [[0, to_ms(song_start)], [to_ms(song_end), seg_len_ms]]
 
 
-def fingerprint_AudioSegment(audio_segment, maxlength=120000):
-    """Fingerprint audio data given a pydub AudioSegment object.
+def audioAs16Bit(audiodata, properties):
+    """Return audiodata as 16 bits signed interleaved samples.
+
+    audiodata and properties are as returned by decodeAudio().
+    """
+    sample_fmt_map = {
+        'u8': 'uint8', 's16': 'int16', 's32': 'int32', 's64': 'int64',
+        'flt': 'float32', 'dbl': 'float64',
+    }
+    fmt = properties.decoded_sample_format
+    if fmt == 's16' and not properties.is_planar:
+        return audiodata
+    try:
+        dtype = sample_fmt_map[fmt]
+    except KeyError:
+        raise RuntimeError(f"Unsupported sample format: {fmt}")
+
+    count = properties.samples * properties.channels
+    audio = np.frombuffer(audiodata, dtype=dtype, count=count)
+    if properties.is_planar:
+        audio = audio.reshape(properties.channels,
+                              properties.samples).T.ravel()
+    if dtype.startswith('uint'):
+        audio = audio.astype(np.int16) - 128
+    elif dtype.startswith('int'):
+        audio = (audio >> (8 * properties.decoded_bytes_per_sample - 16)) \
+            .astype(np.int16)
+    else:
+        audio = np.clip(audio, -1.0, 1.0)
+        audio = (audio * 32767).astype(np.int16)
+    return audio.tobytes()
+
+
+def fingerprintAudio(audiodata, properties, maxlength=120000):
+    """Fingerprint audio data given raw decoded audio and its properties
+    (as returned by decodeAudio()).
 
     Raises a FingerprintGenerationError if anything goes wrong.
     Based on acoustid.py's fingerprint function.
     """
     maxlength /= 1000
-    endposition = audio_segment.frame_rate * audio_segment.channels * maxlength
+    sample_rate = properties.decoded_sample_rate
+    if not sample_rate:
+        sample_rate = properties.sample_rate
+    channels = properties.decoded_channels
+    endposition = sample_rate * channels * maxlength
     try:
+        data = audioAs16Bit(audiodata, properties)
         fper = chromaprint.Fingerprinter()
 
-        fper.start(audio_segment.frame_rate, audio_segment.channels)
+        fper.start(sample_rate, channels)
 
         position = 0  # Samples of audio fed to the fingerprinter.
-        for start in range(0, len(audio_segment.raw_data), 4096):
-            block = audio_segment.raw_data[start:start + 4096]
+        for start in range(0, len(data), 4096):
+            block = data[start:start + 4096]
             fper.feed(block)
             position += len(block) // 2  # 2 bytes/sample.
             if position >= endposition:
@@ -560,30 +654,7 @@ def decodeAudio(filething, **kwargs):
     else:
         data, properties = bard_audiofile.decode(path=filething, **kwargs)
 
-    if config.config['enable_internal_checks']:
-        files_pydub_cant_decode_correctly = \
-            config.config['files_pydub_cant_decode_correctly']
-        if hasattr(filething, 'seek'):
-            filething.seek(0)
-        audio_segment = AudioSegment.from_file(filething)
-        if (audio_segment.raw_data != data and
-                filething not in files_pydub_cant_decode_correctly):
-            with open('/tmp/decoded-song-pydub.raw', 'wb') as f:
-                f.write(audio_segment.raw_data)
-            with open('/tmp/decoded-song-bard_audiofile.raw', 'wb') as f:
-                f.write(data)
-            raise Exception('DECODED AUDIO IS DIFFERENT BETWEEN '
-                            'BARD_AUDIOFILE AND PYDUB')
-        print('bard_audiofile/pydub decode check ' +
-              TerminalColors.Ok + 'OK' + TerminalColors.ENDC)
     return data, DecodedAudioPropertiesTupleFromDict(properties)
-
-
-def audioSegmentFromDataProperties(data, properties):
-    return AudioSegment(data=data,
-                        sample_width=properties.decoded_bytes_per_sample,
-                        frame_rate=properties.sample_rate,
-                        channels=properties.channels)
 
 
 def windowsList():

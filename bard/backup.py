@@ -4,12 +4,11 @@ import bard.config as config
 from bard.musicdatabase import MusicDatabase
 from bard.musicdatabase_songs import getSongsFromIDorPath, getSongsAtPath
 from bard.utils import calculateSHA256_data, printSongsInfo, alignColumns,\
-    cutStringAtMaxBytesLength
+    cutStringAtMaxBytesLength, decodeAudio
 from bard.terminalcolors import TerminalColors as Color
 from bard.percentage import Percentage
 from bard.song import Song
 import io
-from pydub import AudioSegment
 from functools import total_ordering, partial
 from itertools import chain
 
@@ -82,8 +81,8 @@ def remoteFileAudioSha256Sum(path, sftp):
     data = remoteFile(path, sftp)
     if not data:
         return None
-    audio_segment = AudioSegment.from_file(data)
-    return calculateSHA256_data(audio_segment.raw_data)
+    audiodata, properties = decodeAudio(data)
+    return calculateSHA256_data(audiodata)
 
 
 def remoteSong(path, sftp):

@@ -18,7 +18,7 @@ Once the repository is added, you can install bard with:
 First, some dependencies have to be installed in order to build bard:
 
 ```
-sudo zypper in libboost_python3-devel "pkgconfig(libavcodec)" "pkgconfig(libavformat)" "pkgconfig(libswresample)" "pkgconfig(libavutil)" python3-pyacoustid python3-mutagen python3-Pillow python3-numpy python3-dbus-python python3-SQLAlchemy python3-pydub python3-SQLAlchemy-Utils python3-alembic python3-paramiko
+sudo zypper in libboost_python3-devel "pkgconfig(libavcodec)" "pkgconfig(libavformat)" "pkgconfig(libswresample)" "pkgconfig(libavutil)" python3-devel python3-pyacoustid python3-mutagen python3-Pillow python3-numpy python3-dbus-python python3-SQLAlchemy python3-SQLAlchemy-Utils python3-alembic python3-paramiko python3-DR14-T.meter
 ```
 
 ```

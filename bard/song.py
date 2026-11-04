@@ -4,16 +4,13 @@ import bard.config as config
 from bard.utils import extractFrontCover, md5FromData, \
     calculateFileSHA256, manualAudioCmp, \
     calculateSHA256_data, \
-    detect_silence_at_beginning_and_end, \
-    audioSegmentFromDataProperties, decodeAudio, DecodeMessageRecord
+    detect_silence_at_beginning_and_end, decodeAudio, DecodeMessageRecord
 from bard.musicdatabase import MusicDatabase
 from bard.normalizetags import getTag
 from bard.ffprobemetadata import FFProbeMetadata
 from bard.terminalcolors import TerminalColors
 from bard.album import albumPath
 import bard.dynamicrange as dynamicrange
-from pydub import AudioSegment
-from pydub.exceptions import PydubException
 from sqlalchemy import text
 import sqlalchemy.engine.row
 from collections import namedtuple
@@ -364,19 +361,17 @@ class Song:
         (self.dr14, self.db_peak, self.db_rms) = self.calculateDR(audiodata,
                                                                   properties)
 
+        thr = Song.silence_threshold
+        minlen = Song.min_silence_length
         try:
-            audio_segment = audioSegmentFromDataProperties(audiodata,
-                                                           properties)
-        except ValueError as exc:
+            silences = detect_silence_at_beginning_and_end(audiodata,
+                                                           properties,
+                                                           min_silence_len=minlen,
+                                                           silence_thresh=thr)
+        except RuntimeError as exc:
             print(f'Error processing {fileinfo}: {exc}')
             raise
 
-        thr = Song.silence_threshold
-        minlen = Song.min_silence_length
-        silences = detect_silence_at_beginning_and_end(audio_segment,
-                                                       min_silence_len=minlen,
-                                                       silence_thresh=thr)
-        del audio_segment
         if silences:
             silence1, silence2 = silences
             self._silenceAtStart = (silence1[1] - silence1[0]) / 1000
@@ -841,14 +836,13 @@ class Song:
 
     def calculateSilences(self, threshold=None, min_length=None):
         try:
-            audio_segment = AudioSegment.from_file(self.path())
-        except PydubException as exc:
+            audiodata, properties = decodeAudio(self.path())
+        except Exception as exc:
             print('Error processing:', self.path(), ':', exc)
             raise
-        self._audioSha256sum = calculateSHA256_data(audio_segment.raw_data)
         thr = threshold or Song.silence_threshold
         minlen = min_length or Song.min_silence_length
-        silences = detect_silence_at_beginning_and_end(audio_segment,
+        silences = detect_silence_at_beginning_and_end(audiodata, properties,
                                                        min_silence_len=minlen,
                                                        silence_thresh=thr)
         if silences:
