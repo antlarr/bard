@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from bard import main
+from bard.app import main
 
 main()
