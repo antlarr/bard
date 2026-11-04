@@ -18,7 +18,9 @@ import mutagen.dsf
 def extractFirstElementOfTuple(x):
     if isinstance(x, tuple):
         return x[0]
-    if isinstance(x, str):
+    elif isinstance(x, list):
+        return x[0]
+    elif isinstance(x, str):
         return x.split('/')[0]
     return x
 
