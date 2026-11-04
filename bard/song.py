@@ -254,7 +254,7 @@ class Song:
 
     def getAcoustidFingerprint_data(self, audiodata, properties):
         fp = acoustid.fingerprint(properties.sample_rate, properties.channels,
-                                  (audiodata,))
+                                  iter((audiodata,)))
         return fp
 
     def calculateDR(self, audiodata=None, properties=None):
