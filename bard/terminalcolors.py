@@ -71,4 +71,4 @@ class TerminalColors:
 
     @staticmethod
     def rgb(r, g, b):
-        return '\033[38;2;{r};{g};{b}m'
+        return f'\033[38;2;{r};{g};{b}m'
