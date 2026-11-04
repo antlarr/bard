@@ -129,6 +129,12 @@ class Chooser:
                 r = callback(self)
                 if r is not None:
                     return r
+            elif key == '?' or key == 'h':
+                for key, callback in key_callbacks.items():
+                    print(f'{key} : {callback.__name__}')
+                if self.multiselection:
+                    print('Space : selects/deselects an option')
+                print('\n'*sum(self.lines_used))
 
             self.go_back_to_beginning_of_list()
             self.print_options()
