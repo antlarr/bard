@@ -90,7 +90,7 @@ def get_terminal_width():
     return int(proc.stdout)
 
 class Chooser:
-    def __init__(self, options, msg='Choose one of:', multiselection=False, quote=True):
+    def __init__(self, options, msg='Choose one of:', multiselection=False, quote=True, current_item_bg_color=''):
         """Create a Chooser object."""
         self.selected = 0
         self.options = options
@@ -99,6 +99,7 @@ class Chooser:
         self.multiselection = multiselection
         self.multiselected = []
         self.quote = quote
+        self.current_item_bg_color = current_item_bg_color
 
     def lines_used(self, text):
         return math.ceil(len(text))
@@ -183,7 +184,7 @@ class Chooser:
                 item = shlex.quote(item)
             self.lines_used[idx] = math.ceil((len(item) + 3)/self.terminal_width)
             if highlight_selected and idx == self.selected:
-                print(TerminalColors.White + '->', item + TerminalColors.ENDC)
+                print(TerminalColors.White + self.current_item_bg_color + '->', item + TerminalColors.ENDC)
             elif (highlight_selected and self.multiselection and
                   idx in self.multiselected):
                 print(TerminalColors.Yellow + '  ', item + TerminalColors.ENDC)

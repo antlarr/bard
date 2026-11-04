@@ -414,23 +414,26 @@ def printPropertiesDiff(song1, song2, forcePrint=False):
     print('Properties: ' + ', '.join(values2))
 
 
-def colorizeAll(color, text):
-    return color + text + TerminalColors.ENDC
+def colorizeAll(color, text, preserveBgColor=False):
+    endc = TerminalColors.ENDFG if preserveBgColor else TerminalColors.ENDC
+    return color + text + endc
 
 
-def colorizeTime(color, text):
+def colorizeTime(color, text, preserveBgColor=False):
     pos = text.find('.')
     if pos == -1:
-        return colorizeAll(color, text)
-    return color + text[:pos] + TerminalColors.ENDC + text[pos:]
+        return colorizeAll(color, text, preserveBgColor)
+    endc = TerminalColors.ENDFG if preserveBgColor else TerminalColors.ENDC
+    return color + text[:pos] + endc + text[pos:]
 
 
-def colorizeBps(color, text):
+def colorizeBps(color, text, preserveBgColor=False):
     pos = text.find('.')
     if pos == -1:
-        return colorizeAll(color, text)
+        return colorizeAll(color, text, preserveBgColor)
     pos -= 3
-    return color + text[:pos] + TerminalColors.ENDC + text[pos:]
+    endc = TerminalColors.ENDFG if preserveBgColor else TerminalColors.ENDC
+    return color + text[:pos] + endc + text[pos:]
 
 
 def getPropertiesAsString(song, colors={}):
@@ -689,6 +692,9 @@ def printableLen(text):
 def removeNonPrintableCharacters(text):
     if not text:
         return None
+    if not isinstance(text, str) and not isinstance(text, bytes):
+        return text
+    text = str(text)
     r = ''.join(c for c in text if c.isprintable())
     return r if r else None
 
