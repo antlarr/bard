@@ -654,23 +654,15 @@ class Bard:
                                                         song.path()))
                 continue
 
-            sha256sum = song.audioSha256sum()
             song.calculateSilences(threshold, min_length)
-
-            sha256sum_pydub = song.audioSha256sum()
-            if ((song.path().endswith('flac') or
-                 song.path().endswith('ape') or
-                 song.path().endswith('.wv')) and
-                    sha256sum != sha256sum_pydub):
-                print('Error: sha256 does not match: %s != %s' %
-                      (sha256sum, sha256sum_pydub))
 
             silence1 = silence_at_start if silence_at_start is not None else song.silenceAtStart()
             silence2 = silence_at_end if silence_at_end is not None else song.silenceAtEnd()
 
             if not dry_run:
+                sha256sum = song.audioSha256sum()
                 MusicDatabase.addAudioSilences(song.id, silence1, silence2)
-                MusicDatabase.addAudioTrackSha256sum(song.id, sha256sum_pydub)
+                MusicDatabase.addAudioTrackSha256sum(song.id, sha256sum)
 
             count += 1
             if count % 10:
