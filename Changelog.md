@@ -3,35 +3,44 @@
 ## Next release
 
 #### New features and improvements:
-* Very much improved initial bard usage experience. A number of issues have been fixed when using bard for the first time.
+* Very much improved initial bard usage experience. A number of issues have been fixed when using bard for the first time
   * Fix creating schemas in the initial database creation with postgresql
   * Fix initial case when there's no rating in the db
 * Refactor update process which is now much faster
 * Use SQLAlchemy >= 2.0
+* Drop use of pydub (which is unmantained upstream) in favor of the internal audiofile extension which uses the ffmpeg libraries
 * Add compatibility with latest MusicBrainz database schema and other improvements to MusicBrainz data importer
-* Re-decode audio with lower sample rate to use less resources when a file is using too much memory (usually DSD128 and such files).
+* Add an Encoder class in audiofile to be able to recode music from one format to another
+* Re-decode audio with lower sample rate to use less resources when a file is using too much memory (usually DSD128 and such files)
+* Reduce the buffer size as much as needed to fix DSD file support
 * Commit each song to database as they're processed
 * Add a verbose parameter to getSongUserRatings and getSongAvgRatings
-* Do not use `av_init_packet` which is deprecated in ffmpeg
-* Ignore lrc and webm files
+* Do not use `av_init_packet` which is deprecated in ffmpeg as well as other compatibility fixes for ffmpeg-7 and newer
+* Ignore lrc, elrc, yml and webm files
 * Fix format and decode property and decode message names
-* Add alembic support which should allow automatic database migration in the future to new versions.
+* Add alembic support which should allow automatic database migration in the future to new versions
 * Allow to specify a database host and port in the configuration
 * Add a --length-threshold parameter to compare-dirs
 * Print timing output to test scanning speed
-* Reduce the buffer size as much as needed to fix DSD file support
 * Normalize more tags correctly, including ab:genre and ab:mood tags
 * Allow to work without essentia installed
 * Add webp support for cover images
 * Draw percentage bars when doing a backup
+* Print help when pressing `?` or `h` when asked to choose an option
+* The Chooser object now allows to set a background color in the selected option
 * Improve documentation
 
 #### New commands:
 * New command `calculate-dr` to calculate the Dynamic Range of songs
-* New command `scan-file` that reads a file and checks if there are similar songs in the database without importing it.
-* New command `mb-check-redirected-uuids` that checks if there are songs in the database that have old obsolete MusicBrainz UUIDs that should be retagged with new ones.
-* New parameter `--show-decode-messages` to the `info` command that shows warning/error decode messages.
+* New command `scan-file` that reads a file and checks if there are similar songs in the database without importing it
+* New command `mb-check-redirected-uuids` that checks if there are songs in the database that have old obsolete MusicBrainz UUIDs that should be retagged with new ones
+* New parameter `--show-decode-messages` to the `info` command that shows warning/error decode messages
 * Update the bash completion script
+
+#### New internal test scripts:
+* `test-decode` script that decodes a song to its raw audio.
+* `generate_noise_test.py` script that generates an audio file with the specified amount of silence in the beginning/end and noise in between of the specified length and dB
+* `get_DR_and_silences.py` script that analyzes an audio file and returns the Dynamic Range as well as the length of the silences at the beginning/end
 
 #### web-ui:
 * Update JQuery-UI to 1.13.2
@@ -40,10 +49,16 @@
 * Remove context menu support
 * Add test code to create a context menu
 
-#### picard script:
+#### picard script and plugin:
 * Merge joinphrase " con " with " y " when saving files
-* Fix use of artists and support useonlyfirstartist
+* Fix use of artists and support useonlyfirstartist tag
+* Add a userecordingtitle tag which uses the recording title instead of the track title
+* Add a forceartist tag to force a value to be used as artist name in the path
+* Add a usealbumartistdisambiguation to add the disambiguation text for the albumartist in the artist folder
+* For mixes, better use the year from the releasedate tag if available
 * When processing files already organized, keep genres and images
+* Set a `bard_albumartist_disambiguations` tag in the picard bard plugin
+
 
 ## 0.5.0 (2021-01-10)
 
