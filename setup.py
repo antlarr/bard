@@ -44,7 +44,7 @@ setup(
     version=__version__,
     author="Antonio Larrosa",
     author_email="larrosa@kde.org",
-    packages=["bard"],
+    packages=["bard", "bard.db", "bard.audiofile", "bard.alembic", "bard.alembic.versions", "bard.templates", "bard.templates.dialogs", "bard.musicbrainz_importer"],
     include_package_data=True,
     url="https://github.com/antlarr/bard",
     description="Bard Music Manager - A database to manage your music, "
